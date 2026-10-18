@@ -8,7 +8,7 @@ The menu-bar Check for Updates command checks this repository's latest public Gi
 
 This is an update notification/download flow, **not automatic installation**. A signed update channel (for example Sparkle with a protected signing key), notarized binaries and rollback verification are required before shipping in-app replacement. Do not disable macOS security to install an update.
 
-The release workflow tests, builds and publishes a versioned ZIP when the build-script version changes. It never overwrites an existing release. A GitHub Actions failure means that release is not published; local packaged builds remain available separately.
+The release workflow tests and builds when the build script changes, but publication is blocked unless signature verification, stapled notarization validation and Gatekeeper assessment all pass. Apple Developer ID signing and notarization must be configured before publication can resume. An ad-hoc build is for local source development only; downloading it can produce a macOS rejection even when its signature is intact. It never overwrites an existing release. A GitHub Actions failure means that release is not published; local packaged builds remain available separately.
 
 ## Character interaction
 
