@@ -3,7 +3,7 @@
 A native macOS file converter and toolbox by **Syntax Error Private Limited**.
 Local processing, no account, no item limits, no subscription. GPL-3.0-only.
 
-**Status: 0.1.2 developer trial.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
+**Status: 0.1.3 source/development build; downloadable release pending Apple signing.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
 
 ## Install from source
 

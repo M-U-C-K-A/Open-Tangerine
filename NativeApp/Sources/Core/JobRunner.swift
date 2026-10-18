@@ -45,7 +45,8 @@ final class JobRunner: ObservableObject {
     private let semaphore = AsyncSemaphore(limit: 1)
     private var jobSubscriptions: [UUID: AnyCancellable] = [:]
 
-    private init() {}
+    private let presentsHUD: Bool
+    init(presentsHUD: Bool = true) { self.presentsHUD = presentsHUD }
 
     func convert(_ urls: [URL], to target: FileFormat) {
         DiagnosticLog.log("convert \(urls.map(\.lastPathComponent)) -> \(target.displayName)")
@@ -69,6 +70,9 @@ final class JobRunner: ObservableObject {
     }
 
     func enqueue(_ job: Job, work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) {
+        // Completed results belong to the previous interaction, not the next batch.
+        for old in jobs where old.status.isFinished { jobSubscriptions[old.id] = nil }
+        jobs.removeAll { $0.status.isFinished }
         CompanionState.shared.transition(from: .received, to: .processing, after: 0.45)
         jobs.append(job)
         jobSubscriptions[job.id] = job.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
@@ -80,27 +84,24 @@ final class JobRunner: ObservableObject {
             guard !Task.isCancelled else {
                 job.status = .cancelled
                 await semaphore.signal()
+                finishBatch()
+                scheduleHide()
                 return
             }
             DiagnosticLog.log("job running: \(job.detail)")
             job.status = .running
             let progress: (Double) -> Void = { value in
-                Task { @MainActor in job.progress = value }
+                Task { @MainActor in
+                    guard !job.status.isFinished, value.isFinite else { return }
+                    job.progress = min(max(value, 0), 1)
+                }
             }
             do {
                 let outputs = try await work(progress)
+                try Task.checkCancellation()
                 job.outputs = outputs
                 job.progress = 1
                 job.status = .done
-                if jobs.allSatisfy({ $0.status.isFinished }) {
-                    if jobs.contains(where: { if case .failed = $0.status { return true }; return false }) {
-                        CompanionState.shared.set(.failed)
-                    } else if jobs.contains(where: { $0.status == .cancelled }) {
-                        CompanionState.shared.set(.cancelled)
-                    } else {
-                        CompanionState.shared.transition(from: .delivering, to: .success, after: 0.5)
-                    }
-                }
                 DiagnosticLog.log("job done: \(job.detail) -> \(outputs.map(\.lastPathComponent))")
                 if AppSettings.shared.revealInFinder, !outputs.isEmpty {
                     NSWorkspace.shared.activateFileViewerSelecting(outputs)
@@ -114,10 +115,23 @@ final class JobRunner: ObservableObject {
             } catch {
                 DiagnosticLog.log("job failed: \(job.detail): \(error)")
                 job.status = .failed(error.localizedDescription)
-                CompanionState.shared.set(.failed)
             }
             await semaphore.signal()
+            finishBatch()
             scheduleHide()
+        }
+    }
+
+    private func finishBatch() {
+        guard !jobs.isEmpty else { return }
+        if jobs.contains(where: { !$0.status.isFinished }) {
+            CompanionState.shared.set(.processing)
+        } else if jobs.contains(where: { if case .failed = $0.status { return true }; return false }) {
+            CompanionState.shared.set(.failed)
+        } else if jobs.contains(where: { $0.status == .cancelled }) {
+            CompanionState.shared.set(.cancelled)
+        } else {
+            CompanionState.shared.transition(from: .delivering, to: .success, after: 0.5)
         }
     }
 
@@ -146,13 +160,15 @@ final class JobRunner: ObservableObject {
         showHUD()
     }
     func beginWatching() {
-        guard jobs.isEmpty else { return }
+        guard jobs.allSatisfy({ $0.status.isFinished }) else { return }
+        dismissAll()
         CompanionState.shared.set(.watching)
         watchWheel()
     }
     func endWatching() { if jobs.isEmpty { hud?.hide() } }
 
     private func showHUD() {
+        guard presentsHUD else { return }
         hideWorkItem?.cancel()
         let style = AppSettings.shared.progressStyle
         DiagnosticLog.log("showHUD style=\(style.rawValue) existing=\(hud != nil)")
@@ -308,13 +324,15 @@ final class JobPillPanel: NSPanel, JobHUD {
             return
         }
         let size = JobPillView.Layout.size(rows: max(1, runner?.jobs.count ?? 1))
-        let top = screen.visibleFrame.maxY
+        let inset = screen.safeAreaInsets.top
+        hosting?.rootView = JobPillView(topInset: inset, runner: runner!)
+        let top = screen.frame.maxY
         var centerX = screen.frame.midX
         if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
             centerX = (left.maxX + right.minX) / 2
         }
         DiagnosticLog.log("pill show size=\(size) screen=\(screen.frame) inset=\(screen.safeAreaInsets.top) centerX=\(centerX) top=\(top)")
-        let target = NSRect(x: (centerX - size.width / 2).rounded(), y: top - size.height - 2, width: size.width, height: size.height)
+        let target = NSRect(x: (centerX - size.width / 2).rounded(), y: top - size.height - inset, width: size.width, height: size.height + inset)
         if isVisible, frame != target {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.25
@@ -339,6 +357,7 @@ private extension CGSize {
 }
 
 struct JobPillView: View {
+    var topInset: CGFloat = 0
     @ObservedObject var runner: JobRunner
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var companion = CompanionState.shared
@@ -383,10 +402,10 @@ struct JobPillView: View {
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 16)
-        .frame(width: 352, height: Layout.size(rows: runner.jobs.count).height - 8)
-        .background(.black, in: UnevenRoundedRectangle(topLeadingRadius: 10, bottomLeadingRadius: 24, bottomTrailingRadius: 24, topTrailingRadius: 10))
-        .overlay(UnevenRoundedRectangle(topLeadingRadius: 10, bottomLeadingRadius: 24, bottomTrailingRadius: 24, topTrailingRadius: 10).strokeBorder(.white.opacity(0.12)))
-        .padding(4)
+        .frame(width: 360, height: Layout.size(rows: runner.jobs.count).height)
+        .padding(.top, topInset)
+        .background(.black, in: UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 24, bottomTrailingRadius: 24, topTrailingRadius: 0))
+        .overlay(UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 24, bottomTrailingRadius: 24, topTrailingRadius: 0).strokeBorder(.white.opacity(0.12)))
         .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: runner.jobs.map(\.id))
     }
 }

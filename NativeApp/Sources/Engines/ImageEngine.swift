@@ -27,12 +27,10 @@ enum ImageIOBridge {
         }
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { throw OpenTangerineError.unreadable(url) }
         let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ?? [:]
-        let width = (properties[kCGImagePropertyPixelWidth] as? Int) ?? 0
-        let height = (properties[kCGImagePropertyPixelHeight] as? Int) ?? 0
+        let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue ?? 0
+        let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue ?? 0
         DiagnosticLog.log("image load \(url.lastPathComponent) type=\((CGImageSourceGetType(source) as String?) ?? "?") \(width)x\(height) max=\(maxPixelSize.map(String.init) ?? "none")")
-        guard width > 0, height > 0, Double(width) * Double(height) <= 40_000_000 else {
-            throw OpenTangerineError.invalidInput("Image exceeds the 40 megapixel trial limit.")
-        }
+        try validateDimensions(width: width, height: height)
         let longest = max(width, height, 1)
         var options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -49,6 +47,15 @@ enum ImageIOBridge {
         if let image = CGImageSourceCreateImageAtIndex(source, 0, nil) { return image }
         if let ns = NSImage(contentsOf: url), let cg = ns.cgImage(forProposedRect: nil, context: nil, hints: nil) { return cg }
         throw OpenTangerineError.unreadable(url)
+    }
+
+    static func validateDimensions(width: Int, height: Int) throws {
+        guard width > 0, height > 0 else {
+            throw OpenTangerineError.invalidInput("Cannot read image dimensions. Re-export this image as PNG or JPEG and retry.")
+        }
+        guard Double(width) * Double(height) <= 40_000_000 else {
+            throw OpenTangerineError.invalidInput("Image is \(width) × \(height) pixels; the limit is 40 megapixels. Resize it first, then retry.")
+        }
     }
 
     static func rasterizeSVG(_ url: URL, maxPixelSize: Int?) throws -> CGImage {

@@ -13,3 +13,12 @@ The release workflow tests and builds when the build script changes, but publica
 ## Character interaction
 
 The wheel opens a watching preview in notch mode. Hovering different options changes the gaze and caption. Enqueueing a job triggers acknowledgment, followed by processing. Successful completion triggers delivery then a happy expression; failures and cancellation have separate expressions. Delayed transitions use generation tokens so stale animation completions cannot overwrite newer states. Version comparison and interrupted character transitions passed the dedicated interaction tests. Live visual review remains necessary because this execution environment has blocked native app registration.
+
+
+## 0.1.3 recovery and presentation fixes
+
+The notch now joins the physical top edge of the display and reserves the camera-safe area above its content. The original citrus character has highlighted eyes, cheeks, a curved smile and separate received, busy, delivery and error expressions.
+
+Starting a new conversion clears completed results. Failures no longer contaminate the next job's companion state; cancellation is checked before reporting success. Failure rows use past-tense error titles. Missing image dimensions and the 40-megapixel resource limit have distinct messages; large images include their measured dimensions. The resource limit remains in place to protect memory.
+
+The updater has HTTP-response regression tests for a newer version, the current version and an unpublished release. A source commit is not a downloadable update. Version 0.1.3 remains a source/development build until Developer ID signing and notarization are configured and verified; it is not an automatically installed release.

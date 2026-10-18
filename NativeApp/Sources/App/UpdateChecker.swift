@@ -17,6 +17,15 @@ struct AppVersion: Comparable {
     static let shared = UpdateChecker()
     private let endpoint = URL(string: "https://api.github.com/repos/sintaxerrorpvtltd/Open-Tangerine/releases/latest")!
     private let releases = URL(string: "https://github.com/sintaxerrorpvtltd/Open-Tangerine/releases")!
+    private let session: URLSession
+    private let defaults: UserDefaults
+    private let currentVersion: String
+    init(session: URLSession = .shared, defaults: UserDefaults = .standard,
+         currentVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0") {
+        self.session = session
+        self.defaults = defaults
+        self.currentVersion = currentVersion
+    }
     private var checking = false
     private var timer: Timer?
     var onAvailable: ((String) -> Void)?
@@ -31,7 +40,7 @@ struct AppVersion: Comparable {
     }
     func check(interactive: Bool) async {
         guard !checking else { return }
-        if !interactive, let last = UserDefaults.standard.object(forKey: "lastUpdateCheck") as? Date,
+        if !interactive, let last = defaults.object(forKey: "lastUpdateCheck") as? Date,
            Date().timeIntervalSince(last) < 86400 { return }
         checking = true
         defer { checking = false }
@@ -39,7 +48,7 @@ struct AppVersion: Comparable {
             var request = URLRequest(url: endpoint, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.setValue("Open-Tangerine-UpdateChecker", forHTTPHeaderField: "User-Agent")
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
             if response.statusCode == 404 {
                 if interactive { show("No published releases yet", "You are using a developer build. Releases will appear here when published.") }
@@ -48,10 +57,10 @@ struct AppVersion: Comparable {
             guard response.statusCode == 200, data.count < 1_000_000 else { throw URLError(.badServerResponse) }
             let release = try JSONDecoder().decode(Release.self, from: data)
             guard !release.draft, !release.prerelease, let remote = AppVersion(release.tag_name),
-                  let current = AppVersion(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0") else {
+                  let current = AppVersion(currentVersion) else {
                 throw URLError(.cannotParseResponse)
             }
-            UserDefaults.standard.set(Date(), forKey: "lastUpdateCheck")
+            defaults.set(Date(), forKey: "lastUpdateCheck")
             if remote > current {
                 availableVersion = release.tag_name
                 onAvailable?(release.tag_name)
@@ -64,7 +73,10 @@ struct AppVersion: Comparable {
                     NSApp.activate(ignoringOtherApps: true)
                     if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(releases) }
                 }
-            } else if interactive { show("You’re up to date", "This app is as new as the latest published release.") }
+            } else {
+                availableVersion = nil
+                if interactive { show("No newer published release", "This app is as new as the latest published release. Source-code changes on GitHub appear here only after a release has been published.") }
+            }
         } catch {
             if interactive { show("Couldn’t check for updates", "Check your connection and try again. GitHub may also be temporarily unavailable or rate-limited.") }
         }

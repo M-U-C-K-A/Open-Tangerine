@@ -1,10 +1,40 @@
 import Foundation
+final class UpdateResponse: URLProtocol {
+    static var body = ""
+    static var status = 200
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: Self.status, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(Self.body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
 @main struct InteractionTests {
     @MainActor static func main() async throws {
         precondition(AppVersion("0.1.10")! > AppVersion("0.1.9")!)
         precondition(AppVersion("v1.0.0")! == AppVersion("1.0.0")!)
         precondition(AppVersion("1.2.3-beta") == nil)
         precondition(AppVersion("1.2") == nil)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [UpdateResponse.self]
+        let suite = "OpenTangerine-update-tests-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let checker = UpdateChecker(session: URLSession(configuration: config), defaults: defaults, currentVersion: "0.1.2")
+        UpdateResponse.body = #"{"tag_name":"v0.1.3","draft":false,"prerelease":false}"#
+        await checker.check(interactive: false)
+        precondition(checker.availableVersion == "v0.1.3")
+        defaults.removeObject(forKey: "lastUpdateCheck")
+        UpdateResponse.body = #"{"tag_name":"v0.1.2","draft":false,"prerelease":false}"#
+        await checker.check(interactive: false)
+        precondition(checker.availableVersion == nil)
+        defaults.removeObject(forKey: "lastUpdateCheck")
+        UpdateResponse.status = 404
+        await checker.check(interactive: false)
+        precondition(defaults.object(forKey: "lastUpdateCheck") == nil)
+        print("PASS HTTP update detection, current version, unpublished release")
         let state = CompanionState.shared
         state.set(.watching)
         state.watch(label: "PNG", direction: 3)
