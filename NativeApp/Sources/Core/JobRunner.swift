@@ -299,7 +299,13 @@ final class JobHUDPanel: NSPanel, NSWindowDelegate, JobHUD {
     func hide() { orderOut(nil) }
 }
 
+final class NotchPresentation: ObservableObject {
+    @Published var expanded = false
+    var generation = 0
+}
+
 final class JobPillPanel: NSPanel, JobHUD {
+    private let presentation = NotchPresentation()
     private var hosting: NSHostingController<JobPillView>?
     private weak var runner: JobRunner?
 
@@ -314,7 +320,7 @@ final class JobPillPanel: NSPanel, JobHUD {
         acceptsMouseMovedEvents = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         DiagnosticLog.log("pill panel created")
-        let controller = NSHostingController(rootView: JobPillView(runner: runner))
+        let controller = NSHostingController(rootView: JobPillView(runner: runner, presentation: presentation))
         controller.sizingOptions = []
         hosting = controller
         contentViewController = controller
@@ -331,7 +337,15 @@ final class JobPillPanel: NSPanel, JobHUD {
         }
         let size = JobPillView.Layout.size(rows: max(1, runner?.jobs.count ?? 1))
         let inset = screen.safeAreaInsets.top
-        hosting?.rootView = JobPillView(topInset: inset, runner: runner!)
+        guard let runner else { return }
+        var notchWidth: CGFloat = 180
+        if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
+            notchWidth = max(1, right.minX - left.maxX)
+        }
+        hosting?.rootView = JobPillView(topInset: inset, collapsedWidth: notchWidth, runner: runner, presentation: presentation)
+        presentation.generation += 1
+        let generation = presentation.generation
+        let wasVisible = isVisible
         let top = screen.frame.maxY
         var centerX = screen.frame.midX
         if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
@@ -348,11 +362,28 @@ final class JobPillPanel: NSPanel, JobHUD {
         } else {
             setFrame(target, display: true)
         }
+        if !wasVisible { presentation.expanded = false }
         orderFrontRegardless()
+        // Give the collapsed mask a layout pass before revealing it from the hardware notch.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.presentation.generation == generation else { return }
+            let animation: Animation? = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.88)
+            withAnimation(animation) { self.presentation.expanded = true }
+        }
         DiagnosticLog.log("pill ordered front")
     }
 
-    func hide() { orderOut(nil) }
+    func hide() {
+        presentation.generation += 1
+        let generation = presentation.generation
+        let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        withAnimation(reduced ? nil : .easeInOut(duration: 0.24)) { presentation.expanded = false }
+        if reduced { orderOut(nil); return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { [weak self] in
+            guard let self, self.presentation.generation == generation, !self.presentation.expanded else { return }
+            self.orderOut(nil)
+        }
+    }
 }
 
 private let unbounded = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
@@ -364,7 +395,9 @@ private extension CGSize {
 
 struct JobPillView: View {
     var topInset: CGFloat = 0
+    var collapsedWidth: CGFloat = 180
     @ObservedObject var runner: JobRunner
+    @ObservedObject var presentation: NotchPresentation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var companion = CompanionState.shared
     enum Layout {
@@ -409,9 +442,17 @@ struct JobPillView: View {
         }
         .padding(.horizontal, 18).padding(.vertical, 16)
         .frame(width: 360, height: Layout.size(rows: runner.jobs.count).height)
+        .opacity(presentation.expanded ? 1 : 0)
+        .offset(y: presentation.expanded || reduceMotion ? 0 : -16)
         .padding(.top, topInset)
-        .background(.black, in: UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 24, bottomTrailingRadius: 24, topTrailingRadius: 0))
-        .overlay(UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 24, bottomTrailingRadius: 24, topTrailingRadius: 0).strokeBorder(.white.opacity(0.12)))
+        // Explicit sRGB black, no material, tint, border, or fading of the backing.
+        .background(Color(.sRGB, red: 0, green: 0, blue: 0, opacity: 1))
+        .mask(alignment: .top) {
+            UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: presentation.expanded ? 24 : 10, bottomTrailingRadius: presentation.expanded ? 24 : 10, topTrailingRadius: 0)
+                .frame(width: presentation.expanded ? 360 : min(360, collapsedWidth),
+                       height: presentation.expanded ? Layout.size(rows: runner.jobs.count).height + topInset : max(2, topInset))
+        }
+        .allowsHitTesting(presentation.expanded)
         .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: runner.jobs.map(\.id))
     }
 }

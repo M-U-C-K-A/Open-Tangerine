@@ -1,6 +1,6 @@
 # Trial build status
 
-Version 0.1.6, 18 October 2026. Native Swift app, macOS 26+, Apple silicon development environment.
+Version 0.1.7, 19 October 2026. Native Swift app, macOS 26+, Apple silicon development environment.
 
 ## Findings and repairs
 
@@ -11,6 +11,8 @@ WebP now uses a built-in literal-only lossless VP8L fallback when native/FFmpeg 
 Batch conversion retains every selected input, reports individual failures, and reserves destination names across overlapping batches. Four PNGs produced four distinct, decodable JPEGs; a subsequent overlapping job produced a fifth distinct output. Mixed PNG/TIFF selection and corrupt/unknown inputs are covered.
 
 Other repairs include PDF/DOCX page ordering, scanned text extraction errors, subtitle timestamp rollover, accurate non-native video trimming, silent-video speed/join, actual blur/pixelate, channel mapping, bleep generation, PNG compression payload/transparency, image rotation fallback, frame aspect ratio and metadata deletion.
+
+The 0.1.7 follow-up adds a pure-black notch backing and top-anchored expand/retract animation, with interrupted dismissal protection and Reduce Motion support. Local optimized build and bundle validation passed; physical-notch animation appearance still needs a normal interactive Mac check.
 
 ## Executed coverage
 
@@ -29,10 +31,12 @@ Other repairs include PDF/DOCX page ordering, scanned text extraction errors, su
 
 Media checks inspect streams, dimensions, duration and channels, then decode the complete short output. Native export failures fall back to FFmpeg where applicable. Website version/download validation, SEO metadata, links and interactive-demo tests also pass.
 
+GitHub macOS 26 release CI for 0.1.6 completed successfully: native PNG-to-HEIC round trip, all 42 routes among seven image formats plus three lossless WebP checks (45), drag-pasteboard preservation of four inputs, all 17 image adjustments and all three redaction modes passed. The media suite passed all 55 checks. This closes the local graphics/pasteboard service gaps at the automated-test level, but does not substitute for live Finder drag UX verification.
+
 ## Explicit limits
 
-- Local restricted execution cannot use native HEIC encoding or CoreImage rendering. PNG-to-HEIC has been confirmed by the user in the normal app; local HEIC decoding-to-WebP passed. Adjustment/redaction tests remain in the suite and run when CoreImage is available; a blocked graphics service is not counted as success.
-- Finder pasteboard service was unavailable in the test process. The four-file engine path passes; this does not claim live Finder drag verification. Clipboard/reveal actions and AV metadata export were not exercised.
+- Local restricted execution cannot use native HEIC encoding or CoreImage rendering. PNG-to-HEIC has been confirmed by the user in the normal app; local HEIC decoding-to-WebP passed. Adjustment/redaction pixel tests passed on the GitHub macOS runner; local blocked checks were not counted as success.
+- Finder pasteboard service was unavailable locally; its four-file test passed in GitHub CI. The four-file engine path passes; this does not claim live Finder drag verification. Clipboard/reveal actions and AV metadata export were not exercised.
 - Word support is DOCX output, not general Word input. PDF-to-DOCX reconstructs text or page images, without OCR or exact layout preservation.
 - Compression cannot guarantee smaller output. The WebP fallback is lossless, ignores lossy quality, and produces larger files. Its output must stay under 100 MB; dimensions are limited to 16,384 per side. All images retain the 40 MP input limit.
 - Archive conversion is disabled and no longer offered. SVG, malformed-file fuzzing, huge-batch performance, Intel hardware, accessibility and every possible codec/profile combination are not exhaustively verified.
