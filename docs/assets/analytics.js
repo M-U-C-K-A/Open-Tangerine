@@ -1,8 +1,5 @@
 'use strict';
 (() => {
-  // Collection paused until Open Tangerine has its own analytics project.
-  const projectToken = "";
-  if (!projectToken) return;
   if (location.hostname !== 'sintaxerrorpvtltd.github.io' || !location.pathname.startsWith('/Open-Tangerine/')) return;
   const storageKey = 'open-tangerine-analytics';
   const lifetime = 180 * 24 * 60 * 60 * 1000;
@@ -10,46 +7,35 @@
   let preference = null;
   try { preference = JSON.parse(localStorage.getItem(storageKey)); } catch {}
   if (!preference || preference.expires <= Date.now() || !['allow', 'deny'].includes(preference.choice)) preference = null;
-  let session = null;
-  function sessionID() {
-    try { session = JSON.parse(sessionStorage.getItem(storageKey)); } catch {}
-    if (!session || session.expires <= Date.now()) session = {id: crypto.randomUUID()};
-    session.expires = Date.now() + 30 * 60 * 1000;
-    try { sessionStorage.setItem(storageKey, JSON.stringify(session)); } catch {}
-    return session.id;
-  }
-  function save(choice) {
-    preference = {choice, expires: Date.now() + lifetime, id: choice === 'allow' ? crypto.randomUUID() : null};
+  // Remove identifiers left by the retired integration; keep only the choice.
+  if (preference) {
+    preference = {choice: preference.choice, expires: preference.expires};
     try { localStorage.setItem(storageKey, JSON.stringify(preference)); } catch {}
-    if (choice === 'deny') {
-      session = null;
-      try { sessionStorage.removeItem(storageKey); } catch {}
-    }
+  }
+  try { sessionStorage.removeItem(storageKey); } catch {}
+  function save(choice) {
+    preference = {choice, expires: Date.now() + lifetime};
+    try { localStorage.setItem(storageKey, JSON.stringify(preference)); } catch {}
   }
   function capture(event, extra = {}) {
-    if (privacySignal || preference?.choice !== 'allow') return;
+    if (privacySignal || preference?.choice !== 'allow' || navigator.webdriver || document.visibilityState === 'prerender') return;
     let referrer = '';
     try { referrer = new URL(document.referrer).hostname; } catch {}
-    const properties = {
-      app: 'open-tangerine', $process_person_profile: false,
-      $current_url: location.origin + location.pathname,
-      $host: location.hostname, $pathname: location.pathname,
-      $referring_domain: referrer || '$direct', $referrer: referrer ? `https://${referrer}/` : '',
-      $session_id: sessionID(), ...extra
-    };
     const query = new URLSearchParams(location.search);
-    for (const name of ['utm_source', 'utm_medium', 'utm_campaign']) {
-      const value = query.get(name);
-      if (value && /^[a-zA-Z0-9_-]{1,80}$/.test(value)) properties[name] = value;
-    }
-    // Only explicit aggregate events; no SDK, replay, form text, files, or full query strings.
-    fetch('https://us.i.posthog.com/i/v0/e/', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      credentials: 'omit', keepalive: true, referrerPolicy: 'no-referrer',
-      body: JSON.stringify({
-        api_key: projectToken,
-        distinct_id: preference.id, event, properties
-      })
+    const campaign = query.get('utm_source');
+    if (campaign && /^[a-zA-Z0-9_-]{1,80}$/.test(campaign)) referrer = 'campaign:' + campaign;
+    const pageview = event === '$pageview';
+    const parameters = new URLSearchParams({
+      p: pageview ? location.pathname : event + (extra.release ? '/' + extra.release : ''),
+      t: pageview ? 'Open Tangerine' : event,
+      r: referrer, e: pageview ? 'false' : 'true',
+      rnd: Math.random().toString(36).slice(2)
+    });
+    // GoatCounter's count endpoint, with an explicit allowlist of fields.
+    // No SDK, query strings, visitor IDs, cookies, replay or file information.
+    fetch('https://goatcounter-production-7a2a.up.railway.app/count?' + parameters, {
+      method: 'POST', mode: 'no-cors', credentials: 'omit',
+      keepalive: true, referrerPolicy: 'no-referrer'
     }).catch(() => {});
   }
   const banner = document.createElement('section');
