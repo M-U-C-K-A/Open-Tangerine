@@ -108,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.activateFileViewerSelecting([DiagnosticLog.logFile])
     }
 
+    @MainActor
     @objc private func about() {
         openSettings()
         // The About tab includes attribution and the creator link.
