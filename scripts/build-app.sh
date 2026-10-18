@@ -28,5 +28,13 @@ python3 scripts/package-icon.py .build/AppIcon.iconset "$app/Contents/Resources/
 cp LICENSE "$app/Contents/Resources/GPL-3.0.txt"
 cp NativeApp/LICENSE "$app/Contents/Resources/Satsuma-MIT.txt"
 cp THIRD_PARTY_NOTICES.md "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
-codesign --force --sign - "$app"
+# Local development uses ad-hoc signing; public releases require Developer ID.
+if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
+  codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID_APPLICATION" "$app"
+else
+  codesign --force --sign - "$app"
+fi
+codesign --verify --deep --strict --verbose=2 "$app"
+test -x "$app/Contents/MacOS/OpenTangerine"
+plutil -lint "$app/Contents/Info.plist"
 printf 'Built %s\n' "$app"
