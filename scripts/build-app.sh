@@ -23,7 +23,7 @@ PLIST
 mkdir -p "$app/Contents/Resources"
 xcrun swiftc -module-cache-path "$PWD/.build/module-cache" NativeApp/Sources/UI/BrandArtwork.swift scripts/make-icon.swift -o .build/make-icon
 .build/make-icon "$PWD/.build/AppIcon.iconset"
-iconutil -c icns .build/AppIcon.iconset -o "$app/Contents/Resources/AppIcon.icns"
+python3 scripts/package-icon.py .build/AppIcon.iconset "$app/Contents/Resources/AppIcon.icns"
 cp LICENSE "$app/Contents/Resources/GPL-3.0.txt"
 cp NativeApp/LICENSE "$app/Contents/Resources/Satsuma-MIT.txt"
 cp THIRD_PARTY_NOTICES.md "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
