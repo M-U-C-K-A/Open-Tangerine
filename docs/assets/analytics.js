@@ -1,7 +1,8 @@
 'use strict';
 (() => {
   // Collection paused until Open Tangerine has its own analytics project.
-  return;
+  const projectToken = "";
+  if (!projectToken) return;
   if (location.hostname !== 'sintaxerrorpvtltd.github.io' || !location.pathname.startsWith('/Open-Tangerine/')) return;
   const storageKey = 'open-tangerine-analytics';
   const lifetime = 180 * 24 * 60 * 60 * 1000;
@@ -46,7 +47,7 @@
       method: 'POST', headers: {'Content-Type': 'application/json'},
       credentials: 'omit', keepalive: true, referrerPolicy: 'no-referrer',
       body: JSON.stringify({
-        api_key: 'phc_t3FQu3jrJmqd4tTmmdf7EUw6WVZFoboQmHKVGnfyMgMP',
+        api_key: projectToken,
         distinct_id: preference.id, event, properties
       })
     }).catch(() => {});

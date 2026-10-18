@@ -2,7 +2,7 @@
 
 Open the [activity page](https://sintaxerrorpvtltd.github.io/Open-Tangerine/stats.html) for live public release ZIP download counts, stars and forks, plus links to private dashboards.
 
-The [Open Tangerine dashboard](https://us.posthog.com/project/672281/dashboard/2227074) lives in the existing PostHog project (672281). Its `app = open-tangerine` filter separates events from other sites for reporting, not access control. No billing upgrade, private API key or desktop telemetry is required. The browser project token is public and write-only.
+**Collection is paused.** The project token is empty, so no banner, analytics storage or analytics requests run. The user requires a separate analytics environment from Some1.help. The existing PostHog plan blocks a second project until billing is added. Do not reuse project 672281. A brief initial QA rollout sent test events there; its draft dashboard is not the production destination. The following describes the prepared integration once a separate project is configured.
 
 Website collection is opt-in. DNT/GPC disable it. The footer allows withdrawal. Only `$pageview`, `ot_download_click`, `ot_releases_click` and `ot_repository_click` are sent using the capture endpoint, without loading the PostHog SDK. No session replay or arbitrary click/text collection exists. Query strings and referrer paths are excluded; only simple `utm_source`, `utm_medium` and `utm_campaign` labels are retained. Visitor identifiers expire after 180 days; tab session identifiers expire after 30 idle minutes. See the website privacy policy.
 

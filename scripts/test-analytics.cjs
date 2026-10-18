@@ -1,7 +1,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const source = fs.readFileSync('docs/assets/analytics.js', 'utf8');
+const deployedSource = fs.readFileSync('docs/assets/analytics.js', 'utf8');
+assert.match(deployedSource, /const projectToken = "";/, 'Collection remains disabled without an isolated project');
+const source = deployedSource.replace('const projectToken = "";', 'const projectToken = "test-only";');
 function run({saved, signal = false, hostname = 'sintaxerrorpvtltd.github.io', blocked = false} = {}) {
   const sent = [], elements = [], handlers = {};
   let stored = saved ? JSON.stringify(saved) : null;
@@ -44,3 +46,16 @@ assert.equal(run({saved:{...saved, expires:0}}).sent.length, 0, 'Expired permiss
 assert.equal(run({hostname:'localhost'}).sent.length, 0, 'Local previews never count');
 test = run({blocked:true}); test.choose('allow'); assert.equal(test.sent.length, 1, 'Blocked storage does not break the page');
 console.log('Analytics consent, privacy, attribution, download and withdrawal checks passed.');
+(async () => {
+  const nodes = new Map();
+  const element = () => ({children:[], append(child){this.children.push(child);}});
+  const document = {createElement:element, getElementById(id){if(!nodes.has(id)) nodes.set(id,element());return nodes.get(id);}};
+  const release = {tag_name:'v1',assets:[{name:'Open-Tangerine-1-macOS.zip',download_count:2},{name:'SHA256SUMS.txt',download_count:99}]};
+  await vm.runInNewContext(fs.readFileSync('docs/assets/stats.js','utf8'), {document, Date, AbortSignal,
+    fetch:async url => ({ok:true, json:async () => url.includes('&page=1') ? Array(100).fill(release) : url.includes('&page=2') ? [release] : {stargazers_count:3,forks_count:4,open_issues_count:5}})
+  });
+  assert.equal(nodes.get('download-total').textContent,'202 release ZIP download requests');
+  assert.equal(nodes.get('download-rows').children.length,101,'All release pages counted');
+  assert.match(nodes.get('repo-counts').textContent,/3 stars · 4 forks/);
+  console.log('Public activity counts include pagination and exclude checksum downloads.');
+})().catch(error => { console.error(error); process.exitCode=1; });
