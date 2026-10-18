@@ -1,0 +1,21 @@
+name: macOS build and tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: ./scripts/test.sh
+      - name: Build
+        run: ./scripts/build-app.sh
+      - name: Package trial
+        run: ditto -c -k --sequesterRsrc --keepParent "dist/Open Tangerine.app" dist/Open-Tangerine-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Open-Tangerine-macOS
+          path: dist/Open-Tangerine-macOS.zip

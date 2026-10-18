@@ -1,2 +1,76 @@
-# Open-Tangerine
-An independent, open-source macOS file converter and toolbox. Local processing, native Swift interface, GPLv3. Early development build.
+# Open Tangerine
+
+A native macOS file converter and toolbox by **Syntax Error Private Limited**.
+Local processing, no account, no item limits, no subscription. GPL-3.0-only.
+
+**Status: 0.1.0 developer trial.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
+
+## Install from source
+
+Requires **macOS 26 or later**, Xcode 26 / compatible Command Line Tools, and Git. The build script uses Apple's Swift compiler directly; no package manager or third-party Swift dependencies are required.
+
+```sh
+git clone https://github.com/sintaxerrorpvtltd/Open-Tangerine.git
+cd Open-Tangerine
+./scripts/build-app.sh
+open "dist/Open Tangerine.app"
+```
+
+To keep the app, drag `dist/Open Tangerine.app` into your Applications folder in Finder. The local build is ad-hoc signed, not Apple-notarized. We do not recommend disabling Gatekeeper. A signed, notarized release and automatic updates are planned.
+
+Optional: install FFmpeg from your trusted package manager (`brew install ffmpeg` if you already use Homebrew). Settings → Formats shows whether FFmpeg is available. It is already present on the development Mac. We do not bundle or silently download it.
+
+## Try it
+
+The app lives in the menu bar; Settings opens on launch.
+
+1. Drag an image in Finder, hold **Shift**, and drop it on a format in the wheel.
+2. Hold **Command** while dragging for the tool wheel. **Option + Shift** also works.
+3. Hold **Control** while dragging for file actions.
+4. If dragging does not trigger a wheel, use the menu-bar **Convert Files…**, **Open Tool for Files…**, or **File Actions…** commands. These also support multiple selections.
+5. Converted outputs appear beside the source by default. Change this to Downloads or Desktop in Settings. Existing conversion destinations are never intentionally replaced.
+
+Start with copies of ordinary files. Try PNG → JPEG, crop/resize, create a PDF, merge two PDFs, and copy a SHA-256 checksum.
+
+## Features in this trial
+
+| Area | Included implementation |
+|---|---|
+| Images | PNG, JPEG, HEIC, TIFF, BMP, WebP, AVIF and SVG input routes; quality settings; edit, crop, resize, rotate, visible redaction, background framing, collage, PDF creation |
+| Documents | PDF to text/images/DOCX; text to PDF/images/subtitles; PDF merge, split and page organization |
+| Media | Audio/video conversions; trim, split, join, crop, speed, snapshots, visible redaction, audio normalization/channel tools/bleeping/visualizer; many need FFmpeg |
+| Subtitles | SRT, VTT and text conversions |
+| File actions | Reveal in Finder, copy files, copy paths, duplicate, streaming SHA-256 checksum copied to clipboard |
+| Workflow | Batch jobs, cancellation, output naming, floating or notch progress, light/dark appearance, launch at login |
+
+The inherited format matrix describes **188 potential routes** and **25 tool types**. This is a catalogue, not a claim that every codec, tool or route has passed end-to-end tests. Archive routes are disabled in this trial. Optional codec availability varies by FFmpeg build.
+
+## Limitations
+
+- Not full Tangerine parity: no AI background removal, OCR, translation, universal Office conversion, watch folders, undo history or plugin installer yet.
+- Background framing adds a background; it does not remove the existing one.
+- Archive conversion is intentionally disabled until bounded extraction, traversal/link defenses and isolation are implemented.
+- Native image loading is limited to 100 MB / 40 megapixels. Animated/multipage image behavior needs further work; use single-frame images for this trial.
+- This is not a security-certified sanitizer. Metadata editing and visible redaction should not be relied on to anonymize sensitive documents. Review exported files.
+- Heavy native operations can temporarily block the interface. Cancellation is best-effort for external processes. Worker isolation and timeouts are release gates.
+- No App Sandbox, notarization, automatic updates, Intel-specific verification or complete accessibility audit yet.
+- No AI/network service is implemented, so there is no API key or usage charge. Future AI integrations must be opt-in and bring-your-own-key.
+
+## Development
+
+```sh
+./scripts/test.sh
+./scripts/build-app.sh
+```
+
+- `NativeApp/Sources/`: shipping trial implementation (SwiftUI/AppKit, ImageIO, PDFKit, AVFoundation).
+- `NativeApp/Tests/`: inherited deterministic tests and real conversion regression tests.
+- `scripts/`: reproducible compiler, test and packaging entry points.
+- `docs/PRD.md`: product direction; roadmap items are not current capabilities.
+- `Prototypes/ImageOnly/`: earlier exploratory code, excluded from the app build.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [build status](docs/BUILD-STATUS.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## License and attribution
+
+Open Tangerine additions © 2026 Syntax Error Private Limited, licensed under **GPL-3.0-only**. See [LICENSE](LICENSE). Commercial use and sale are permitted under that license; distribution of covered derivatives requires corresponding source and the GPL terms. Upstream Satsuma code © 2026 plyght remains available under its original MIT terms, reproduced in [NativeApp/LICENSE](NativeApp/LICENSE). Contributors retain copyright in their contributions. The license does not grant rights to company names or logos.

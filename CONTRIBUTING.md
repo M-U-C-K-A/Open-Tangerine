@@ -1,0 +1,11 @@
+# Contributing
+
+Use macOS 26+ and Xcode 26 or compatible Command Line Tools. Fork the repository, create a focused branch, run `./scripts/test.sh` and `./scripts/build-app.sh`, and open a pull request with the problem, behavior change and verification.
+
+Keep originals safe. Never overwrite user files silently. Use argument arrays for processes. Do not add network calls, telemetry, binary downloads or new permissions without an explicit design discussion. Declare codec and dependency licenses. Do not copy proprietary code or assets.
+
+Add regression tests for data-loss, parser, naming and conversion changes. Use generated fixtures; never commit personal files or API keys. Update the README capability table when adding a feature. UI changes should include screenshots and accessibility labels.
+
+Contributions are accepted under GPL-3.0-only for new project code; preserve MIT notices in upstream-derived code. You retain copyright. Sign off commits (`git commit -s`) to certify the Developer Certificate of Origin at https://developercertificate.org/ . No copyright assignment is required.
+
+Suggested first issues: bounded archive worker, capability filtering, nonblocking native jobs, animation preservation, customizable shortcuts, and notarized release automation.

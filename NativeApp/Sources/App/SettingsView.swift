@@ -1,0 +1,289 @@
+import AppKit
+import SwiftUI
+
+enum SettingsTab: String, CaseIterable, Identifiable {
+    case general
+    case appearance
+    case conversion
+    case about
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return "General"
+        case .appearance: return "Appearance"
+        case .conversion: return "Formats"
+        case .about: return "About"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: return "gearshape"
+        case .appearance: return "paintbrush"
+        case .conversion: return "arrow.triangle.2.circlepath"
+        case .about: return "info.circle"
+        }
+    }
+}
+
+@MainActor
+final class SettingsTabModel: ObservableObject {
+    @Published var tab: SettingsTab = .general
+}
+
+struct SettingsView: View {
+    @EnvironmentObject private var settings: AppSettings
+    @ObservedObject var model: SettingsTabModel
+    @State private var ffmpegHealth: FFmpeg.Health = .missing
+
+    static let width: CGFloat = 520
+    static let height: CGFloat = 500
+
+    var body: some View {
+        Form {
+            switch model.tab {
+            case .general: general
+            case .appearance: appearance
+            case .conversion: conversion
+            case .about: about
+            }
+        }
+        .formStyle(.grouped)
+        .id(model.tab)
+        .transition(.opacity)
+        .animation(.easeInOut(duration: 0.18), value: model.tab)
+        .frame(width: Self.width, height: Self.height)
+        .tint(Theme.accent)
+        .task(id: settings.ffmpegPath) { ffmpegHealth = await FFmpeg.checkHealth() }
+    }
+
+    @ViewBuilder private var general: some View {
+        Section("Output") {
+            Picker("Save converted files", selection: $settings.outputLocation) {
+                ForEach(OutputLocation.allCases) { Text($0.title).tag($0) }
+            }
+            Toggle("Reveal results in Finder", isOn: $settings.revealInFinder)
+        }
+        Section("General") {
+            Toggle("Launch Open Tangerine at login", isOn: $settings.launchAtLogin)
+        }
+        Section {
+            LabeledContent("Conversion wheel") {
+                Label("Shift", systemImage: "shift").labelStyle(.titleAndIcon)
+            }
+            LabeledContent("Tools wheel") {
+                Label("Command (or Option + Shift)", systemImage: "option").labelStyle(.titleAndIcon)
+            }
+            LabeledContent("File actions", value: "Control")
+        } header: {
+            Text("Drag Modifiers")
+        } footer: {
+            Text("Hold the modifier while dragging files in Finder.")
+        }
+    }
+
+    @ViewBuilder private var appearance: some View {
+        Section("Theme") {
+            Picker("Theme", selection: $settings.appearanceMode) {
+                ForEach(AppearanceMode.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+        }
+        Section {
+            Picker("Progress", selection: $settings.progressStyle) {
+                ForEach(ProgressStyle.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+        } header: {
+            Text("Progress")
+        } footer: {
+            Text(settings.progressStyle == .card
+                 ? "A floating card in the top right corner with the file name and percentage."
+                 : "A tiny progress bar in a pill below the notch.")
+        }
+    }
+
+    @ViewBuilder private var conversion: some View {
+        Section("Images") {
+            HStack {
+                Text("JPEG / HEIC / WebP quality")
+                Slider(value: $settings.jpegQuality, in: 0.3...1.0)
+                Text("\(Int(settings.jpegQuality * 100))%").monospacedDigit().frame(width: 44, alignment: .trailing)
+            }
+        }
+        Section {
+            Picker("Preset", selection: $settings.compressionPreset) {
+                ForEach(CompressionPreset.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            HStack {
+                Text("Resize long edge to")
+                TextField("Off", value: $settings.compressionResizeLongEdge, format: .number)
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 80)
+                Text("px (0 = keep size)").foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Compression")
+        } footer: {
+            Text(settings.compressionPreset == .balanced
+                 ? "Balanced keeps detail while trimming size noticeably."
+                 : "Strong prioritizes the smallest file, with visible quality loss.")
+        }
+        Section {
+            HStack {
+                TextField("Auto-detect (Homebrew, MacPorts, /usr/local/bin)", text: $settings.ffmpegPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("Choose…") { chooseFFmpeg() }
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: ffmpegHealthSymbol)
+                    .foregroundStyle(ffmpegHealthColor)
+                Text(ffmpegHealthText)
+                    .font(.caption)
+                    .textSelection(.enabled)
+            }
+        } header: {
+            Text("FFmpeg (optional)")
+        } footer: {
+            Text("Open Tangerine uses Apple frameworks for most work. FFmpeg fills the gaps: MP3, FLAC, OGG, Opus, WMA, MKV, WebM, AVI, WMV, GIF and AVIF/WebP encoding on older systems.")
+        }
+    }
+
+    @ViewBuilder private var about: some View {
+        Section {
+            HStack(spacing: 14) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 56, height: 56)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Open Tangerine").font(.title2.weight(.semibold))
+                    Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        Section {
+            LabeledContent("Defined conversion routes", value: "\(ConversionMatrix.totalConversions)")
+            LabeledContent("Tools", value: "\(ToolID.total)")
+        } footer: {
+            Text("Early trial • GPL-3.0-only. By Syntax Error Private Limited. Based on Satsuma by plyght (MIT). Optional FFmpeg enables additional codecs. Not every route has been verified.")
+        }
+    }
+
+    private var ffmpegHealthSymbol: String {
+        switch ffmpegHealth {
+        case .ready: return "checkmark.circle.fill"
+        case .broken: return "xmark.octagon.fill"
+        case .missing: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var ffmpegHealthColor: Color {
+        switch ffmpegHealth {
+        case .ready: return .green
+        case .broken: return .red
+        case .missing: return .orange
+        }
+    }
+
+    private var ffmpegHealthText: String {
+        switch ffmpegHealth {
+        case let .ready(path, version): return "Using ffmpeg \(version) at \(path)"
+        case let .broken(path, reason): return "ffmpeg at \(path) cannot run: \(reason)"
+        case .missing: return "FFmpeg not found. Install with `brew install ffmpeg` or pick the binary."
+        }
+    }
+
+    private func chooseFFmpeg() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.showsHiddenFiles = true
+        panel.directoryURL = URL(fileURLWithPath: "/opt/homebrew/bin")
+        if panel.runModal() == .OK, let url = panel.url {
+            settings.ffmpegPath = url.path
+        }
+    }
+}
+
+struct SettingsTabBar: View {
+    @ObservedObject var model: SettingsTabModel
+    @Namespace private var namespace
+
+    var body: some View {
+        GlassEffectContainer(spacing: 0) {
+            HStack(spacing: 2) {
+                ForEach(SettingsTab.allCases) { tab in
+                    Button {
+                        model.tab = tab
+                    } label: {
+                        Label(tab.title, systemImage: tab.symbol)
+                            .labelStyle(.titleOnly)
+                            .font(.system(size: 13, weight: model.tab == tab ? .semibold : .regular))
+                            .foregroundStyle(model.tab == tab ? Color.white : Color.primary)
+                            .lineLimit(1)
+                            .fixedSize()
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .background {
+                        if model.tab == tab {
+                            Color.clear
+                                .glassEffect(.regular.tint(Theme.accent).interactive(), in: Capsule())
+                                .matchedGeometryEffect(id: "selection", in: namespace)
+                        }
+                    }
+                }
+            }
+            .padding(3)
+            .glassEffect(.regular, in: Capsule())
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: model.tab)
+    }
+}
+
+final class SettingsWindow: NSWindow {
+    var toolbarDelegate: SettingsToolbarDelegate?
+}
+
+@MainActor
+final class SettingsToolbarDelegate: NSObject, NSToolbarDelegate {
+    static let tabsItem = NSToolbarItem.Identifier("opentangerine.settings.tabs")
+    let model: SettingsTabModel
+
+    init(model: SettingsTabModel) {
+        self.model = model
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.flexibleSpace, Self.tabsItem, .flexibleSpace]
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
+    }
+
+    func toolbar(
+        _ toolbar: NSToolbar,
+        itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
+        willBeInsertedIntoToolbar flag: Bool
+    ) -> NSToolbarItem? {
+        guard itemIdentifier == Self.tabsItem else { return nil }
+        let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+        let hosting = NSHostingView(rootView: SettingsTabBar(model: model))
+        hosting.sizingOptions = [.intrinsicContentSize]
+        item.view = hosting
+        item.isBordered = false
+        return item
+    }
+}
+
