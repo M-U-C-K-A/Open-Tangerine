@@ -3,7 +3,7 @@
 A native macOS file converter and toolbox by **Syntax Error Private Limited**.
 Local processing, no account, no item limits, no subscription. GPL-3.0-only.
 
-**Status: 0.1.0 developer trial.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
+**Status: 0.1.1 developer trial.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
 
 ## Install from source
 
@@ -20,9 +20,13 @@ To keep the app, drag `dist/Open Tangerine.app` into your Applications folder in
 
 Optional: install FFmpeg from your trusted package manager (`brew install ffmpeg` if you already use Homebrew). Settings → Formats shows whether FFmpeg is available. It is already present on the development Mac. We do not bundle or silently download it.
 
+## What changed in 0.1.1
+
+Roomier settings with sidebar navigation, orange selection highlights, contextual headers, animated file artwork, softer transitions and a larger menu-bar icon. Motion responds to macOS Reduce Motion. See [design notes](docs/DESIGN.md) for validation status.
+
 ## Try it
 
-The app lives in the menu bar; Settings opens on launch.
+The app lives in the menu bar; Settings opens on first launch. Enable **Settings → General → Start automatically at login** after moving it to Applications. Future logins start it quietly in the menu bar. If macOS needs approval, the app links to Login Items.
 
 1. Drag an image in Finder, hold **Shift**, and drop it on a format in the wheel.
 2. Hold **Command** while dragging for the tool wheel. **Option + Shift** also works.

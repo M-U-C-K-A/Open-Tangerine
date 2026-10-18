@@ -38,25 +38,121 @@ struct SettingsView: View {
     @ObservedObject var model: SettingsTabModel
     @State private var ffmpegHealth: FFmpeg.Health = .missing
 
-    static let width: CGFloat = 520
-    static let height: CGFloat = 500
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Namespace private var selection
+
+    static let width: CGFloat = 820
+    static let height: CGFloat = 620
 
     var body: some View {
-        Form {
-            switch model.tab {
-            case .general: general
-            case .appearance: appearance
-            case .conversion: conversion
-            case .about: about
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 26) {
+                HStack(spacing: 10) {
+                    Image(systemName: "sun.max.fill")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(Theme.accent.gradient)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Open").font(.system(size: 15, weight: .medium))
+                        Text("Tangerine").font(.system(size: 18, weight: .bold))
+                    }
+                }
+                .padding(.top, 20)
+                VStack(spacing: 6) {
+                    ForEach(SettingsTab.allCases) { tab in
+                        Button {
+                            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.85)) {
+                                model.tab = tab
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: tab.symbol).font(.system(size: 16, weight: .medium)).frame(width: 22)
+                                Text(tab.title).font(.system(size: 14, weight: model.tab == tab ? .semibold : .medium))
+                                Spacer()
+                            }
+                            .padding(.horizontal, 14).padding(.vertical, 13)
+                            .foregroundStyle(model.tab == tab ? Color.white : Color.primary)
+                            .background {
+                                if model.tab == tab {
+                                    RoundedRectangle(cornerRadius: 13)
+                                        .fill(Theme.accent.gradient)
+                                        .matchedGeometryEffect(id: "sidebar", in: selection)
+                                }
+                            }
+                            .contentShape(RoundedRectangle(cornerRadius: 13))
+                        }
+                        .buttonStyle(SettingsPressStyle())
+                        .accessibilityAddTraits(model.tab == tab ? .isSelected : [])
+                    }
+                }
+                Spacer()
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("On your Mac", systemImage: "lock.shield")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Your files. Your workflow.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text("OPEN SOURCE  /  0.1.1")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .tracking(1.2).foregroundStyle(.tertiary)
+                }
+                .padding(.bottom, 12)
+            }
+            .padding(20).frame(width: 205)
+            .background(reduceTransparency ? Color(nsColor: .windowBackgroundColor) : Color(nsColor: .controlBackgroundColor).opacity(0.65))
+            Divider()
+            VStack(spacing: 0) {
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("MAKE ROOM FOR FLOW")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(2).foregroundStyle(Theme.accent)
+                        Text(model.tab.title)
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .contentTransition(.numericText())
+                        Text(tabDescription)
+                            .font(.system(size: 13)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    FileOrbitGraphic(tab: model.tab)
+                        .frame(width: 155, height: 145)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 30).padding(.top, 12).padding(.bottom, 4)
+                ZStack {
+                    Form {
+                        switch model.tab {
+                        case .general: general
+                        case .appearance: appearance
+                        case .conversion: conversion
+                        case .about: about
+                        }
+                    }
+                    .formStyle(.grouped)
+                    .scrollContentBackground(.hidden)
+                    .id(model.tab)
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 9)))
+                }
+                .animation(reduceMotion ? .easeOut(duration: 0.15) : .smooth(duration: 0.28), value: model.tab)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background {
+                LinearGradient(colors: [Theme.accent.opacity(0.06), Color(nsColor: .windowBackgroundColor), Color(nsColor: .windowBackgroundColor)], startPoint: .topTrailing, endPoint: .bottomLeading)
             }
         }
-        .formStyle(.grouped)
-        .id(model.tab)
-        .transition(.opacity)
-        .animation(.easeInOut(duration: 0.18), value: model.tab)
         .frame(width: Self.width, height: Self.height)
         .tint(Theme.accent)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in settings.refreshLoginStatus() }
         .task(id: settings.ffmpegPath) { ffmpegHealth = await FFmpeg.checkHealth() }
+    }
+
+    private var tabDescription: String {
+        switch model.tab {
+        case .general: return "A few thoughtful defaults. A smoother day."
+        case .appearance: return "Make your workspace feel like yours."
+        case .conversion: return "Find the balance between detail and size."
+        case .about: return "Small utility. Open possibilities."
+        }
     }
 
     @ViewBuilder private var general: some View {
@@ -67,7 +163,13 @@ struct SettingsView: View {
             Toggle("Reveal results in Finder", isOn: $settings.revealInFinder)
         }
         Section("General") {
-            Toggle("Launch Open Tangerine at login", isOn: $settings.launchAtLogin)
+            Toggle("Start automatically at login", isOn: $settings.launchAtLogin)
+            Text("Keep Open Tangerine ready in the menu bar after you restart and sign in. Move the app to Applications before enabling.")
+                .font(.caption).foregroundStyle(.secondary)
+            if let message = settings.loginMessage {
+                Text(message).font(.caption).foregroundStyle(.orange)
+                Button("Open Login Items…") { settings.openLoginSettings() }
+            }
         }
         Section {
             LabeledContent("Conversion wheel") {
@@ -110,7 +212,7 @@ struct SettingsView: View {
             HStack {
                 Text("JPEG / HEIC / WebP quality")
                 Slider(value: $settings.jpegQuality, in: 0.3...1.0)
-                Text("\(Int(settings.jpegQuality * 100))%").monospacedDigit().frame(width: 44, alignment: .trailing)
+                Text("\(Int(settings.jpegQuality * 100))%").contentTransition(.numericText()).monospacedDigit().frame(width: 44, alignment: .trailing)
             }
         }
         Section {

@@ -109,8 +109,11 @@ final class AppSettings: ObservableObject {
     }
 
     @Published var launchAtLogin: Bool {
-        didSet { applyLaunchAtLogin() }
+        didSet { if !refreshingLoginStatus { applyLaunchAtLogin() } }
     }
+
+    @Published var loginMessage: String?
+    private var refreshingLoginStatus = false
 
     @Published var jpegQuality: Double {
         didSet { defaults.set(jpegQuality, forKey: "jpegQuality") }
@@ -143,6 +146,20 @@ final class AppSettings: ObservableObject {
         NSApp.appearance = appearanceMode.appearance
     }
 
+    func refreshLoginStatus(preserveError: Bool = false) {
+        refreshingLoginStatus = true
+        defer { refreshingLoginStatus = false }
+        let status = SMAppService.mainApp.status
+        launchAtLogin = status == .enabled || status == .requiresApproval
+        if !preserveError {
+            loginMessage = status == .requiresApproval
+                ? "Allow Open Tangerine in System Settings → General → Login Items."
+                : nil
+        }
+    }
+
+    func openLoginSettings() { SMAppService.openSystemSettingsLoginItems() }
+
     private func applyLaunchAtLogin() {
         guard #available(macOS 13.0, *) else { return }
         do {
@@ -151,8 +168,10 @@ final class AppSettings: ObservableObject {
             } else {
                 try SMAppService.mainApp.unregister()
             }
+            refreshLoginStatus()
         } catch {
-            NSLog("Launch at login change failed: \(error)")
+            loginMessage = "Could not update automatic startup: \(error.localizedDescription)"
+            refreshLoginStatus(preserveError: true)
         }
     }
 }

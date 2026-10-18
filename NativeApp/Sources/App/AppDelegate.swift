@@ -18,7 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         dragMonitor.delegate = radial
         dragMonitor.start()
-        openSettings()
+        // Login-item launches stay quietly in the menu bar; show onboarding once.
+        if !UserDefaults.standard.bool(forKey: "hasOpenedSettings") {
+            UserDefaults.standard.set(true, forKey: "hasOpenedSettings")
+            openSettings()
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -28,9 +32,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let item = NSStatusBar.system.statusItem(withLength: 32)
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "circle.hexagongrid.circle", accessibilityDescription: "Open Tangerine")
+            let symbol = NSImage(systemSymbolName: "sun.max.fill", accessibilityDescription: "Open Tangerine")?
+                .withSymbolConfiguration(.init(pointSize: 21, weight: .semibold))
+            symbol?.size = NSSize(width: 22, height: 22)
+            symbol?.isTemplate = true
+            button.image = symbol
+            button.imageScaling = .scaleProportionallyDown
             button.toolTip = "Open Tangerine: hold Shift while dragging a file"
         }
         let menu = NSMenu()
@@ -81,14 +90,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = "Open Tangerine Settings"
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.titleVisibility = .hidden
-        window.toolbarStyle = .unified
-        window.toolbarDelegate = SettingsToolbarDelegate(model: model)
-        let toolbar = NSToolbar(identifier: "SettingsToolbar")
-        toolbar.delegate = window.toolbarDelegate
-        toolbar.displayMode = .iconOnly
-        toolbar.allowsUserCustomization = false
-        toolbar.centeredItemIdentifiers = [SettingsToolbarDelegate.tabsItem]
-        window.toolbar = toolbar
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.setContentSize(NSSize(width: SettingsView.width, height: SettingsView.height))
@@ -114,7 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: "Open Tangerine",
-            .applicationVersion: "0.1.0",
+            .applicationVersion: "0.1.1",
             .credits: NSAttributedString(string: "Syntax Error Private Limited • GPL-3.0-only\nBased on Satsuma by plyght (MIT). Independent of Tangerine."),
         ])
     }
