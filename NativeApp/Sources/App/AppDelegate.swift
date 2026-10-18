@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DiagnosticLog.start()
         NSApp.setActivationPolicy(.accessory)
         AppSettings.shared.applyAppearance()
+        NSApp.applicationIconImage = BrandArtwork.image(size: 256)
         installStatusItem()
         if ScreenshotDriver.isEnabled {
             ScreenshotDriver.run(radial: radial)
@@ -34,11 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: 32)
         if let button = item.button {
-            let symbol = NSImage(systemSymbolName: "sun.max.fill", accessibilityDescription: "Open Tangerine")?
-                .withSymbolConfiguration(.init(pointSize: 21, weight: .semibold))
-            symbol?.size = NSSize(width: 22, height: 22)
-            symbol?.isTemplate = true
-            button.image = symbol
+            button.image = BrandArtwork.image(size: 24, template: true)
             button.imageScaling = .scaleProportionallyDown
             button.toolTip = "Open Tangerine: hold Shift while dragging a file"
         }
@@ -112,12 +109,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func about() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .applicationName: "Open Tangerine",
-            .applicationVersion: "0.1.1",
-            .credits: NSAttributedString(string: "Syntax Error Private Limited • GPL-3.0-only\nBased on Satsuma by plyght (MIT). Independent of Tangerine."),
-        ])
+        openSettings()
+        // The About tab includes attribution and the creator link.
+        NotificationCenter.default.post(name: .init("OpenTangerineShowAbout"), object: nil)
     }
 }
-

@@ -49,9 +49,7 @@ struct SettingsView: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 26) {
                 HStack(spacing: 10) {
-                    Image(systemName: "sun.max.fill")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(Theme.accent.gradient)
+                    Image(nsImage: BrandArtwork.image(size: 40)).resizable().frame(width: 40, height: 40)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Open").font(.system(size: 15, weight: .medium))
                         Text("Tangerine").font(.system(size: 18, weight: .bold))
@@ -142,6 +140,7 @@ struct SettingsView: View {
         }
         .frame(width: Self.width, height: Self.height)
         .tint(Theme.accent)
+        .onReceive(NotificationCenter.default.publisher(for: .init("OpenTangerineShowAbout"))) { _ in model.tab = .about }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in settings.refreshLoginStatus() }
         .task(id: settings.ffmpegPath) { ffmpegHealth = await FFmpeg.checkHealth() }
     }
@@ -257,24 +256,40 @@ struct SettingsView: View {
 
     @ViewBuilder private var about: some View {
         Section {
-            HStack(spacing: 14) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 56, height: 56)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Open Tangerine").font(.title2.weight(.semibold))
-                    Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            VStack(spacing: 16) {
+                Image(nsImage: BrandArtwork.image(size: 100))
+                    .resizable().frame(width: 84, height: 84)
+                    .shadow(color: Theme.accent.opacity(0.18), radius: 12, y: 6)
+                    .accessibilityLabel("Open Tangerine icon")
+                VStack(spacing: 6) {
+                    Text("Open Tangerine").font(.system(size: 25, weight: .bold, design: .rounded))
+                    Text("A little less friction. A little more flow.")
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
+                Text("VERSION 0.1.1  ·  DEVELOPER TRIAL")
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .tracking(1.1).foregroundStyle(.secondary)
+                Divider().padding(.horizontal, 30)
+                VStack(spacing: 7) {
+                    Text("Syntax Error Private Limited").font(.system(size: 13, weight: .semibold))
+                    Text("Free to use. Open to make better.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                HStack(spacing: 5) {
+                    Text("Made with")
+                    Image(systemName: "heart.fill").foregroundStyle(Theme.accent).accessibilityLabel("love")
+                    Text("by")
+                    Link("Hemaangg", destination: URL(string: "https://www.instagram.com/hemaangg/")!)
+                        .fontWeight(.semibold)
+                        .help("Visit Hemaangg on Instagram")
+                }
+                .font(.system(size: 13))
+                .padding(.top, 2)
+                Text("GPL-3.0-only · Based on Satsuma by plyght (MIT).\nIndependent of Tangerine. Some features remain experimental.")
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).lineSpacing(3)
             }
-            .padding(.vertical, 4)
-        }
-        Section {
-            LabeledContent("Defined conversion routes", value: "\(ConversionMatrix.totalConversions)")
-            LabeledContent("Tools", value: "\(ToolID.total)")
-        } footer: {
-            Text("Early trial • GPL-3.0-only. By Syntax Error Private Limited. Based on Satsuma by plyght (MIT). Optional FFmpeg enables additional codecs. Not every route has been verified.")
+            .frame(maxWidth: .infinity).padding(.vertical, 20)
         }
     }
 

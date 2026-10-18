@@ -11,6 +11,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>OpenTangerine</string>
 <key>CFBundleIdentifier</key><string>com.syntaxerror.opentangerine</string>
 <key>CFBundleName</key><string>Open Tangerine</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.1</string>
 <key>CFBundleVersion</key><string>2</string>
@@ -20,6 +21,9 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 </dict></plist>
 PLIST
 mkdir -p "$app/Contents/Resources"
+xcrun swiftc -module-cache-path "$PWD/.build/module-cache" NativeApp/Sources/UI/BrandArtwork.swift scripts/make-icon.swift -o .build/make-icon
+.build/make-icon "$PWD/.build/AppIcon.iconset"
+iconutil -c icns .build/AppIcon.iconset -o "$app/Contents/Resources/AppIcon.icns"
 cp LICENSE "$app/Contents/Resources/GPL-3.0.txt"
 cp NativeApp/LICENSE "$app/Contents/Resources/Satsuma-MIT.txt"
 cp THIRD_PARTY_NOTICES.md "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
