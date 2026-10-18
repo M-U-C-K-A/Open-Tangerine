@@ -16,7 +16,12 @@ struct AppVersion: Comparable {
 @MainActor final class UpdateChecker {
     static let shared = UpdateChecker()
     private let endpoint = URL(string: "https://api.github.com/repos/sintaxerrorpvtltd/Open-Tangerine/releases/latest")!
-    private let releases = URL(string: "https://github.com/sintaxerrorpvtltd/Open-Tangerine/releases")!
+    var downloadPage: URL {
+        var page = URLComponents(string: "https://sintaxerrorpvtltd.github.io/Open-Tangerine/")!
+        page.queryItems = [URLQueryItem(name: "version", value: currentVersion)]
+        page.fragment = "download"
+        return page.url!
+    }
     private let session: URLSession
     private let defaults: UserDefaults
     private let currentVersion: String
@@ -39,6 +44,10 @@ struct AppVersion: Comparable {
         }
     }
     func check(interactive: Bool) async {
+        if interactive {
+            NSWorkspace.shared.open(downloadPage)
+            return
+        }
         guard !checking else { return }
         if !interactive, let last = defaults.object(forKey: "lastUpdateCheck") as? Date,
            Date().timeIntervalSince(last) < 86400 { return }
@@ -64,15 +73,7 @@ struct AppVersion: Comparable {
             if remote > current {
                 availableVersion = release.tag_name
                 onAvailable?(release.tag_name)
-                if interactive {
-                    let alert = NSAlert()
-                    alert.messageText = "Open Tangerine \(release.tag_name) is available"
-                    alert.informativeText = "Open the release page to download the update. Quit Open Tangerine and replace the app. Automatic installation is not enabled in this developer trial."
-                    alert.addButton(withTitle: "View Update")
-                    alert.addButton(withTitle: "Later")
-                    NSApp.activate(ignoringOtherApps: true)
-                    if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(releases) }
-                }
+
             } else {
                 availableVersion = nil
                 if interactive { show("No newer published release", "This app is as new as the latest published release. Source-code changes on GitHub appear here only after a release has been published.") }

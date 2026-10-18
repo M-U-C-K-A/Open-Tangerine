@@ -9,6 +9,8 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+      - name: Website checks
+        run: node scripts/test-site.cjs
       - name: Test
         run: ./scripts/test.sh
       - name: Build

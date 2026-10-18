@@ -23,6 +23,7 @@ final class UpdateResponse: URLProtocol {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let checker = UpdateChecker(session: URLSession(configuration: config), defaults: defaults, currentVersion: "0.1.2")
+        precondition(checker.downloadPage.absoluteString == "https://sintaxerrorpvtltd.github.io/Open-Tangerine/?version=0.1.2#download")
         UpdateResponse.body = #"{"tag_name":"v0.1.3","draft":false,"prerelease":false}"#
         await checker.check(interactive: false)
         precondition(checker.availableVersion == "v0.1.3")

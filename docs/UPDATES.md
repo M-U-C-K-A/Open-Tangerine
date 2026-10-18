@@ -8,7 +8,8 @@ The menu-bar Check for Updates command checks this repository's latest public Gi
 
 This is an update notification/download flow, **not automatic installation**. A signed update channel (for example Sparkle with a protected signing key), notarized binaries and rollback verification are required before shipping in-app replacement. Do not disable macOS security to install an update.
 
-The release workflow tests and builds when the build script changes, but publication is blocked unless signature verification, stapled notarization validation and Gatekeeper assessment all pass. Apple Developer ID signing and notarization must be configured before publication can resume. An ad-hoc build is for local source development only; downloading it can produce a macOS rejection even when its signature is intact. It never overwrites an existing release. A GitHub Actions failure means that release is not published; local packaged builds remain available separately.
+The release workflow tests, builds, verifies the ad-hoc signature and publishes versioned developer-trial ZIPs. These packages are explicitly not Apple-notarized and macOS can block them. Downloading or hosting them does not bypass Gatekeeper. Published versions are never overwritten.
+
 
 ## Character interaction
 
@@ -21,4 +22,8 @@ The notch now joins the physical top edge of the display and reserves the camera
 
 Starting a new conversion clears completed results. Failures no longer contaminate the next job's companion state; cancellation is checked before reporting success. Failure rows use past-tense error titles. Missing image dimensions and the 40-megapixel resource limit have distinct messages; large images include their measured dimensions. The resource limit remains in place to protect memory.
 
-The updater has HTTP-response regression tests for a newer version, the current version and an unpublished release. A source commit is not a downloadable update. Version 0.1.3 remains a source/development build until Developer ID signing and notarization are configured and verified; it is not an automatically installed release.
+The updater has HTTP-response regression tests for a newer version, the current version and an unpublished release. A source commit is not a downloadable update. Version 0.1.3 fixes are included in the 0.1.4 developer trial.
+
+## 0.1.4 website and manual updates
+
+The landing page is hosted on GitHub Pages from `/docs`. Check for Updates opens `https://sintaxerrorpvtltd.github.io/Open-Tangerine/?version=<installed>#download`. The website compares the supplied version with GitHub's latest published release. If that request fails, it provides the releases page without claiming the app is current. Automatic background checks still contact GitHub at most once a day after successful checks. Updates are manual downloads and replacements; no Apple account is required for this flow. This does not remove macOS's checks for unsigned/unnotarized software.
