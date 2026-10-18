@@ -107,6 +107,7 @@ final class RadialController: DragMonitorDelegate {
             panel.animator().alphaValue = 1
         }
         visible = true
+        Task { @MainActor in JobRunner.shared.beginWatching() }
     }
 
     private func clampedCenter(_ point: NSPoint, in frame: NSRect, radius: CGFloat) -> NSPoint {
@@ -192,6 +193,7 @@ final class RadialController: DragMonitorDelegate {
 
     func hide() {
         visible = false
+        Task { @MainActor in JobRunner.shared.endWatching() }
         pickerMode = false
         panel?.radialView.clearHighlight()
         panel?.radialView.interactive = false

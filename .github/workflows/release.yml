@@ -1,0 +1,29 @@
+name: Publish versioned trial
+on:
+  push:
+    branches: [main]
+    paths: [scripts/build-app.sh]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        run: |
+          ./scripts/test.sh
+          ./scripts/build-app.sh
+      - name: Package and publish new version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' 'dist/Open Tangerine.app/Contents/Info.plist')
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo 'This version is already published; increment the version to publish changes.'
+            exit 0
+          fi
+          ditto -c -k --sequesterRsrc --keepParent 'dist/Open Tangerine.app' "dist/Open-Tangerine-$VERSION-macOS.zip"
+          shasum -a 256 "dist/Open-Tangerine-$VERSION-macOS.zip" > dist/SHA256SUMS.txt
+          gh release create "v$VERSION" "dist/Open-Tangerine-$VERSION-macOS.zip" dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Open Tangerine $VERSION · Developer trial" --notes 'Developer trial for macOS 26+. Ad-hoc signed, not notarized. Download the ZIP, quit the previous version, and replace the app. See README for capabilities and limitations. Automatic installation is not supported yet.'

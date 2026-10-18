@@ -243,6 +243,9 @@ final class RadialView: NSView {
     private(set) var highlighted: Int? {
         didSet {
             guard oldValue != highlighted else { return }
+            let label = highlighted.flatMap { items.indices.contains($0) ? items[$0].label : nil }
+            let direction: CGFloat = highlighted.map { cos(CGFloat($0) * 2 * .pi / CGFloat(max(items.count, 1)) - .pi / 2) } ?? 0
+            Task { @MainActor in JobRunner.shared.watchWheel(label: label, direction: direction) }
             if highlighted != nil {
                 NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .drawCompleted)
             }

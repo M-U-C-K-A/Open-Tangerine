@@ -3,7 +3,7 @@
 A native macOS file converter and toolbox by **Syntax Error Private Limited**.
 Local processing, no account, no item limits, no subscription. GPL-3.0-only.
 
-**Status: 0.1.1 developer trial.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
+**Status: 0.1.2 developer trial.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
 
 ## Install from source
 
@@ -19,6 +19,10 @@ open "dist/Open Tangerine.app"
 To keep the app, drag `dist/Open Tangerine.app` into your Applications folder in Finder. The local build is ad-hoc signed, not Apple-notarized. We do not recommend disabling Gatekeeper. A signed, notarized release and automatic updates are planned.
 
 Optional: install FFmpeg from your trusted package manager (`brew install ffmpeg` if you already use Homebrew). Settings → Formats shows whether FFmpeg is available. It is already present on the development Mac. We do not bundle or silently download it.
+
+## What changed in 0.1.2
+
+Notch progress is now the default, with an original animated citrus companion, clearer job status and batch scrolling. The menu bar has Check for Updates and marks newer GitHub releases. [Update details](docs/UPDATES.md).
 
 ## What changed in 0.1.1
 
@@ -58,7 +62,7 @@ The inherited format matrix describes **188 potential routes** and **25 tool typ
 - This is not a security-certified sanitizer. Metadata editing and visible redaction should not be relied on to anonymize sensitive documents. Review exported files.
 - Heavy native operations can temporarily block the interface. Cancellation is best-effort for external processes. Worker isolation and timeouts are release gates.
 - No App Sandbox, notarization, automatic updates, Intel-specific verification or complete accessibility audit yet.
-- No AI/network service is implemented, so there is no API key or usage charge. Future AI integrations must be opt-in and bring-your-own-key.
+- No AI service is implemented, so there is no API key or usage charge. Update checks contact GitHub; file processing stays local. Future AI integrations must be opt-in and bring-your-own-key.
 
 ## Development
 

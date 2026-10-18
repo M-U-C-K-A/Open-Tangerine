@@ -131,7 +131,13 @@ final class AppSettings: ObservableObject {
         compressionResizeLongEdge = defaults.integer(forKey: "compressionResizeLongEdge")
         outputLocation = OutputLocation(rawValue: defaults.string(forKey: "outputLocation") ?? "") ?? .besideOriginal
         revealInFinder = defaults.object(forKey: "revealInFinder") as? Bool ?? true
-        progressStyle = ProgressStyle(rawValue: defaults.string(forKey: "progressStyle") ?? "") ?? .card
+        progressStyle = ProgressStyle(rawValue: defaults.string(forKey: "progressStyle") ?? "") ?? .pill
+        // One-time migration requested for existing trial installs; future user choices persist.
+        if !defaults.bool(forKey: "notchDefaultV012") {
+            progressStyle = .pill
+            defaults.set("pill", forKey: "progressStyle")
+            defaults.set(true, forKey: "notchDefaultV012")
+        }
         ffmpegPath = defaults.string(forKey: "ffmpegPath") ?? ""
         jpegQuality = defaults.object(forKey: "jpegQuality") as? Double ?? 0.9
         appearanceMode = AppearanceMode(rawValue: defaults.string(forKey: "appearanceMode") ?? "") ?? .system

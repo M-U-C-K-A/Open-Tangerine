@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var updateMenuItem: NSMenuItem?
     private var statusItem: NSStatusItem?
     private let dragMonitor = DragMonitor()
     private let radial = RadialController()
@@ -13,6 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppSettings.shared.applyAppearance()
         NSApp.applicationIconImage = BrandArtwork.image(size: 256)
         installStatusItem()
+        UpdateChecker.shared.onAvailable = { [weak self] version in
+            self?.updateMenuItem?.title = "Update available: \(version)…"
+            self?.statusItem?.button?.toolTip = "Open Tangerine — update \(version) available"
+            self?.statusItem?.button?.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: "Update available")
+        }
+        UpdateChecker.shared.start()
         if ScreenshotDriver.isEnabled {
             ScreenshotDriver.run(radial: radial)
             return
@@ -46,12 +53,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: "About Open Tangerine", action: #selector(about), keyEquivalent: "").target = self
+        let update = menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        update.target = self
+        update.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Check for updates")
+        updateMenuItem = update
         menu.addItem(withTitle: "Show Logs", action: #selector(showLogs), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Open Tangerine", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
         statusItem = item
     }
+
+    @MainActor
+    @objc private func checkForUpdates() { Task { await UpdateChecker.shared.check(interactive: true) } }
 
     @objc private func convertFiles() {
         pickFiles { [weak self] urls in self?.radial.presentPicker(for: urls, advanced: false) }

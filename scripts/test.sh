@@ -6,3 +6,5 @@ find NativeApp/Sources -name '*.swift' ! -path '*/Sources/App.swift' -print0 | x
 .build/tests
 find NativeApp/Sources -name '*.swift' ! -path '*/Sources/App.swift' -print0 | xargs -0 xcrun swiftc -swift-version 5 -parse-as-library -module-cache-path "$PWD/.build/module-cache" NativeApp/Tests/IntegrationTests.swift -o .build/integration-tests
 .build/integration-tests
+xcrun swiftc -parse-as-library -module-cache-path "$PWD/.build/module-cache" NativeApp/Sources/App/UpdateChecker.swift NativeApp/Sources/UI/CompanionState.swift NativeApp/Tests/InteractionTests.swift -o .build/interaction-tests
+.build/interaction-tests

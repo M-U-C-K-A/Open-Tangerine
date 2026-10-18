@@ -69,6 +69,7 @@ final class JobRunner: ObservableObject {
     }
 
     func enqueue(_ job: Job, work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) {
+        CompanionState.shared.transition(from: .received, to: .processing, after: 0.45)
         jobs.append(job)
         jobSubscriptions[job.id] = job.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         DiagnosticLog.log("enqueue \(job.title) / \(job.detail); jobs=\(jobs.count)")
@@ -91,6 +92,7 @@ final class JobRunner: ObservableObject {
                 job.outputs = outputs
                 job.progress = 1
                 job.status = .done
+                if jobs.allSatisfy({ $0.status.isFinished }) { CompanionState.shared.transition(from: .delivering, to: .success, after: 0.5) }
                 DiagnosticLog.log("job done: \(job.detail) -> \(outputs.map(\.lastPathComponent))")
                 if AppSettings.shared.revealInFinder, !outputs.isEmpty {
                     NSWorkspace.shared.activateFileViewerSelecting(outputs)
@@ -104,6 +106,7 @@ final class JobRunner: ObservableObject {
             } catch {
                 DiagnosticLog.log("job failed: \(job.detail): \(error)")
                 job.status = .failed(error.localizedDescription)
+                CompanionState.shared.set(.failed)
             }
             await semaphore.signal()
             scheduleHide()
@@ -113,7 +116,9 @@ final class JobRunner: ObservableObject {
     func cancel(_ job: Job) {
         DiagnosticLog.log("cancel requested: \(job.detail)")
         job.task?.cancel()
-        dismiss(job)
+        CompanionState.shared.set(.cancelled)
+        job.status = .cancelled
+        scheduleHide()
     }
 
     func cancelAll() {
@@ -126,6 +131,18 @@ final class JobRunner: ObservableObject {
     func run(title: String, detail: String, symbol: String = "arrow.triangle.2.circlepath", work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) {
         enqueue(Job(title: title, detail: detail, symbol: symbol), work: work)
     }
+
+    func watchWheel(label: String? = nil, direction: CGFloat = 0) {
+        guard jobs.isEmpty, AppSettings.shared.progressStyle == .pill else { return }
+        CompanionState.shared.watch(label: label, direction: direction)
+        showHUD()
+    }
+    func beginWatching() {
+        guard jobs.isEmpty else { return }
+        CompanionState.shared.set(.watching)
+        watchWheel()
+    }
+    func endWatching() { if jobs.isEmpty { hud?.hide() } }
 
     private func showHUD() {
         hideWorkItem?.cancel()
@@ -292,7 +309,7 @@ final class JobPillPanel: NSPanel, JobHUD {
         let target = NSRect(x: (centerX - size.width / 2).rounded(), y: top - size.height - 2, width: size.width, height: size.height)
         if isVisible, frame != target {
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.35
+                context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.25
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 animator().setFrame(target, display: true)
             }
@@ -315,46 +332,54 @@ private extension CGSize {
 
 struct JobPillView: View {
     @ObservedObject var runner: JobRunner
-    @State private var hovering = false
-
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var companion = CompanionState.shared
     enum Layout {
         static let rowHeight: CGFloat = 16
-        static let rowSpacing: CGFloat = 8
         static let iconWidth: CGFloat = 16
         static let iconSpacing: CGFloat = 8
-        static let barWidth: CGFloat = 96
         static let labelWidth: CGFloat = 92
-        static let margin: CGFloat = 4
-
-        static func horizontalPadding(rows: Int) -> CGFloat { rows > 1 ? 24 : 14 }
-        static func verticalPadding(rows: Int) -> CGFloat { rows > 1 ? 12 : 7 }
-        static func labelSpan(rows: Int) -> CGFloat { rows > 1 ? labelWidth + iconSpacing : 0 }
-
-        static func size(rows: Int) -> CGSize {
-            let width = iconWidth + iconSpacing + labelSpan(rows: rows) + barWidth + 2 * horizontalPadding(rows: rows) + 2 * margin
-            let height = CGFloat(rows) * rowHeight + CGFloat(max(0, rows - 1)) * rowSpacing + 2 * verticalPadding(rows: rows) + 2 * margin
-            return CGSize(width: width, height: height)
-        }
+        static let barWidth: CGFloat = 96
+        static func size(rows: Int) -> CGSize { CGSize(width: 360, height: 48 + CGFloat(min(max(rows, 1), 3)) * 56) }
     }
-
+    private var working: Bool { runner.jobs.contains { !$0.status.isFinished } }
+    private var failed: Bool { runner.jobs.contains { if case .failed = $0.status { return true }; return false } }
     var body: some View {
-        VStack(spacing: Layout.rowSpacing) {
-            ForEach(runner.jobs) { job in
-                JobPillRow(job: job, hovering: hovering, showsLabel: runner.jobs.count > 1) { runner.cancel(job) }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+        HStack(alignment: .center, spacing: 12) {
+            CitrusCompanion()
+            VStack(alignment: .leading, spacing: 7) {
+                HStack {
+                    Text(runner.jobs.isEmpty ? "READY WHEN YOU ARE" : companion.caption.uppercased())
+                        .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(1.5)
+                        .foregroundStyle(.white.opacity(0.5))
+                    Spacer()
+                    if runner.jobs.count > 1 {
+                        Text("\(runner.jobs.count) files").font(.system(size: 9)).foregroundStyle(.white.opacity(0.5))
+                    }
+                    if !working {
+                        Button { runner.dismissAll() } label: { Image(systemName: "xmark") }
+                            .buttonStyle(.plain).foregroundStyle(.white.opacity(0.7)).help("Dismiss results")
+                    }
+                }
+                if runner.jobs.isEmpty {
+                    Text(companion.caption).font(.system(size: 12)).foregroundStyle(.white).lineLimit(2)
+                    Text("Drop a file onto your choice").font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
+                }
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(runner.jobs) { job in
+                            NotchJobRow(job: job) { runner.cancel(job) }
+                        }
+                    }
+                }.scrollIndicators(.hidden)
             }
         }
-        .padding(.horizontal, Layout.horizontalPadding(rows: runner.jobs.count))
-        .padding(.vertical, Layout.verticalPadding(rows: runner.jobs.count))
-        .frame(minHeight: Layout.rowHeight + 2 * Layout.verticalPadding(rows: 1))
-        .glassEffect(.regular, in: .rect(cornerRadius: 15))
-        .padding(Layout.margin)
-        .contentShape(.rect)
-        .onHover { hovering = $0 }
-        .tint(Theme.accent)
-        .environment(\.appearsActive, true)
-        .animation(.easeInOut(duration: 0.35), value: runner.jobs.map(\.id))
-        .animation(.easeInOut(duration: 0.2), value: hovering)
+        .padding(.horizontal, 18).padding(.vertical, 16)
+        .frame(width: 352, height: Layout.size(rows: runner.jobs.count).height - 8)
+        .background(.black, in: UnevenRoundedRectangle(topLeadingRadius: 10, bottomLeadingRadius: 24, bottomTrailingRadius: 24, topTrailingRadius: 10))
+        .overlay(UnevenRoundedRectangle(topLeadingRadius: 10, bottomLeadingRadius: 24, bottomTrailingRadius: 24, topTrailingRadius: 10).strokeBorder(.white.opacity(0.12)))
+        .padding(4)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: runner.jobs.map(\.id))
     }
 }
 

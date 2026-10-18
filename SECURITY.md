@@ -2,7 +2,7 @@
 
 This is a developer trial, not a hardened file-processing boundary. Process only files you trust while worker isolation is unfinished.
 
-No account, telemetry, upload or AI service is implemented. Normal logging is off. `OPEN_TANGERINE_DEBUG=1` opts into local diagnostic logs which may contain filenames; do not publish them without review.
+No account, telemetry, file upload or AI service is implemented. Version checks contact the fixed public GitHub releases endpoint without file contents or credentials. Normal logging is off. `OPEN_TANGERINE_DEBUG=1` opts into local diagnostic logs which may contain filenames; do not publish them without review.
 
 Conversion staging never deletes an existing destination. Native image input has file-size and pixel limits. External processes receive argument arrays and have bounded captured output. Archive conversion is disabled pending safe extraction. Original files are retained by conversion workflows.
 

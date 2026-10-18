@@ -89,7 +89,7 @@ struct SettingsView: View {
                         .font(.system(size: 12, weight: .semibold))
                     Text("Your files. Your workflow.")
                         .font(.caption).foregroundStyle(.secondary)
-                    Text("OPEN SOURCE  /  0.1.1")
+                    Text("OPEN SOURCE  /  0.1.2")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .tracking(1.2).foregroundStyle(.tertiary)
                 }
@@ -202,7 +202,7 @@ struct SettingsView: View {
         } footer: {
             Text(settings.progressStyle == .card
                  ? "A floating card in the top right corner with the file name and percentage."
-                 : "A tiny progress bar in a pill below the notch.")
+                 : "An animated citrus companion below the notch, with file progress and results.")
         }
     }
 
@@ -266,7 +266,7 @@ struct SettingsView: View {
                     Text("A little less friction. A little more flow.")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
-                Text("VERSION 0.1.1  ·  DEVELOPER TRIAL")
+                Text("VERSION 0.1.2  ·  DEVELOPER TRIAL")
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .tracking(1.1).foregroundStyle(.secondary)
                 Divider().padding(.horizontal, 30)
