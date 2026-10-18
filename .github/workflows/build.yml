@@ -10,7 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Website checks
-        run: node scripts/test-site.cjs
+        run: |
+          node scripts/test-site.cjs
+          node scripts/test-demo.cjs
       - name: Test
         run: ./scripts/test.sh
       - name: Build

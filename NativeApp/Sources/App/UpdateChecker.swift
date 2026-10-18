@@ -25,11 +25,14 @@ struct AppVersion: Comparable {
     private let session: URLSession
     private let defaults: UserDefaults
     private let currentVersion: String
+    private let openPage: (URL) -> Void
     init(session: URLSession = .shared, defaults: UserDefaults = .standard,
-         currentVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0") {
+         currentVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0",
+         openPage: @escaping (URL) -> Void = { NSWorkspace.shared.open($0) }) {
         self.session = session
         self.defaults = defaults
         self.currentVersion = currentVersion
+        self.openPage = openPage
     }
     private var checking = false
     private var timer: Timer?
@@ -45,11 +48,11 @@ struct AppVersion: Comparable {
     }
     func check(interactive: Bool) async {
         if interactive {
-            NSWorkspace.shared.open(downloadPage)
+            openPage(downloadPage)
             return
         }
         guard !checking else { return }
-        if !interactive, let last = defaults.object(forKey: "lastUpdateCheck") as? Date,
+        if let last = defaults.object(forKey: "lastUpdateCheck") as? Date,
            Date().timeIntervalSince(last) < 86400 { return }
         checking = true
         defer { checking = false }
@@ -60,7 +63,6 @@ struct AppVersion: Comparable {
             let (data, response) = try await session.data(for: request)
             guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
             if response.statusCode == 404 {
-                if interactive { show("No published releases yet", "You are using a developer build. Releases will appear here when published.") }
                 return
             }
             guard response.statusCode == 200, data.count < 1_000_000 else { throw URLError(.badServerResponse) }
@@ -76,14 +78,9 @@ struct AppVersion: Comparable {
 
             } else {
                 availableVersion = nil
-                if interactive { show("No newer published release", "This app is as new as the latest published release. Source-code changes on GitHub appear here only after a release has been published.") }
             }
         } catch {
-            if interactive { show("Couldn’t check for updates", "Check your connection and try again. GitHub may also be temporarily unavailable or rate-limited.") }
+            // Background failures remain silent; manual checks always open the website.
         }
-    }
-    private func show(_ title: String, _ detail: String) {
-        let alert = NSAlert(); alert.messageText = title; alert.informativeText = detail
-        NSApp.activate(ignoringOtherApps: true); alert.runModal()
     }
 }

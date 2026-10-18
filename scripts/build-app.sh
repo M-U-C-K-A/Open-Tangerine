@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-# 0.1.4: deterministic transition tests and nonactivating companion panel.
+# 0.1.5: website update handoff and visual workflow release.
 cd "$(dirname "$0")/.."
 app="$PWD/dist/Open Tangerine.app"
 mkdir -p "$app/Contents/MacOS" "$PWD/.build/module-cache"
@@ -14,8 +14,8 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>Open Tangerine</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.4</string>
-<key>CFBundleVersion</key><string>5</string>
+<key>CFBundleShortVersionString</key><string>0.1.5</string>
+<key>CFBundleVersion</key><string>6</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
@@ -28,7 +28,7 @@ python3 scripts/package-icon.py .build/AppIcon.iconset "$app/Contents/Resources/
 cp LICENSE "$app/Contents/Resources/GPL-3.0.txt"
 cp NativeApp/LICENSE "$app/Contents/Resources/Satsuma-MIT.txt"
 cp THIRD_PARTY_NOTICES.md "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
-# Local development uses ad-hoc signing; public releases require Developer ID.
+# Developer trials use ad-hoc signing. Developer ID + notarization is required for trusted public distribution.
 if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
   codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID_APPLICATION" "$app"
 else
