@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+# 0.1.2: deterministic transition tests and nonactivating companion panel.
 cd "$(dirname "$0")/.."
 app="$PWD/dist/Open Tangerine.app"
 mkdir -p "$app/Contents/MacOS" "$PWD/.build/module-cache"

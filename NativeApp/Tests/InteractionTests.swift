@@ -9,12 +9,12 @@ import Foundation
         state.set(.watching)
         state.watch(label: "PNG", direction: 3)
         precondition(state.gaze == 1 && state.caption.contains("PNG"))
-        state.transition(from: .received, to: .processing, after: 0.01)
+        let interrupted = state.transition(from: .received, to: .processing, after: 0.01)
         state.set(.failed)
-        try await Task.sleep(for: .milliseconds(30))
+        await interrupted.value
         precondition(state.phase == .failed, "Late animation must not overwrite error")
-        state.transition(from: .delivering, to: .success, after: 0.01)
-        try await Task.sleep(for: .milliseconds(30))
+        let completed = state.transition(from: .delivering, to: .success, after: 0.01)
+        await completed.value
         precondition(state.phase == .success)
         print("PASS version ordering, invalid version rejection, gaze bounds, interrupted and completion transitions")
     }

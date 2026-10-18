@@ -25,10 +25,11 @@ import SwiftUI
         case .cancelled: caption = "Stopped. Your original is safe."
         }
     }
-    func transition(from: Phase, to: Phase, after delay: Double) {
+    @discardableResult
+    func transition(from: Phase, to: Phase, after delay: Double) -> Task<Void, Never> {
         set(from)
         let token = generation
-        Task {
+        return Task {
             try? await Task.sleep(for: .seconds(delay))
             guard generation == token else { return }
             set(to)

@@ -92,7 +92,15 @@ final class JobRunner: ObservableObject {
                 job.outputs = outputs
                 job.progress = 1
                 job.status = .done
-                if jobs.allSatisfy({ $0.status.isFinished }) { CompanionState.shared.transition(from: .delivering, to: .success, after: 0.5) }
+                if jobs.allSatisfy({ $0.status.isFinished }) {
+                    if jobs.contains(where: { if case .failed = $0.status { return true }; return false }) {
+                        CompanionState.shared.set(.failed)
+                    } else if jobs.contains(where: { $0.status == .cancelled }) {
+                        CompanionState.shared.set(.cancelled)
+                    } else {
+                        CompanionState.shared.transition(from: .delivering, to: .success, after: 0.5)
+                    }
+                }
                 DiagnosticLog.log("job done: \(job.detail) -> \(outputs.map(\.lastPathComponent))")
                 if AppSettings.shared.revealInFinder, !outputs.isEmpty {
                     NSWorkspace.shared.activateFileViewerSelecting(outputs)
@@ -291,7 +299,7 @@ final class JobPillPanel: NSPanel, JobHUD {
         DiagnosticLog.log("pill hosting controller attached")
     }
 
-    override var canBecomeKey: Bool { true }
+    override var canBecomeKey: Bool { false }
 
     func show() {
         let notchScreen = NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
@@ -316,7 +324,7 @@ final class JobPillPanel: NSPanel, JobHUD {
         } else {
             setFrame(target, display: true)
         }
-        makeKeyAndOrderFront(nil)
+        orderFrontRegardless()
         DiagnosticLog.log("pill ordered front")
     }
 
