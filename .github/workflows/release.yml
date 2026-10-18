@@ -15,6 +15,13 @@ jobs:
         run: |
           ./scripts/test.sh
           ./scripts/build-app.sh
+      # Fail closed: an ad-hoc signed ZIP must never become an advertised update.
+      # Signing/notarization credentials must be configured before publication resumes.
+      - name: Require Apple-approved distribution build
+        run: |
+          codesign --verify --deep --strict --verbose=2 'dist/Open Tangerine.app'
+          xcrun stapler validate 'dist/Open Tangerine.app'
+          spctl --assess --type execute --verbose=4 'dist/Open Tangerine.app'
       - name: Package and publish new version
         env:
           GH_TOKEN: ${{ github.token }}
@@ -26,4 +33,4 @@ jobs:
           fi
           ditto -c -k --sequesterRsrc --keepParent 'dist/Open Tangerine.app' "dist/Open-Tangerine-$VERSION-macOS.zip"
           shasum -a 256 "dist/Open-Tangerine-$VERSION-macOS.zip" > dist/SHA256SUMS.txt
-          gh release create "v$VERSION" "dist/Open-Tangerine-$VERSION-macOS.zip" dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Open Tangerine $VERSION · Developer trial" --notes 'Developer trial for macOS 26+. Ad-hoc signed, not notarized. Download the ZIP, quit the previous version, and replace the app. See README for capabilities and limitations. Automatic installation is not supported yet.'
+          gh release create "v$VERSION" "dist/Open-Tangerine-$VERSION-macOS.zip" dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Open Tangerine $VERSION · Developer trial" --notes 'Developer trial for macOS 26+. Developer ID signed and notarized. Download the ZIP, quit the previous version, and replace the app. See README for capabilities and limitations. Automatic installation is not supported yet.'
