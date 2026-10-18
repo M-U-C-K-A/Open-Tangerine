@@ -19,5 +19,9 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
+mkdir -p "$app/Contents/Resources"
+cp LICENSE "$app/Contents/Resources/GPL-3.0.txt"
+cp NativeApp/LICENSE "$app/Contents/Resources/Satsuma-MIT.txt"
+cp THIRD_PARTY_NOTICES.md "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
 codesign --force --sign - "$app"
 printf 'Built %s\n' "$app"

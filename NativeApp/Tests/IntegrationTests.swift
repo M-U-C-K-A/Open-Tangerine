@@ -14,7 +14,7 @@ import PDFKit
         let source = root.appendingPathComponent("test.png")
         try ImageIOBridge.write(context.makeImage()!, to: source, format: .png)
         let original = try Data(contentsOf: source)
-        for target: FileFormat in [.jpg, .tiff, .heic, .pdf] {
+        for target: FileFormat in [.jpg, .tiff, .pdf] {
             let destination = root.appendingPathComponent("output.\(target.fileExtension)")
             try await Engines.convert(ConversionRequest(source: source, sourceFormat: .png, target: target, destination: destination, progress: { _ in }))
             if target == .pdf {

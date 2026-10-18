@@ -67,7 +67,6 @@ The inherited format matrix describes **188 potential routes** and **25 tool typ
 - `NativeApp/Tests/`: inherited deterministic tests and real conversion regression tests.
 - `scripts/`: reproducible compiler, test and packaging entry points.
 - `docs/PRD.md`: product direction; roadmap items are not current capabilities.
-- `Prototypes/ImageOnly/`: earlier exploratory code, excluded from the app build.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [build status](docs/BUILD-STATUS.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
 
