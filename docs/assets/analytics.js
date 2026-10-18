@@ -1,5 +1,7 @@
 'use strict';
 (() => {
+  // Collection paused until Open Tangerine has its own analytics project.
+  return;
   if (location.hostname !== 'sintaxerrorpvtltd.github.io' || !location.pathname.startsWith('/Open-Tangerine/')) return;
   const storageKey = 'open-tangerine-analytics';
   const lifetime = 180 * 24 * 60 * 60 * 1000;
