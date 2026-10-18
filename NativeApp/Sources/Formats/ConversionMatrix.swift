@@ -21,7 +21,7 @@ enum ConversionMatrix {
         case .srt, .vtt:
             list = FileFormat.subtitles + [.txt]
         case .zip, .tar, .gz, .rar:
-            list = FileFormat.archives
+            list = [] // Archive engine is disabled; do not offer operations that always fail.
         case .docx:
             list = []
         }

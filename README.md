@@ -3,7 +3,7 @@
 A native macOS file converter and toolbox by **Syntax Error Private Limited**.
 Local processing, no account, no item limits, no subscription. GPL-3.0-only.
 
-**Status: 0.1.5 developer trial — ad-hoc signed, not Apple-notarized.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
+**Status: 0.1.6 developer trial — ad-hoc signed, not Apple-notarized.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
 
 ## Download for Mac
 
@@ -26,6 +26,12 @@ To keep the app, drag `dist/Open Tangerine.app` into your Applications folder in
 
 Optional: install FFmpeg from your trusted package manager (`brew install ffmpeg` if you already use Homebrew). Settings → Formats shows whether FFmpeg is available. It is already present on the development Mac. We do not bundle or silently download it.
 
+## What changed in 0.1.6
+
+WebP conversion now has a built-in lossless fallback when the installed FFmpeg lacks `libwebp`. AVIF and Ogg choose available encoders. Batch jobs reserve distinct filenames across overlapping requests and report unsupported inputs individually. PDF/DOCX page order, precise video trimming, silent-video operations, audio channels/bleep, PNG compression, image rotation, framing and metadata handling have regression fixes. [Test coverage and known gaps](docs/BUILD-STATUS.md).
+
+The lossless WebP fallback prioritizes compatibility, produces larger files, and does not use the lossy quality slider. It supports up to 16,384 pixels per side and keeps outputs within the app's 100 MB input limit; larger images need a compressed WebP encoder or resizing. Audio/video still require a suitable FFmpeg build for many operations. Word support is DOCX export, not general DOCX input conversion.
+
 ## What changed in 0.1.2
 
 Notch progress is now the default, with an original animated citrus companion, clearer job status and batch scrolling. The menu bar has Check for Updates and marks newer GitHub releases. [Update details](docs/UPDATES.md).
@@ -38,7 +44,7 @@ Roomier settings with sidebar navigation, orange selection highlights, contextua
 
 The app lives in the menu bar; Settings opens on first launch. Enable **Settings → General → Start automatically at login** after moving it to Applications. Future logins start it quietly in the menu bar. If macOS needs approval, the app links to Login Items.
 
-1. Drag an image in Finder, hold **Shift**, and drop it on a format in the wheel.
+1. Select one or several files in Finder (for example four PNGs), drag them together, hold **Shift**, and drop on JPEG or another common target. Each input produces its own output; a failed file does not stop the others.
 2. Hold **Command** while dragging for the tool wheel. **Option + Shift** also works.
 3. Hold **Control** while dragging for file actions.
 4. If dragging does not trigger a wheel, use the menu-bar **Convert Files…**, **Open Tool for Files…**, or **File Actions…** commands. These also support multiple selections.
@@ -57,7 +63,7 @@ Start with copies of ordinary files. Try PNG → JPEG, crop/resize, create a PDF
 | File actions | Reveal in Finder, copy files, copy paths, duplicate, streaming SHA-256 checksum copied to clipboard |
 | Workflow | Batch jobs, cancellation, output naming, floating or notch progress, light/dark appearance, launch at login |
 
-The inherited format matrix describes **188 potential routes** and **25 tool types**. This is a catalogue, not a claim that every codec, tool or route has passed end-to-end tests. Archive routes are disabled in this trial. Optional codec availability varies by FFmpeg build.
+The active format matrix describes **176 potential routes** and **25 tool types**. This is a catalogue, not a claim that every codec, tool or route has passed end-to-end tests. Archive routes are disabled in this trial. Optional codec availability varies by FFmpeg build.
 
 ## Limitations
 

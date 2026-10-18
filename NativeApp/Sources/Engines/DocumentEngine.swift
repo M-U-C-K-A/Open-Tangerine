@@ -67,6 +67,7 @@ enum TextRenderer {
         let width = Int(pageSize.width * scale)
         let pageHeight = Int(pageSize.height * scale)
         let totalHeight = pageHeight * ranges.count
+        try ImageIOBridge.validateDimensions(width: width, height: totalHeight)
         guard let context = CGContext(
             data: nil, width: width, height: totalHeight, bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
@@ -111,8 +112,12 @@ enum PDFRenderer {
         let scale = dpi / 72
         let rotation = page.rotation
         let rotated = rotation % 180 != 0
-        let width = Int(((rotated ? bounds.height : bounds.width) * scale).rounded())
-        let height = Int(((rotated ? bounds.width : bounds.height) * scale).rounded())
+        let pixelWidth = ((rotated ? bounds.height : bounds.width) * scale).rounded()
+        let pixelHeight = ((rotated ? bounds.width : bounds.height) * scale).rounded()
+        guard pixelWidth.isFinite, pixelHeight.isFinite, pixelWidth > 0, pixelHeight > 0,
+              pixelWidth * pixelHeight <= 40_000_000 else { return nil }
+        let width = Int(pixelWidth)
+        let height = Int(pixelHeight)
         guard width > 0, height > 0, let context = CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
@@ -149,7 +154,7 @@ struct DocumentEngine: ConversionEngine {
     }
 
     private func convertPDF(_ request: ConversionRequest) async throws {
-        guard let document = PDFDocument(url: request.source) else { throw OpenTangerineError.unreadable(request.source) }
+        let document = try PDFOps.document(request.source)
         let pageCount = document.pageCount
         switch request.target {
         case .txt:
@@ -157,6 +162,9 @@ struct DocumentEngine: ConversionEngine {
             for index in 0..<pageCount {
                 if let page = document.page(at: index), let content = page.string { text += content + "\n\n" }
                 request.progress(Double(index + 1) / Double(pageCount))
+            }
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw OpenTangerineError.invalidInput("This PDF has no selectable text. Scanned pages require OCR, which is not supported yet.")
             }
             try text.write(to: request.destination, atomically: true, encoding: .utf8)
         case .jpg, .png:
@@ -166,9 +174,10 @@ struct DocumentEngine: ConversionEngine {
             } else {
                 let folder = request.destination.deletingPathExtension()
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                defer { try? FileManager.default.removeItem(at: folder) }
                 let base = ConversionMatrix.strippedBaseName(request.source.lastPathComponent)
                 for index in 0..<pageCount {
-                    guard let page = document.page(at: index), let image = PDFRenderer.render(page: page) else { continue }
+                    guard let page = document.page(at: index), let image = PDFRenderer.render(page: page) else { throw OpenTangerineError.encodeFailed("PDF page \(index + 1)") }
                     let pageURL = folder.appendingPathComponent("\(base) - page \(index + 1).\(request.target.fileExtension)")
                     try ImageIOBridge.write(image, to: pageURL, format: request.target, quality: 0.92)
                     request.progress(Double(index + 1) / Double(pageCount))
@@ -177,24 +186,24 @@ struct DocumentEngine: ConversionEngine {
                 try FileManager.default.moveItem(at: folder, to: request.destination)
             }
         case .docx:
-            var paragraphs: [String] = []
-            var images: [URL] = []
+            var blocks: [DocxWriter.Block] = []
             let temp = FileManager.default.temporaryDirectory.appendingPathComponent("opentangerine-pdfdocx-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: temp) }
             for index in 0..<pageCount {
-                guard let page = document.page(at: index) else { continue }
+                guard let page = document.page(at: index) else { throw OpenTangerineError.encodeFailed("PDF page \(index + 1)") }
+                if index > 0 { blocks.append(.pageBreak) }
                 let text = page.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 if !text.isEmpty {
-                    paragraphs += text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+                    blocks += text.components(separatedBy: "\n").map { .paragraph($0.trimmingCharacters(in: .whitespaces)) }
                 } else if let image = PDFRenderer.render(page: page, dpi: 150) {
                     let pageImage = temp.appendingPathComponent("page\(index + 1).png")
                     try ImageIOBridge.write(image, to: pageImage, format: .png)
-                    images.append(pageImage)
+                    blocks.append(.image(pageImage))
                 }
                 request.progress(Double(index + 1) / Double(pageCount) * 0.8)
             }
-            try await DocxWriter.write(paragraphs: paragraphs, images: images, to: request.destination)
+            try await DocxWriter.write(blocks: blocks, to: request.destination)
         default:
             throw OpenTangerineError.unsupportedConversion(.pdf, request.target)
         }

@@ -67,7 +67,7 @@ struct MetadataToolView: View {
             SidebarSection(title: "Remove") {
                 Toggle("Remove all metadata", isOn: $removeAll)
                 Toggle("Remove camera, GPS and processing data", isOn: $removeSensitive).disabled(removeAll)
-                Text("Pixel data, page content and audio are untouched. Orientation and color profile are kept.")
+                Text("Orientation and color profile are kept. Removing sensitive data clears all audio/video tags, and author/creator details from PDFs. Images may be re-encoded.")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             SidebarSection(title: "Editing") {

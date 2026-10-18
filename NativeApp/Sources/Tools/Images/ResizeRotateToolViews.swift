@@ -169,7 +169,7 @@ struct RotateImageToolView: View {
     private func save() {
         let turns = quarterTurns, h = flipH, v = flipV
         ImageToolSupport.saveEach(session, suffix: "rotated", title: "Rotating", detail: "\(session.files.count) image\(session.files.count == 1 ? "" : "s")") { _, image in
-            ImageOps.rotated(image, quarterTurns: turns, flipHorizontal: h, flipVertical: v)
+            try ImageOps.rotated(image, quarterTurns: turns, flipHorizontal: h, flipVertical: v)
         }
     }
 }

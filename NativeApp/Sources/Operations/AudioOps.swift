@@ -16,7 +16,7 @@ enum AudioOps {
 
     static func trim(_ url: URL, start: Double, end: Double, to destination: URL, format: FileFormat, progress: @escaping (Double) -> Void) async throws {
         let range = AVExporter.timeRange(start: start, end: end)
-        if AudioEngine.nativeTargets.contains(format), await MediaInfo.isNativelyReadable(url) {
+        if !FFmpeg.isAvailable, AudioEngine.nativeTargets.contains(format), await MediaInfo.isNativelyReadable(url) {
             let asset = AVURLAsset(url: url)
             if format == .m4a {
                 try await AVExporter.export(asset: asset, to: destination, format: .m4a, preset: AVAssetExportPresetAppleM4A, timeRange: range, progress: progress)
@@ -26,7 +26,7 @@ enum AudioOps {
             return
         }
         var args = ["-ss", FFmpeg.timecode(start), "-to", FFmpeg.timecode(end), "-i", url.path, "-vn"]
-        args += AudioEngine.codecArguments(for: format) + AudioEngine.containerArguments(for: format) + [destination.path]
+        args += await AudioEngine.resolvedCodecArguments(for: format) + AudioEngine.containerArguments(for: format) + [destination.path]
         try await FFmpeg.run(args, purpose: "Trimming audio", duration: end - start, progress: progress)
     }
 
@@ -55,6 +55,7 @@ enum AudioOps {
     }
 
     static func waveform(_ url: URL, buckets: Int) async -> [Float] {
+        guard buckets > 0 else { return [] }
         if let file = try? AVAudioFile(forReading: url) {
             let format = file.processingFormat
             let frameCount = AVAudioFrameCount(file.length)
@@ -121,7 +122,7 @@ enum AudioOps {
             let duration = await FFmpeg.probeDuration(url)
             let filter = "loudnorm=I=\(targetLUFS):LRA=\(range):TP=\(truePeak)"
             var args = ["-i", url.path, "-vn", "-af", filter]
-            args += AudioEngine.codecArguments(for: format) + AudioEngine.containerArguments(for: format) + [destination.path]
+            args += await AudioEngine.resolvedCodecArguments(for: format) + AudioEngine.containerArguments(for: format) + [destination.path]
             try await FFmpeg.run(args, purpose: "Normalizing", duration: duration, progress: progress)
             return
         }
@@ -167,8 +168,7 @@ enum AudioOps {
 
     static func convertChannels(_ url: URL, mode: ChannelMode, leftGain: Double, rightGain: Double, to destination: URL, format: FileFormat, progress: @escaping (Double) -> Void) async throws {
         guard FFmpeg.isAvailable else {
-            try await applyGain(url, left: Float(leftGain), right: Float(rightGain), to: destination, format: format, progress: progress)
-            return
+            throw OpenTangerineError.ffmpegMissing("Channel conversion")
         }
         let pan: String
         switch mode {
@@ -179,8 +179,8 @@ enum AudioOps {
         case .swap: pan = "pan=stereo|c0=\(rightGain)*c1|c1=\(leftGain)*c0"
         }
         let duration = await FFmpeg.probeDuration(url)
-        var args = ["-i", url.path, "-vn", "-af", pan]
-        args += AudioEngine.codecArguments(for: format) + AudioEngine.containerArguments(for: format) + [destination.path]
+        var args = ["-i", url.path, "-vn", "-af", "aformat=channel_layouts=stereo," + pan]
+        args += await AudioEngine.resolvedCodecArguments(for: format) + AudioEngine.containerArguments(for: format) + [destination.path]
         try await FFmpeg.run(args, purpose: "Converting channels", duration: duration, progress: progress)
     }
 
@@ -199,27 +199,11 @@ enum AudioOps {
             let toneEnable = sorted.map { "between(t,\($0.start),\($0.end))" }.joined(separator: "+")
             let filter = "[0:a]volume=enable='\(mute)':volume=0[muted];sine=frequency=\(Int(frequency)):sample_rate=48000,volume=0.5,volume=enable='not(\(toneEnable))':volume=0[tone];[muted][tone]amix=inputs=2:duration=first:dropout_transition=0,volume=2[out]"
             var args = ["-i", url.path, "-filter_complex", filter, "-map", "[out]"]
-            args += AudioEngine.codecArguments(for: format) + AudioEngine.containerArguments(for: format) + [destination.path]
+            args += await AudioEngine.resolvedCodecArguments(for: format) + AudioEngine.containerArguments(for: format) + [destination.path]
             try await FFmpeg.run(args, purpose: "Bleeping audio", duration: duration, progress: progress)
             return
         }
-        let asset = AVURLAsset(url: url)
-        let tracks = try await asset.loadTracks(withMediaType: .audio)
-        guard let track = tracks.first else { throw OpenTangerineError.invalidInput("No audio track found.") }
-        let params = AVMutableAudioMixInputParameters(track: track)
-        params.setVolume(1, at: .zero)
-        for range in sorted {
-            params.setVolume(0, at: CMTime(seconds: range.start, preferredTimescale: 600))
-            params.setVolume(1, at: CMTime(seconds: range.end, preferredTimescale: 600))
-        }
-        let mix = AVMutableAudioMix()
-        mix.inputParameters = [params]
-        let native: FileFormat = AudioEngine.nativeTargets.contains(format) ? format : .m4a
-        if native == .m4a {
-            try await AVExporter.export(asset: asset, to: destination, format: .m4a, preset: AVAssetExportPresetAppleM4A, audioMix: mix, progress: progress)
-        } else {
-            try await AVExporter.exportAudioPCM(asset: asset, to: destination, format: native, audioMix: mix, progress: progress)
-        }
+        throw OpenTangerineError.ffmpegMissing("Bleep tone generation")
     }
 
     enum VisualizerStyle: String, CaseIterable, Identifiable {

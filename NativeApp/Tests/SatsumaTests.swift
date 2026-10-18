@@ -39,8 +39,9 @@ struct OpenTangerineTests {
     static func main() {
         let runner = TestRunner()
 
-        runner.test("conversion matrix has 188 options") {
-            try expectEqual(ConversionMatrix.totalConversions, 188)
+        runner.test("conversion matrix excludes disabled archives") {
+            try expectEqual(ConversionMatrix.totalConversions, 176)
+            try expectEqual(ConversionMatrix.targets(for: .zip).count, 0)
         }
 
         runner.test("25 advanced tools") {
@@ -71,7 +72,7 @@ struct OpenTangerineTests {
             try expectEqual(ConversionMatrix.targets(for: .pdf), [.docx, .jpg, .png, .txt])
             try expectEqual(ConversionMatrix.targets(for: .txt), [.pdf, .jpg, .png, .srt, .vtt])
             try expectEqual(ConversionMatrix.targets(for: .srt), [.vtt, .txt])
-            try expectEqual(ConversionMatrix.targets(for: .zip), [.tar, .gz, .rar])
+            try expectEqual(ConversionMatrix.targets(for: .zip), [])
             try expectEqual(ConversionMatrix.targets(for: .docx), [])
         }
 

@@ -23,7 +23,14 @@ enum ZipTool {
 }
 
 enum DocxWriter {
+    enum Block { case paragraph(String), image(URL), pageBreak }
+
     static func write(paragraphs: [String], images: [URL], to destination: URL) async throws {
+        try await write(blocks: paragraphs.map { .paragraph($0) } + images.map { .image($0) }, to: destination)
+    }
+
+    static func write(blocks: [Block], to destination: URL) async throws {
+        let images = blocks.compactMap { block -> URL? in if case .image(let url) = block { return url }; return nil }
         let fm = FileManager.default
         let staging = fm.temporaryDirectory.appendingPathComponent("opentangerine-docx-\(UUID().uuidString)")
         defer { try? fm.removeItem(at: staging) }
@@ -35,12 +42,22 @@ enum DocxWriter {
         <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
         """
         var body = ""
-        for paragraph in paragraphs {
-            body += "<w:p><w:r><w:t xml:space=\"preserve\">\(escape(paragraph))</w:t></w:r></w:p>"
-        }
         var contentTypesExtra = ""
         var seenExtensions = Set<String>()
-        for (index, image) in images.enumerated() {
+        var imageIndex = 0
+        for block in blocks {
+            switch block {
+            case .paragraph(let paragraph):
+                body += "<w:p><w:r><w:t xml:space=\"preserve\">\(escape(paragraph))</w:t></w:r></w:p>"
+                continue
+            case .pageBreak:
+                body += "<w:p><w:r><w:br w:type=\"page\"/></w:r></w:p>"
+                continue
+            case .image: break
+            }
+            guard case .image(let image) = block else { continue }
+            let index = imageIndex
+            imageIndex += 1
             let ext = image.pathExtension.lowercased().isEmpty ? "png" : image.pathExtension.lowercased()
             let name = "image\(index + 1).\(ext)"
             try fm.copyItem(at: image, to: staging.appendingPathComponent("word/media/\(name)"))

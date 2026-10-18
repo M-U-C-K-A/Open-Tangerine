@@ -21,16 +21,18 @@ enum SubtitleParser {
             if line.contains("-->") {
                 sawTimecode = true
                 let parts = line.components(separatedBy: "-->")
-                let start = parseTimestamp(parts[0]) ?? 0
+                let start = parseTimestamp(parts[0])
                 let endToken = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespaces).components(separatedBy: " ").first ?? "" : ""
-                let end = parseTimestamp(endToken) ?? start
+                let end = parseTimestamp(endToken)
                 var body: [String] = []
                 index += 1
                 while index < lines.count, !lines[index].trimmingCharacters(in: .whitespaces).isEmpty {
                     body.append(lines[index])
                     index += 1
                 }
-                cues.append(SubtitleCue(start: start, end: end, text: body.joined(separator: "\n")))
+                if let start, let end, end >= start {
+                    cues.append(SubtitleCue(start: start, end: end, text: body.joined(separator: "\n")))
+                }
             } else {
                 index += 1
             }
@@ -61,18 +63,19 @@ enum SubtitleParser {
         guard !parts.isEmpty, parts.count <= 3 else { return nil }
         var total = 0.0
         for part in parts {
-            guard let value = Double(part) else { return nil }
+            guard let value = Double(part), value.isFinite, value >= 0 else { return nil }
             total = total * 60 + value
         }
         return total
     }
 
     static func format(_ seconds: Double, separator: String) -> String {
-        let clamped = max(0, seconds)
-        let hours = Int(clamped) / 3600
-        let minutes = (Int(clamped) % 3600) / 60
-        let secs = Int(clamped) % 60
-        let millis = Int(((clamped - Double(Int(clamped))) * 1000).rounded())
+        let clamped = seconds.isFinite ? min(max(0, seconds), 315_360_000) : 0
+        let totalMillis = Int((clamped * 1000).rounded())
+        let hours = totalMillis / 3_600_000
+        let minutes = (totalMillis / 60_000) % 60
+        let secs = (totalMillis / 1000) % 60
+        let millis = totalMillis % 1000
         return String(format: "%02d:%02d:%02d\(separator)%03d", hours, minutes, secs, min(millis, 999))
     }
 
@@ -109,6 +112,7 @@ struct SubtitleEngine: ConversionEngine {
     func convert(_ request: ConversionRequest) async throws {
         let text = try TextFile.read(request.source)
         let cues = SubtitleParser.parse(text, hint: request.sourceFormat)
+        guard !cues.isEmpty else { throw OpenTangerineError.invalidInput("No valid subtitle cues were found.") }
         let output = SubtitleParser.serialize(cues, as: request.target)
         try output.write(to: request.destination, atomically: true, encoding: .utf8)
         request.progress(1)

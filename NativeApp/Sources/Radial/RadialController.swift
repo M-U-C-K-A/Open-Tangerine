@@ -156,7 +156,7 @@ final class RadialController: DragMonitorDelegate {
         }
         if formats.count != urls.count {
             view.items = []
-            view.emptyMessage = "Unsupported file type"
+            view.emptyMessage = "Selection includes unsupported files"
             return
         }
         if advanced {
@@ -164,7 +164,7 @@ final class RadialController: DragMonitorDelegate {
             view.emptyMessage = "No tools for this selection"
         } else {
             view.items = ConversionMatrix.targets(for: formats).map(RadialItem.init(format:))
-            view.emptyMessage = "No conversions available"
+            view.emptyMessage = count > 1 ? "No shared conversion for these files" : "No conversions available"
         }
     }
 

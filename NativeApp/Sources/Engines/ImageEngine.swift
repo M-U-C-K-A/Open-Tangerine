@@ -93,7 +93,7 @@ enum ImageIOBridge {
         return CGSize(width: width, height: height)
     }
 
-    static func write(_ image: CGImage, to url: URL, format: FileFormat, quality: Double = 0.9, metadata: [CFString: Any]? = nil) throws {
+    static func write(_ image: CGImage, to url: URL, format: FileFormat, quality: Double = 0.9, metadata: [CFString: Any]? = nil, allowRasterFallback: Bool = true) throws {
         guard let type = format.utType, nativeEncoders.contains(type.identifier) else {
             throw OpenTangerineError.encodeFailed("\(format.displayName) natively")
         }
@@ -112,13 +112,29 @@ enum ImageIOBridge {
         }
         CGImageDestinationAddImage(destination, output, options as CFDictionary)
         DiagnosticLog.log("image added, finalizing")
-        guard CGImageDestinationFinalize(destination) else { throw OpenTangerineError.encodeFailed(url.lastPathComponent) }
+        guard CGImageDestinationFinalize(destination) else {
+            // Decoded AVIF/HEIC images can carry a pixel layout the PNG writer cannot consume.
+            if allowRasterFallback, format != .heic,
+               let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: image.width * 4,
+                   space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+                if let raster = context.makeImage() {
+                    try write(raster, to: url, format: format, quality: quality, metadata: metadata, allowRasterFallback: false)
+                    return
+                }
+            }
+            throw OpenTangerineError.encodeFailed(url.lastPathComponent)
+        }
         DiagnosticLog.log("image finalized \(url.lastPathComponent)")
     }
 
     static func writeAnyFormat(_ image: CGImage, to url: URL, format: FileFormat, quality: Double = 0.9) async throws {
         if canEncodeNatively(format) {
             try write(image, to: url, format: format, quality: quality)
+            return
+        }
+        if format == .webp, !(await FFmpeg.availableEncoders()).contains("libwebp") {
+            try WebPLossless.write(image, to: url)
             return
         }
         DiagnosticLog.log("no native encoder for \(format.rawValue), using ffmpeg")
@@ -135,7 +151,15 @@ enum ImageIOBridge {
             args += ["-c:v", "libwebp", "-quality", String(Int(quality * 100)), "-f", "webp"]
         case .avif:
             let crf = Int((1 - quality) * 50 + 10)
-            args += ["-c:v", "libaom-av1", "-still-picture", "1", "-crf", String(crf), "-b:v", "0", "-pix_fmt", "yuv420p", "-f", "avif"]
+            let encoders = await FFmpeg.availableEncoders()
+            if encoders.contains("libaom-av1") {
+                args += ["-c:v", "libaom-av1", "-still-picture", "1"]
+            } else if encoders.contains("libsvtav1") {
+                args += ["-c:v", "libsvtav1", "-preset", "8"]
+            } else {
+                throw OpenTangerineError.invalidInput("AVIF needs an FFmpeg build with libaom-av1 or libsvtav1 encoding support.")
+            }
+            args += ["-crf", String(crf), "-b:v", "0", "-pix_fmt", "yuv420p", "-f", "avif"]
         case .heic:
             throw OpenTangerineError.invalidInput("HEIC requires the native macOS encoder.")
         case .bmp:

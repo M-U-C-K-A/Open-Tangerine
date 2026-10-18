@@ -24,12 +24,15 @@ enum Compressor {
         switch format.category {
         case .image:
             switch format {
-            case .png, .bmp, .tiff, .svg: return .jpg
+            case .png:
+                if let image = try? ImageIOBridge.load(url), image.alphaInfo != .none && image.alphaInfo != .noneSkipLast && image.alphaInfo != .noneSkipFirst { return .png }
+                return .jpg
+            case .bmp, .tiff, .svg: return .jpg
             case .avif, .webp: return ImageIOBridge.canEncodeNatively(format) || FFmpeg.isAvailable ? format : .jpg
             default: return format
             }
         case .video:
-            return VideoEngine.nativeTargets.contains(format) ? format : (FFmpeg.isAvailable ? format : .mp4)
+            return VideoEngine.nativeTargets.contains(format) ? format : .mp4
         case .audio:
             return format == .mp3 && FFmpeg.isAvailable ? .mp3 : .m4a
         default:
@@ -56,6 +59,18 @@ enum Compressor {
             return
         }
 
+        guard targetBytes > 0 else { throw OpenTangerineError.invalidInput("Target size must be greater than zero.") }
+        if finalFormat == .png {
+            var candidate = image
+            for attempt in 0..<12 {
+                try ImageIOBridge.write(candidate, to: destination, format: .png)
+                if FileSizeFormatter.size(of: destination) <= targetBytes { progress(1); return }
+                guard candidate.width > 1 && candidate.height > 1 else { break }
+                candidate = ImageIOBridge.scaled(candidate, to: CGSize(width: max(1, Double(candidate.width) * 0.8), height: max(1, Double(candidate.height) * 0.8)))
+                progress(0.2 + 0.7 * Double(attempt + 1) / 12)
+            }
+            throw OpenTangerineError.invalidInput("The requested size is too small while preserving PNG transparency. Choose a larger target size.")
+        }
         var low = 0.15, high = 0.95
         var candidate = image
         var attempts = 0
@@ -63,7 +78,7 @@ enum Compressor {
         while attempts < 12 {
             attempts += 1
             let quality = (low + high) / 2
-            try await ImageIOBridge.writeAnyFormat(candidate, to: destination, format: finalFormat == .png ? .jpg : finalFormat, quality: quality)
+            try await ImageIOBridge.writeAnyFormat(candidate, to: destination, format: finalFormat, quality: quality)
             let size = FileSizeFormatter.size(of: destination)
             progress(0.2 + 0.7 * Double(attempts) / 12)
             if size <= targetBytes {
@@ -86,7 +101,7 @@ enum Compressor {
             }
         }
         if let best {
-            try await ImageIOBridge.writeAnyFormat(candidate, to: destination, format: finalFormat == .png ? .jpg : finalFormat, quality: best)
+            try await ImageIOBridge.writeAnyFormat(candidate, to: destination, format: finalFormat, quality: best)
         }
         progress(1)
     }
@@ -98,7 +113,7 @@ enum Compressor {
             bitrate = max(32_000, min(320_000, Int(Double(targetBytes) * 8 * 0.96 / info.duration)))
         }
         let output = outputFormat(for: url)
-        if output == .m4a, await MediaInfo.isNativelyReadable(url), !FFmpeg.isAvailable || targetBytes == nil {
+        if output == .m4a, !FFmpeg.isAvailable, await MediaInfo.isNativelyReadable(url) {
             try await AVExporter.export(asset: AVURLAsset(url: url), to: destination, format: .m4a, preset: AVAssetExportPresetAppleM4A, progress: progress)
             return
         }

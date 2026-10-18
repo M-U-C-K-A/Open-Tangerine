@@ -4,13 +4,15 @@ import Foundation
 
 enum VideoOps {
     static func trim(_ url: URL, start: Double, end: Double, to destination: URL, progress: @escaping (Double) -> Void) async throws {
+        guard start.isFinite, end.isFinite, start >= 0, end > start else { throw OpenTangerineError.invalidInput("Choose a valid trim range.") }
         let format = FileFormat.detect(url) ?? .mp4
         let range = AVExporter.timeRange(start: start, end: end)
         if VideoEngine.nativeTargets.contains(format), await MediaInfo.isNativelyReadable(url) {
             try await AVExporter.export(asset: AVURLAsset(url: url), to: destination, format: format, preset: AVAssetExportPresetPassthrough, timeRange: range, progress: progress)
             return
         }
-        let args = ["-ss", FFmpeg.timecode(start), "-to", FFmpeg.timecode(end), "-i", url.path, "-c", "copy", "-avoid_negative_ts", "make_zero", destination.path]
+        // Stream-copy seeks to a keyframe and can include content outside the chosen range.
+        let args = ["-ss", FFmpeg.timecode(start), "-i", url.path, "-t", FFmpeg.timecode(end - start)] + VideoEngine.codecArguments(for: format) + [destination.path]
         try await FFmpeg.run(args, purpose: "Trimming video", duration: end - start, progress: progress)
     }
 
@@ -58,7 +60,7 @@ enum VideoOps {
 
     static func crop(_ url: URL, rect: CGRect, outputSize: CGSize?, to destination: URL, progress: @escaping (Double) -> Void) async throws {
         let asset = AVURLAsset(url: url)
-        if await MediaInfo.isNativelyReadable(url) {
+        if !FFmpeg.isAvailable, await MediaInfo.isNativelyReadable(url) {
             let composition = try await videoComposition(for: asset, crop: rect, outputSize: outputSize)
             try await AVExporter.export(asset: asset, to: destination, format: .mp4, preset: AVAssetExportPresetHighestQuality, videoComposition: composition, progress: progress)
             return
@@ -69,13 +71,16 @@ enum VideoOps {
     }
 
     static func changeSpeed(_ url: URL, factor: Double, preservePitch: Bool, to destination: URL, progress: @escaping (Double) -> Void) async throws {
+        guard factor.isFinite, factor > 0 else { throw OpenTangerineError.invalidInput("Speed must be greater than zero.") }
         let asset = AVURLAsset(url: url)
-        guard await MediaInfo.isNativelyReadable(url) else {
+        guard !FFmpeg.isAvailable, await MediaInfo.isNativelyReadable(url) else {
+            let info = try await streamInfo(url)
             let videoFilter = "setpts=\(1 / factor)*PTS"
-            var audioFilter = preservePitch ? atempoChain(factor) : "asetrate=44100*\(factor),aresample=44100"
-            if audioFilter.isEmpty { audioFilter = "anull" }
+            let audioFilter = preservePitch ? atempoChain(factor) : "asetrate=\(info.sampleRate)*\(factor),aresample=\(info.sampleRate)"
             let duration = (await FFmpeg.probeDuration(url) ?? 0) / factor
-            let args = ["-i", url.path, "-filter_complex", "[0:v]\(videoFilter)[v];[0:a]\(audioFilter)[a]", "-map", "[v]", "-map", "[a]?"] + VideoEngine.codecArguments(for: .mp4) + [destination.path]
+            var args = ["-i", url.path, "-vf", videoFilter]
+            if info.hasAudio { args += ["-af", audioFilter] }
+            args += VideoEngine.codecArguments(for: .mp4) + [destination.path]
             try await FFmpeg.run(args, purpose: "Changing speed", duration: duration, progress: progress)
             return
         }
@@ -106,6 +111,7 @@ enum VideoOps {
     }
 
     static func atempoChain(_ factor: Double) -> String {
+        guard factor.isFinite, factor > 0 else { return "anull" }
         var remaining = factor
         var parts: [String] = []
         while remaining > 2.0 { parts.append("atempo=2.0"); remaining /= 2.0 }
@@ -115,11 +121,12 @@ enum VideoOps {
     }
 
     static func join(_ urls: [URL], to destination: URL, progress: @escaping (Double) -> Void) async throws {
+        guard !urls.isEmpty else { throw OpenTangerineError.invalidInput("Choose at least one video to join.") }
         var allNative = true
         for url in urls {
             if !(await MediaInfo.isNativelyReadable(url)) { allNative = false }
         }
-        if allNative {
+        if allNative && !FFmpeg.isAvailable {
             let composition = AVMutableComposition()
             let videoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
             let audioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
@@ -161,18 +168,38 @@ enum VideoOps {
         }
         var args: [String] = []
         for url in urls { args += ["-i", url.path] }
-        let first = await MediaInfo.load(urls[0])
-        let w = Int(first.naturalSize.width), h = Int(first.naturalSize.height)
+        let first = try await streamInfo(urls[0])
+        let w = max(2, first.width / 2 * 2), h = max(2, first.height / 2 * 2)
         var filter = ""
         for index in urls.indices {
-            filter += "[\(index):v]scale=\(w):\(h):force_original_aspect_ratio=decrease,pad=\(w):\(h):(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v\(index)];"
-            filter += "[\(index):a]aresample=48000,aformat=channel_layouts=stereo[a\(index)];"
+            let info = try await streamInfo(urls[index])
+            filter += "[\(index):v]scale=\(w):\(h):force_original_aspect_ratio=decrease,pad=\(w):\(h):(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,setpts=PTS-STARTPTS[v\(index)];"
+            if info.hasAudio {
+                filter += "[\(index):a]aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS[a\(index)];"
+            } else {
+                let duration = await FFmpeg.probeDuration(urls[index]) ?? 0
+                guard duration > 0 else { throw OpenTangerineError.invalidInput("Could not read the video duration.") }
+                filter += "anullsrc=r=48000:cl=stereo,atrim=duration=\(duration)[a\(index)];"
+            }
         }
         filter += urls.indices.map { "[v\($0)][a\($0)]" }.joined() + "concat=n=\(urls.count):v=1:a=1[v][a]"
         args += ["-filter_complex", filter, "-map", "[v]", "-map", "[a]"] + VideoEngine.codecArguments(for: .mp4) + [destination.path]
         var total = 0.0
         for url in urls { total += await FFmpeg.probeDuration(url) ?? 0 }
         try await FFmpeg.run(args, purpose: "Joining videos", duration: total, progress: progress)
+    }
+
+    private static func streamInfo(_ url: URL) async throws -> (width: Int, height: Int, hasAudio: Bool, sampleRate: Int) {
+        guard let probe = FFmpeg.probePath else { throw OpenTangerineError.ffmpegMissing("Reading media streams") }
+        let result = try await Shell.run(probe, ["-v", "error", "-show_streams", "-of", "json", url.path])
+        guard result.succeeded, let data = result.stdout.data(using: .utf8),
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let streams = json["streams"] as? [[String: Any]],
+              let video = streams.first(where: { $0["codec_type"] as? String == "video" }) else {
+            throw OpenTangerineError.invalidInput("No readable video stream found.")
+        }
+        let audio = streams.first { $0["codec_type"] as? String == "audio" }
+        return (video["width"] as? Int ?? 0, video["height"] as? Int ?? 0, audio != nil, Int(audio?["sample_rate"] as? String ?? "48000") ?? 48000)
     }
 
     static func snapshot(_ url: URL, at seconds: Double) async throws -> CGImage {
@@ -191,14 +218,22 @@ enum VideoOps {
 
     static func redact(_ url: URL, redactions: [Redaction], displaySize: CGSize, to destination: URL, progress: @escaping (Double) -> Void) async throws {
         let asset = AVURLAsset(url: url)
-        guard await MediaInfo.isNativelyReadable(url) else {
+        guard !FFmpeg.isAvailable, await MediaInfo.isNativelyReadable(url) else {
+            guard displaySize.width > 0, displaySize.height > 0 else { throw OpenTangerineError.invalidInput("Invalid video preview size.") }
+            let info = try await streamInfo(url)
+            let sx = Double(info.width) / displaySize.width, sy = Double(info.height) / displaySize.height
             var filters: [String] = []
-            for r in redactions {
-                let x = Int(r.rect.minX), y = Int(r.rect.minY), w = Int(r.rect.width), h = Int(r.rect.height)
+            for (index, r) in redactions.enumerated() {
+                let x = max(0, min(info.width - 1, Int(r.rect.minX * sx)))
+                let y = max(0, min(info.height - 1, Int(r.rect.minY * sy)))
+                let w = min(info.width - x, max(1, Int(r.rect.width * sx)))
+                let h = min(info.height - y, max(1, Int(r.rect.height * sy)))
                 let enable = r.end.isFinite ? ":enable='between(t,\(r.start),\(r.end))'" : ":enable='gte(t,\(r.start))'"
                 switch r.style {
                 case .solid: filters.append("drawbox=x=\(x):y=\(y):w=\(w):h=\(h):color=black:t=fill\(enable)")
-                case .blur, .pixelate: filters.append("drawbox=x=\(x):y=\(y):w=\(w):h=\(h):color=gray:t=fill\(enable)")
+                case .blur, .pixelate:
+                    let effect = r.style == .blur ? "boxblur=luma_radius=\(max(1, min(w, h) / 8)):luma_power=2" : "scale=\(max(1,w/12)):\(max(1,h/12)),scale=\(w):\(h):flags=neighbor"
+                    filters.append("split[base\(index)][region\(index)];[region\(index)]crop=\(w):\(h):\(x):\(y),\(effect)[patch\(index)];[base\(index)][patch\(index)]overlay=\(x):\(y)\(enable)")
                 }
             }
             try await VideoEngine.ffmpegConvert(source: url, destination: destination, target: .mp4, videoFilters: filters, progress: progress)
@@ -234,7 +269,7 @@ enum VideoOps {
             try await VideoEngine.ffmpegConvert(source: url, destination: destination, target: outputFormat, videoFilters: filters, videoBitrate: videoBitrate, audioBitrate: Int(audioBits), progress: progress)
             return
         }
-        if await MediaInfo.isNativelyReadable(url) {
+        if !FFmpeg.isAvailable, await MediaInfo.isNativelyReadable(url) {
             let longEdge = max(info.naturalSize.width, info.naturalSize.height) * preset.videoScale
             let presetName: String
             if preset == .strong || longEdge <= 1280 {

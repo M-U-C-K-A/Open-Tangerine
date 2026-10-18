@@ -11,9 +11,14 @@ struct VideoEngine: ConversionEngine {
 
     func convert(_ request: ConversionRequest) async throws {
         if Self.nativeTargets.contains(request.target), request.sourceFormat != .gif, await MediaInfo.isNativelyReadable(request.source) {
-            let asset = AVURLAsset(url: request.source)
-            try await AVExporter.export(asset: asset, to: request.destination, format: request.target, preset: AVAssetExportPresetHighestQuality, progress: request.progress)
-            return
+            do {
+                let asset = AVURLAsset(url: request.source)
+                try await AVExporter.export(asset: asset, to: request.destination, format: request.target, preset: AVAssetExportPresetHighestQuality, progress: request.progress)
+                return
+            } catch {
+                try Task.checkCancellation()
+                guard FFmpeg.isAvailable else { throw error }
+            }
         }
         if request.target == .mp3 {
             try await AudioEngine.ffmpegConvert(source: request.source, destination: request.destination, target: .mp3, progress: request.progress)

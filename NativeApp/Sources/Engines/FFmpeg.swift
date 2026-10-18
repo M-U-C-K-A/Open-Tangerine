@@ -39,12 +39,24 @@ enum FFmpeg {
         }
     }
 
+    static func availableEncoders() async -> Set<String> {
+        guard let executable = path,
+              let result = try? await Shell.run(executable, ["-hide_banner", "-encoders"]), result.succeeded else { return [] }
+        return Set(result.stdout.split(separator: "\n").compactMap { line in
+            let fields = line.split(whereSeparator: { $0.isWhitespace })
+            guard fields.count >= 2, fields[0].count == 6,
+                  ["V", "A", "S"].contains(String(fields[0].prefix(1))), fields[1] != "=" else { return nil }
+            return String(fields[1])
+        })
+    }
+
     static func summarize(_ output: String) -> String {
         let lines = output.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         if let dyld = lines.first(where: { $0.contains("Library not loaded") }) {
             let library = dyld.components(separatedBy: "Library not loaded: ").last.map { ($0 as NSString).lastPathComponent } ?? ""
-            return "missing library \(library). Reinstall ffmpeg and its dependencies (for example `wax reinstall ffmpeg`)."
+            return "missing library \(library). Reinstall ffmpeg and its dependencies (for example `brew reinstall ffmpeg`)."
         }
+        if let cause = lines.first(where: { $0.contains("Unknown encoder") || $0.contains("Encoder not found") || $0.contains("Invalid data found") || $0.contains("Permission denied") }) { return cause }
         return lines.last(where: { !$0.hasPrefix("Referenced from") && !$0.hasPrefix("Reason:") }) ?? output
     }
 

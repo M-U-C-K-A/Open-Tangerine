@@ -44,23 +44,28 @@ final class JobRunner: ObservableObject {
     private var hideWorkItem: DispatchWorkItem?
     private let semaphore = AsyncSemaphore(limit: 1)
     private var jobSubscriptions: [UUID: AnyCancellable] = [:]
+    private var reservedDestinations: [UUID: URL] = [:]
 
     private let presentsHUD: Bool
     init(presentsHUD: Bool = true) { self.presentsHUD = presentsHUD }
 
     func convert(_ urls: [URL], to target: FileFormat) {
         DiagnosticLog.log("convert \(urls.map(\.lastPathComponent)) -> \(target.displayName)")
-        var reserved = Set<String>()
         for url in urls {
+            let job = Job(title: "Converting to \(target.displayName)", detail: url.lastPathComponent, symbol: target.category.symbol)
             guard let source = FileFormat.detect(url) else {
-                DiagnosticLog.log("skipping \(url.lastPathComponent): format not detected")
+                enqueue(job) { _ in
+                    throw OpenTangerineError.invalidInput("Unsupported file type: \(url.lastPathComponent)")
+                }
                 continue
             }
             let directory = AppSettings.shared.outputLocation.directory(for: url)
+            let reserved = Set(reservedDestinations.values.filter {
+                $0.deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL
+            }.map(\.lastPathComponent))
             let destination = ConversionMatrix.outputURL(for: url, target: target, in: directory, existing: reserved)
             DiagnosticLog.log("destination \(destination.path)")
-            reserved.insert(destination.lastPathComponent)
-            let job = Job(title: "Converting to \(target.displayName)", detail: url.lastPathComponent, symbol: target.category.symbol)
+            reservedDestinations[job.id] = destination
             enqueue(job) { progress in
                 let request = ConversionRequest(source: url, sourceFormat: source, target: target, destination: destination, progress: progress)
                 try await Engines.convert(request)
@@ -80,6 +85,7 @@ final class JobRunner: ObservableObject {
         showHUD()
         DiagnosticLog.log("hud shown")
         job.task = Task {
+            defer { reservedDestinations[job.id] = nil }
             await semaphore.wait()
             guard !Task.isCancelled else {
                 job.status = .cancelled

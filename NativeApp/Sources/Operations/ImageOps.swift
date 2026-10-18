@@ -50,12 +50,15 @@ struct Redaction: Identifiable, Equatable {
 enum ImageOps {
     static let context = CIContext(options: [.useSoftwareRenderer: false, .cacheIntermediates: false])
 
+    private static let softwareContext = CIContext(options: [.useSoftwareRenderer: true, .cacheIntermediates: false])
+
     static func ciImage(_ image: CGImage) -> CIImage { CIImage(cgImage: image) }
 
     static func render(_ image: CIImage, extent: CGRect? = nil) -> CGImage? {
         let rect = extent ?? image.extent
         guard !rect.isInfinite, !rect.isEmpty else { return nil }
         return context.createCGImage(image, from: rect, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
+            ?? softwareContext.createCGImage(image, from: rect, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
     }
 
     static func adjusted(_ input: CIImage, _ a: PhotoAdjustments) -> CIImage {
@@ -122,6 +125,7 @@ enum ImageOps {
             matrix.gVector = CIVector(x: 0, y: amount, z: 0, w: 0)
             matrix.bVector = CIVector(x: 0, y: amount, z: 0, w: 0)
             matrix.aVector = CIVector(x: 0, y: 0, z: 0, w: 0)
+            matrix.biasVector = CIVector(x: 0.5 - amount / 2, y: 0.5 - amount / 2, z: 0.5 - amount / 2, w: 1)
             let grain = (matrix.outputImage ?? noise).cropped(to: input.extent)
             let blend = CIFilter.softLightBlendMode(); blend.inputImage = grain; blend.backgroundImage = image
             image = (blend.outputImage ?? image).cropped(to: input.extent)
@@ -155,7 +159,7 @@ enum ImageOps {
         return image.cropped(to: extent)
     }
 
-    static func rotated(_ image: CGImage, quarterTurns: Int, flipHorizontal: Bool, flipVertical: Bool) -> CGImage {
+    static func rotated(_ image: CGImage, quarterTurns: Int, flipHorizontal: Bool, flipVertical: Bool) throws -> CGImage {
         var ci = CIImage(cgImage: image)
         let turns = ((quarterTurns % 4) + 4) % 4
         if turns != 0 {
@@ -165,7 +169,25 @@ enum ImageOps {
         if flipVertical { ci = ci.transformed(by: CGAffineTransform(scaleX: 1, y: -1)) }
         let extent = ci.extent
         ci = ci.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
-        return render(ci) ?? image
+        if let result = render(ci) { return result }
+        // Quarter turns and flips need no GPU. Preserve exact pixels with a bitmap transform.
+        var transform = CGAffineTransform(rotationAngle: -CGFloat(turns) * .pi / 2)
+        if flipHorizontal { transform = transform.concatenating(CGAffineTransform(scaleX: -1, y: 1)) }
+        if flipVertical { transform = transform.concatenating(CGAffineTransform(scaleX: 1, y: -1)) }
+        let bounds = CGRect(x: 0, y: 0, width: image.width, height: image.height).applying(transform)
+        transform = transform.concatenating(CGAffineTransform(translationX: -bounds.minX, y: -bounds.minY))
+        let width = turns % 2 == 0 ? image.width : image.height
+        let height = turns % 2 == 0 ? image.height : image.width
+        guard let bitmap = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                     space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw OpenTangerineError.encodeFailed("Could not allocate the rotated image.")
+        }
+        bitmap.interpolationQuality = .none
+        bitmap.setShouldAntialias(false)
+        bitmap.concatenate(transform)
+        bitmap.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let result = bitmap.makeImage() else { throw OpenTangerineError.encodeFailed("Could not render the rotated image.") }
+        return result
     }
 
     enum Background {
@@ -194,7 +216,13 @@ enum ImageOps {
             }
         }
         let pad = options.padding * min(canvas.width, canvas.height)
-        canvas = CGSize(width: canvas.width + pad * 2, height: canvas.height + pad * 2)
+        if let aspect = options.aspect, aspect.width > 0, aspect.height > 0 {
+            // Expand uniformly so padding never changes the chosen output ratio.
+            let factor = max((canvas.width + pad * 2) / canvas.width, (canvas.height + pad * 2) / canvas.height)
+            canvas = CGSize(width: canvas.width * factor, height: canvas.height * factor)
+        } else {
+            canvas = CGSize(width: canvas.width + pad * 2, height: canvas.height + pad * 2)
+        }
         let scale = min((canvas.width - pad * 2) / imageSize.width, (canvas.height - pad * 2) / imageSize.height)
         let drawn = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
         let origin = CGPoint(x: (canvas.width - drawn.width) / 2, y: (canvas.height - drawn.height) / 2)

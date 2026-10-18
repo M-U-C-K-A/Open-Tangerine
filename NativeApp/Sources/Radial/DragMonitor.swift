@@ -155,7 +155,10 @@ final class DragMonitor {
             let resolved = (url as NSURL).filePathURL ?? url
             guard resolved.isFileURL else { return nil }
             var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: resolved.path, isDirectory: &isDirectory), !isDirectory.boolValue else { return nil }
+            // Keep missing files in the selection so conversion reports a per-file error.
+            // Filtering them here silently converted only part of a batch.
+            _ = FileManager.default.fileExists(atPath: resolved.path, isDirectory: &isDirectory)
+            guard !isDirectory.boolValue else { return nil }
             return resolved.standardizedFileURL
         }
     }

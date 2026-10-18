@@ -1,15 +1,41 @@
 # Trial build status
 
-Version 0.1.0, 18 October 2026.
+Version 0.1.6, 18 October 2026. Native Swift app, macOS 26+, Apple silicon development environment.
 
-This supersedes the earlier image-only prototype. The active app is `NativeApp/Sources`, substantially derived from MIT-licensed Satsuma; the old exploratory code in `Prototypes` is not compiled.
+## Findings and repairs
 
-Build environment: Apple silicon, macOS 26.2, Swift 6.3.3 / Xcode 26.6. Direct `swiftc` build avoids a SwiftPM nested-sandbox failure in the development environment. No sandbox protections were disabled.
+The installed 0.1.5 app was inspected with REA (`inspect-macho`), confirming the native arm64 executable. The WebP error was reproduced independently: the configured FFmpeg has no `libwebp` encoder. It also lacks `libaom-av1` and `libvorbis`. An executable being present does not establish codec support.
 
-Validation: inherited deterministic suite 20/20 passed. Real PNG → JPEG, TIFF and PDF conversion checks passed, as did occupied-destination protection, original preservation, malformed-image rejection, archive disabling and literal subprocess arguments. Settings and FFmpeg 9.0.1 detection were verified in the running app. Tests are in `NativeApp/Tests/IntegrationTests.swift`; HEIC encoding was attempted and failed in the restricted execution environment (IOSurface bridge error); it is not counted as verified. Compiler deprecation warnings inherited from upstream remain, primarily older AVFoundation and SwiftUI APIs.
+WebP now uses a built-in literal-only lossless VP8L fallback when native/FFmpeg encoding is unavailable. Both ImageIO and FFmpeg independently decode its output. The user's actual HEIC output was converted to WebP and checked for dimensions and RGBA agreement. AVIF selects libaom-av1 or libsvtav1; Ogg selects Vorbis or Opus. An AVIF-to-PNG pixel-layout failure found by the matrix is repaired through an 8-bit sRGB raster fallback.
 
-The app is ad-hoc signed for local testing, not notarized and not sandboxed. Full route/tool coverage, reliable Finder drag behavior across apps and monitors, performance on large batches, and malicious-file testing are not yet verified. The GitHub workflow is provided but is not claimed to have passed until its actual run completes.
+Batch conversion retains every selected input, reports individual failures, and reserves destination names across overlapping batches. Four PNGs produced four distinct, decodable JPEGs; a subsequent overlapping job produced a fifth distinct output. Mixed PNG/TIFF selection and corrupt/unknown inputs are covered.
 
-Archive conversion is disabled. All other catalogue entries remain experimental; see README for missing features and security limits.
+Other repairs include PDF/DOCX page ordering, scanned text extraction errors, subtitle timestamp rollover, accurate non-native video trimming, silent-video speed/join, actual blur/pixelate, channel mapping, bleep generation, PNG compression payload/transparency, image rotation fallback, frame aspect ratio and metadata deletion.
 
-Packaging: Info.plist validation and ad-hoc signature verification passed. LaunchServices returned -10827 when opening the bundle from this restricted workspace; launching its executable directly opened the Settings window successfully. Applications directories are not writable in this session, so no system installation is claimed.
+## Executed coverage
+
+`./scripts/test.sh` compiles once, then runs each suite in a separate process:
+
+| Suite | Coverage |
+|---|---|
+| Deterministic | 20 checks: target matrix, names, parsing, tools and timestamp handling |
+| Integration | Real JPEG/TIFF/PDF output; failure then successful conversion without restart; collision and original preservation; malformed input; disabled archive guard |
+| Interaction | HTTP update detection, version comparison and website handoff; companion state transitions |
+| Image conversion | 30 routes among PNG/JPEG/TIFF/BMP/WebP/AVIF; three asymmetric lossless WebP RGBA checks; user's HEIC-to-WebP check (34 local checks) |
+| Documents | TXT/PDF/image/DOCX/subtitle outputs; all PDF split modes, merge/reorder/rotate, compression page integrity, mixed scanned/text ordering, locked/scanned rejection |
+| Batch | Four-file conversion, overlapping output reservation, mixed targets, individual corrupt/unknown failures |
+| Image tools | 30 local assertions: rotation/flip pixel round trips, resize/crop, frame, four collage layouts, metadata deletion, checksum and duplication |
+| Media | 55 checks: all audio/video target families, reverse input routes, trim/split/crop/speed/join/snapshot/redaction, channels and actual signal content, bleep frequency, loudness, compression and three visualizers |
+
+Media checks inspect streams, dimensions, duration and channels, then decode the complete short output. Native export failures fall back to FFmpeg where applicable. Website version/download validation, SEO metadata, links and interactive-demo tests also pass.
+
+## Explicit limits
+
+- Local restricted execution cannot use native HEIC encoding or CoreImage rendering. PNG-to-HEIC has been confirmed by the user in the normal app; local HEIC decoding-to-WebP passed. Adjustment/redaction tests remain in the suite and run when CoreImage is available; a blocked graphics service is not counted as success.
+- Finder pasteboard service was unavailable in the test process. The four-file engine path passes; this does not claim live Finder drag verification. Clipboard/reveal actions and AV metadata export were not exercised.
+- Word support is DOCX output, not general Word input. PDF-to-DOCX reconstructs text or page images, without OCR or exact layout preservation.
+- Compression cannot guarantee smaller output. The WebP fallback is lossless, ignores lossy quality, and produces larger files. Its output must stay under 100 MB; dimensions are limited to 16,384 per side. All images retain the 40 MP input limit.
+- Archive conversion is disabled and no longer offered. SVG, malformed-file fuzzing, huge-batch performance, Intel hardware, accessibility and every possible codec/profile combination are not exhaustively verified.
+- The app remains ad-hoc signed, not Apple-notarized. Updates use the website for manual download/replacement. No Apple Developer subscription is needed for the update check.
+
+Tests establish specific behavior on these fixtures; they are not a promise that arbitrary files can never fail. Existing compiler deprecation warnings remain.

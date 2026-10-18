@@ -17,10 +17,12 @@ enum PDFOps {
     static func document(_ url: URL) throws -> PDFDocument {
         guard let document = PDFDocument(url: url) else { throw OpenTangerineError.unreadable(url) }
         if document.isLocked { throw OpenTangerineError.invalidInput("\(url.lastPathComponent) is password protected.") }
+        guard document.pageCount > 0 else { throw OpenTangerineError.invalidInput("The PDF has no pages.") }
         return document
     }
 
     static func merge(_ urls: [URL], to destination: URL) throws {
+        guard !urls.isEmpty else { throw OpenTangerineError.invalidInput("Choose at least one PDF to merge.") }
         let output = PDFDocument()
         for url in urls {
             let source = try document(url)
@@ -43,7 +45,7 @@ enum PDFOps {
                 source = try document(ref.sourceURL)
                 cache[ref.sourceURL] = source
             }
-            guard let page = source.page(at: ref.sourceIndex), let copy = page.copy() as? PDFPage else { continue }
+            guard let page = source.page(at: ref.sourceIndex), let copy = page.copy() as? PDFPage else { throw OpenTangerineError.invalidInput("A selected PDF page is unavailable.") }
             copy.rotation = ref.rotation
             output.insert(copy, at: output.pageCount)
         }
@@ -122,7 +124,7 @@ enum PDFOps {
         if strong {
             let rendered = PDFDocument()
             for index in 0..<source.pageCount {
-                guard let page = source.page(at: index), let image = PDFRenderer.render(page: page, dpi: 110) else { continue }
+                guard let page = source.page(at: index), let image = PDFRenderer.render(page: page, dpi: 110) else { throw OpenTangerineError.encodeFailed("PDF page \(index + 1)") }
                 let temp = FileManager.default.temporaryDirectory.appendingPathComponent("opentangerine-pdfpage-\(UUID().uuidString).jpg")
                 try ImageIOBridge.write(image, to: temp, format: .jpg, quality: 0.6)
                 defer { try? FileManager.default.removeItem(at: temp) }

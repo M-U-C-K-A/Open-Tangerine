@@ -148,9 +148,9 @@ enum MetadataOps {
         case .image:
             try writeImage(url, edits: edits, removeAll: removeAll, removeSensitive: removeSensitive, to: destination)
         case .audio, .video:
-            try await writeAV(url, format: format, edits: edits, removeAll: removeAll, to: destination, progress: progress)
+            try await writeAV(url, format: format, edits: edits, removeAll: removeAll || removeSensitive, to: destination, progress: progress)
         case .document where format == .pdf:
-            try writePDF(url, edits: edits, removeAll: removeAll, to: destination)
+            try writePDF(url, edits: edits, removeAll: removeAll, removeSensitive: removeSensitive, to: destination)
         default:
             throw OpenTangerineError.invalidInput("Metadata editing is not supported for \(format.displayName).")
         }
@@ -175,28 +175,29 @@ enum MetadataOps {
                 props[kCGImagePropertyExifAuxDictionary] = kCFNull
             } else {
                 if removeSensitive {
+                    props[kCGImagePropertyIPTCDictionary] = kCFNull
                     props[kCGImagePropertyGPSDictionary] = kCFNull
                     props[kCGImagePropertyMakerAppleDictionary] = kCFNull
                     props[kCGImagePropertyExifAuxDictionary] = kCFNull
                     if var exif = props[kCGImagePropertyExifDictionary] as? [CFString: Any] {
                         for key in [kCGImagePropertyExifUserComment, kCGImagePropertyExifSubjectLocation, kCGImagePropertyExifLensModel, kCGImagePropertyExifLensMake, kCGImagePropertyExifBodySerialNumber, kCGImagePropertyExifLensSerialNumber, kCGImagePropertyExifCameraOwnerName] {
-                            exif.removeValue(forKey: key)
+                            exif[key] = kCFNull
                         }
                         props[kCGImagePropertyExifDictionary] = exif
                     }
                     if var tiff = props[kCGImagePropertyTIFFDictionary] as? [CFString: Any] {
                         for key in [kCGImagePropertyTIFFMake, kCGImagePropertyTIFFModel, kCGImagePropertyTIFFSoftware, kCGImagePropertyTIFFArtist, kCGImagePropertyTIFFHostComputer] {
-                            tiff.removeValue(forKey: key)
+                            tiff[key] = kCFNull
                         }
                         props[kCGImagePropertyTIFFDictionary] = tiff
                     }
                 }
-                for edit in edits where edit.editable {
+                for edit in edits where edit.editable && !(removeSensitive && edit.sensitive) {
                     let groupKey = groupDictionaryKey(edit.group)
                     guard let groupKey else { continue }
                     var dict = (props[groupKey] as? [CFString: Any]) ?? [:]
                     if edit.value.isEmpty {
-                        dict.removeValue(forKey: edit.key as CFString)
+                        dict[edit.key as CFString] = kCFNull
                     } else {
                         dict[edit.key as CFString] = edit.value
                     }
@@ -253,13 +254,16 @@ enum MetadataOps {
         try await FFmpeg.run(args, purpose: "Writing metadata")
     }
 
-    private static func writePDF(_ url: URL, edits: [MetadataField], removeAll: Bool, to destination: URL) throws {
+    private static func writePDF(_ url: URL, edits: [MetadataField], removeAll: Bool, removeSensitive: Bool, to destination: URL) throws {
         let document = try PDFOps.document(url)
         if removeAll {
             document.documentAttributes = [:]
         } else {
             var attrs = document.documentAttributes ?? [:]
-            for edit in edits where edit.editable && edit.id.hasPrefix("pdf.") {
+            if removeSensitive {
+                for key in [PDFDocumentAttribute.authorAttribute, .creatorAttribute, .producerAttribute] { attrs.removeValue(forKey: key) }
+            }
+            for edit in edits where edit.editable && edit.id.hasPrefix("pdf.") && !(removeSensitive && edit.sensitive) {
                 let name = String(edit.id.dropFirst(4))
                 let key = AnyHashable(PDFDocumentAttribute(rawValue: name))
                 if edit.value.isEmpty {

@@ -80,6 +80,7 @@ enum AVExporter {
         ])
         output.audioMix = audioMix
         output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else { throw OpenTangerineError.encodeFailed("Unsupported PCM audio reader format") }
         reader.add(output)
         if let timeRange { reader.timeRange = timeRange }
 
@@ -102,6 +103,7 @@ enum AVExporter {
             AVLinearPCMIsNonInterleaved: false,
         ])
         input.expectsMediaDataInRealTime = false
+        guard writer.canAdd(input) else { throw OpenTangerineError.encodeFailed("Unsupported PCM audio writer format") }
         writer.add(input)
         guard reader.startReading() else { throw OpenTangerineError.encodeFailed(reader.error?.localizedDescription ?? "reader") }
         guard writer.startWriting() else { throw OpenTangerineError.encodeFailed(writer.error?.localizedDescription ?? "writer") }
@@ -114,7 +116,14 @@ enum AVExporter {
             input.requestMediaDataWhenReady(on: queue) {
                 while input.isReadyForMoreMediaData {
                     if let sample = output.copyNextSampleBuffer() {
-                        input.append(sample)
+                        guard input.append(sample) else {
+                            reader.cancelReading()
+                            input.markAsFinished()
+                            let error = writer.error
+                            writer.cancelWriting()
+                            continuation.resume(throwing: OpenTangerineError.encodeFailed(error?.localizedDescription ?? "Could not write PCM audio sample"))
+                            return
+                        }
                         let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sample)) - CMTimeGetSeconds(start)
                         if total > 0 { let value = min(1, max(0, time / total)); DispatchQueue.main.async { progress?(value) } }
                     } else {

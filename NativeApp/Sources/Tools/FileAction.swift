@@ -12,6 +12,29 @@ enum FileAction: String, CaseIterable, Hashable {
         case .hash: return "number"
         }
     }
+
+    static func duplicateFiles(_ urls: [URL]) throws -> [URL] {
+        try urls.map { source in
+            let destination = ConversionMatrix.uniqueURL(directory: source.deletingLastPathComponent(), baseName: source.deletingPathExtension().lastPathComponent, suffix: "copy", ext: source.pathExtension)
+            try FileManager.default.copyItem(at: source, to: destination)
+            return destination
+        }
+    }
+
+    static func hashReport(_ urls: [URL]) throws -> String {
+        try urls.map { url in
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey])
+            guard values.isRegularFile == true else { throw OpenTangerineError.unreadable(url) }
+            let file = try FileHandle(forReadingFrom: url)
+            defer { try? file.close() }
+            var hash = SHA256()
+            while let data = try file.read(upToCount: 1_048_576), !data.isEmpty {
+                try Task.checkCancellation()
+                hash.update(data: data)
+            }
+            return hash.finalize().map { String(format: "%02x", $0) }.joined() + "  " + url.lastPathComponent
+        }.joined(separator: "\n")
+    }
     @MainActor func run(_ urls: [URL]) {
         switch self {
         case .reveal: NSWorkspace.shared.activateFileViewerSelecting(urls)
@@ -23,28 +46,13 @@ enum FileAction: String, CaseIterable, Hashable {
             NSPasteboard.general.setString(urls.map(\.path).joined(separator: "\n"), forType: .string)
         case .duplicate:
             JobRunner.shared.run(title: "Duplicate", detail: "\(urls.count) files") { _ in
-                try urls.map { source in
-                    let destination = ConversionMatrix.uniqueURL(directory: source.deletingLastPathComponent(), baseName: source.deletingPathExtension().lastPathComponent, suffix: "copy", ext: source.pathExtension)
-                    try FileManager.default.copyItem(at: source, to: destination)
-                    return destination
-                }
+                try Self.duplicateFiles(urls)
             }
         case .hash:
             Task {
                 do {
                     let report = try await Task.detached(priority: .userInitiated) {
-                        try urls.map { url in
-                            let values = try url.resourceValues(forKeys: [.isRegularFileKey])
-                            guard values.isRegularFile == true else { throw OpenTangerineError.unreadable(url) }
-                            let file = try FileHandle(forReadingFrom: url)
-                            defer { try? file.close() }
-                            var hash = SHA256()
-                            while let data = try file.read(upToCount: 1_048_576), !data.isEmpty {
-                                try Task.checkCancellation()
-                                hash.update(data: data)
-                            }
-                            return hash.finalize().map { String(format: "%02x", $0) }.joined() + "  " + url.lastPathComponent
-                        }.joined(separator: "\n")
+                        try Self.hashReport(urls)
                     }.value
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(report, forType: .string)
