@@ -301,6 +301,7 @@ final class JobHUDPanel: NSPanel, NSWindowDelegate, JobHUD {
 
 final class NotchPresentation: ObservableObject {
     @Published var expanded = false
+    @Published var jobs: [Job] = []
     var generation = 0
 }
 
@@ -342,7 +343,8 @@ final class JobPillPanel: NSPanel, JobHUD {
         if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
             notchWidth = max(1, right.minX - left.maxX)
         }
-        hosting?.rootView = JobPillView(topInset: inset, collapsedWidth: notchWidth, runner: runner, presentation: presentation)
+        hosting?.rootView = JobPillView(topInset: inset, collapsedWidth: notchWidth, contentHeight: size.height, runner: runner, presentation: presentation)
+        presentation.jobs = runner.jobs
         presentation.generation += 1
         let generation = presentation.generation
         let wasVisible = isVisible
@@ -378,10 +380,11 @@ final class JobPillPanel: NSPanel, JobHUD {
         let generation = presentation.generation
         let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         withAnimation(reduced ? nil : .easeInOut(duration: 0.24)) { presentation.expanded = false }
-        if reduced { orderOut(nil); return }
+        if reduced { orderOut(nil); presentation.jobs = []; return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { [weak self] in
             guard let self, self.presentation.generation == generation, !self.presentation.expanded else { return }
             self.orderOut(nil)
+            self.presentation.jobs = []
         }
     }
 }
@@ -396,6 +399,7 @@ private extension CGSize {
 struct JobPillView: View {
     var topInset: CGFloat = 0
     var collapsedWidth: CGFloat = 180
+    var contentHeight: CGFloat = 104
     @ObservedObject var runner: JobRunner
     @ObservedObject var presentation: NotchPresentation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -408,32 +412,32 @@ struct JobPillView: View {
         static let barWidth: CGFloat = 96
         static func size(rows: Int) -> CGSize { CGSize(width: 360, height: 48 + CGFloat(min(max(rows, 1), 3)) * 56) }
     }
-    private var working: Bool { runner.jobs.contains { !$0.status.isFinished } }
-    private var failed: Bool { runner.jobs.contains { if case .failed = $0.status { return true }; return false } }
+    private var working: Bool { presentation.jobs.contains { !$0.status.isFinished } }
+    private var failed: Bool { presentation.jobs.contains { if case .failed = $0.status { return true }; return false } }
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             CitrusCompanion()
             VStack(alignment: .leading, spacing: 7) {
                 HStack {
-                    Text(runner.jobs.isEmpty ? "READY WHEN YOU ARE" : companion.caption.uppercased())
+                    Text(presentation.jobs.isEmpty ? "READY WHEN YOU ARE" : companion.caption.uppercased())
                         .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(1.5)
                         .foregroundStyle(.white.opacity(0.5))
                     Spacer()
-                    if runner.jobs.count > 1 {
-                        Text("\(runner.jobs.count) files").font(.system(size: 9)).foregroundStyle(.white.opacity(0.5))
+                    if presentation.jobs.count > 1 {
+                        Text("\(presentation.jobs.count) files").font(.system(size: 9)).foregroundStyle(.white.opacity(0.5))
                     }
                     if !working {
                         Button { runner.dismissAll() } label: { Image(systemName: "xmark") }
                             .buttonStyle(.plain).foregroundStyle(.white.opacity(0.7)).help("Dismiss results")
                     }
                 }
-                if runner.jobs.isEmpty {
+                if presentation.jobs.isEmpty {
                     Text(companion.caption).font(.system(size: 12)).foregroundStyle(.white).lineLimit(2)
                     Text("Drop a file onto your choice").font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
                 }
                 ScrollView {
                     VStack(spacing: 8) {
-                        ForEach(runner.jobs) { job in
+                        ForEach(presentation.jobs) { job in
                             NotchJobRow(job: job) { runner.cancel(job) }
                         }
                     }
@@ -441,7 +445,7 @@ struct JobPillView: View {
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 16)
-        .frame(width: 360, height: Layout.size(rows: runner.jobs.count).height)
+        .frame(width: 360, height: contentHeight)
         .opacity(presentation.expanded ? 1 : 0)
         .offset(y: presentation.expanded || reduceMotion ? 0 : -16)
         .padding(.top, topInset)
@@ -450,10 +454,11 @@ struct JobPillView: View {
         .mask(alignment: .top) {
             UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: presentation.expanded ? 24 : 10, bottomTrailingRadius: presentation.expanded ? 24 : 10, topTrailingRadius: 0)
                 .frame(width: presentation.expanded ? 360 : min(360, collapsedWidth),
-                       height: presentation.expanded ? Layout.size(rows: runner.jobs.count).height + topInset : max(2, topInset))
+                       height: presentation.expanded ? contentHeight + topInset : max(2, topInset))
         }
         .allowsHitTesting(presentation.expanded)
-        .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: runner.jobs.map(\.id))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: presentation.jobs.map(\.id))
     }
 }
 

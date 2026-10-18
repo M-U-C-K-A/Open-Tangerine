@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-# 0.1.7: pure-black notch with top-anchored expand/retract motion.
+# 0.1.7: pure-black notch with stable multi-row expand/retract motion.
 cd "$(dirname "$0")/.."
 app="$PWD/dist/Open Tangerine.app"
 mkdir -p "$app/Contents/MacOS" "$PWD/.build/module-cache"
