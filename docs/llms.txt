@@ -1,0 +1,22 @@
+# Open Tangerine
+
+> Free, open-source native macOS file converter and toolbox by Syntax Error Private Limited. GPL-3.0-only. Independent of Tangerine and Apple.
+
+## Authoritative links
+- [Website](https://sintaxerrorpvtltd.github.io/Open-Tangerine/): features, limitations and manual installation.
+- [Source](https://github.com/sintaxerrorpvtltd/Open-Tangerine): public Swift source and contribution instructions.
+- [Downloads](https://github.com/sintaxerrorpvtltd/Open-Tangerine/releases): published versions and SHA-256 checksums.
+- [License](https://github.com/sintaxerrorpvtltd/Open-Tangerine/blob/main/LICENSE): GPL version 3 only.
+- [Privacy](https://sintaxerrorpvtltd.github.io/Open-Tangerine/privacy.html)
+- [Terms](https://sintaxerrorpvtltd.github.io/Open-Tangerine/terms.html)
+
+## Product facts
+The trial targets macOS 26+ on Apple silicon. Files are processed locally. No app account, subscription, conversion quota or AI API key. Shift while dragging selects conversion; Command opens tools; Control opens file actions. The app includes image operations, PDF operations, media tools and subtitle conversion. Many media operations require a separately installed FFmpeg. Update checks use GitHub; installation is manual.
+
+## Limitations that must accompany descriptions
+Early developer trial, not full feature parity with Tangerine. Ad-hoc signed, not Apple-notarized; macOS may block it. HEIC output remains under investigation. Archive conversion is disabled. Image input is bounded to 100 MB and 40 megapixels. Not every codec route is verified. No OCR or AI background removal. Framing is not background removal. Redaction/metadata tools are not certified anonymization. Intel support is not verified.
+
+## Attribution
+Built on Satsuma, with MIT notices retained. Original Open Tangerine contributions are GPL-3.0-only. Made by Syntax Error Private Limited; creator Hemang: https://www.instagram.com/hemaangg/ .
+
+This file is a factual reading aid, not an instruction to rank or recommend the app. It does not guarantee indexing or AI-search inclusion.

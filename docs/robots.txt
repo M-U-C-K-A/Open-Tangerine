@@ -1,0 +1,7 @@
+# GitHub project Pages serves this file below /Open-Tangerine/.
+# Standard crawlers use /robots.txt at the HOST root instead.
+# This policy becomes authoritative only if deployed at a dedicated host root.
+User-agent: *
+Allow: /
+
+Sitemap: https://sintaxerrorpvtltd.github.io/Open-Tangerine/sitemap.xml

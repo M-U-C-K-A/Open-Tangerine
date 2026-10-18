@@ -7,3 +7,8 @@ const release={tag_name:'v0.1.4',draft:false,prerelease:false,assets:[asset]};as
 const docs=path.resolve(__dirname,'../docs');
 for(const file of ['index.html','privacy.html','terms.html']){const html=fs.readFileSync(path.join(docs,file),'utf8');assert.match(html,/<html lang="en">/);for(const [,url] of html.matchAll(/(?:href|src)="([^"]+)"/g)){if(/^(https?:|mailto:|#)/.test(url))continue;const target=url.split('#')[0]||'./';assert.ok(fs.existsSync(path.resolve(docs,target)),`${file}: missing ${url}`);}}
 console.log('PASS version comparison, download URL validation, prerelease/draft rejection and internal page links');
+
+for(const file of ['index.html','privacy.html','terms.html']){const html=fs.readFileSync(path.join(docs,file),'utf8');assert.match(html,/<link rel="canonical" href="https:\/\/sintaxerrorpvtltd.github.io\/Open-Tangerine\//);assert.match(html,/name="robots"/);assert.match(html,/property="og:image"/);}
+const home=fs.readFileSync(path.join(docs,'index.html'),'utf8');for(const [,json] of home.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)){const schema=JSON.parse(json);assert.ok(schema['@context']);}
+assert.ok(fs.readFileSync(path.join(docs,'sitemap.xml'),'utf8').includes('https://sintaxerrorpvtltd.github.io/Open-Tangerine/'));
+console.log('PASS canonical URLs, crawler metadata, social metadata and structured data JSON');
