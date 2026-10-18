@@ -79,6 +79,12 @@ enum ProgressStyle: String, CaseIterable, Identifiable {
     }
 }
 
+enum NotchSurface: String, CaseIterable, Identifiable {
+    case black, glass
+    var id: String { rawValue }
+    var title: String { self == .black ? "Pure black" : "Glass" }
+}
+
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
@@ -98,6 +104,10 @@ final class AppSettings: ObservableObject {
 
     @Published var revealInFinder: Bool {
         didSet { defaults.set(revealInFinder, forKey: "revealInFinder") }
+    }
+
+    @Published var notchSurface: NotchSurface {
+        didSet { defaults.set(notchSurface.rawValue, forKey: "notchSurface") }
     }
 
     @Published var progressStyle: ProgressStyle {
@@ -131,6 +141,7 @@ final class AppSettings: ObservableObject {
         compressionResizeLongEdge = defaults.integer(forKey: "compressionResizeLongEdge")
         outputLocation = OutputLocation(rawValue: defaults.string(forKey: "outputLocation") ?? "") ?? .besideOriginal
         revealInFinder = defaults.object(forKey: "revealInFinder") as? Bool ?? true
+        notchSurface = NotchSurface(rawValue: defaults.string(forKey: "notchSurface") ?? "") ?? .black
         progressStyle = ProgressStyle(rawValue: defaults.string(forKey: "progressStyle") ?? "") ?? .pill
         // One-time migration requested for existing trial installs; future user choices persist.
         if !defaults.bool(forKey: "notchDefaultV012") {

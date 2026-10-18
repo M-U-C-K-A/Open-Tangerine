@@ -44,6 +44,7 @@ final class JobRunner: ObservableObject {
     private var hideWorkItem: DispatchWorkItem?
     private let semaphore = AsyncSemaphore(limit: 1)
     private var jobSubscriptions: [UUID: AnyCancellable] = [:]
+    private var resultsHovered = false
     private var reservedDestinations: [UUID: URL] = [:]
 
     private let presentsHUD: Bool
@@ -186,7 +187,13 @@ final class JobRunner: ObservableObject {
         hud?.show()
     }
 
+    func hoverResults(_ hovering: Bool) {
+        resultsHovered = hovering
+        if hovering { hideWorkItem?.cancel() } else { scheduleHide() }
+    }
+
     private func scheduleHide() {
+        guard !resultsHovered, !jobs.isEmpty else { return }
         guard jobs.allSatisfy({ $0.status.isFinished }) else { return }
         guard !jobs.contains(where: { if case .failed = $0.status { return true }; return false }) else { return }
         hideWorkItem?.cancel()
@@ -197,7 +204,7 @@ final class JobRunner: ObservableObject {
             self.jobSubscriptions.removeAll()
         }
         hideWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: item)
     }
 
     func dismiss(_ job: Job) {
@@ -211,6 +218,7 @@ final class JobRunner: ObservableObject {
     }
 
     func dismissAll() {
+        resultsHovered = false
         hideWorkItem?.cancel()
         jobs.removeAll()
         jobSubscriptions.removeAll()
@@ -404,6 +412,8 @@ struct JobPillView: View {
     @ObservedObject var presentation: NotchPresentation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var companion = CompanionState.shared
+    @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     enum Layout {
         static let rowHeight: CGFloat = 16
         static let iconWidth: CGFloat = 16
@@ -449,8 +459,16 @@ struct JobPillView: View {
         .opacity(presentation.expanded ? 1 : 0)
         .offset(y: presentation.expanded || reduceMotion ? 0 : -16)
         .padding(.top, topInset)
-        // Explicit sRGB black, no material, tint, border, or fading of the backing.
-        .background(Color(.sRGB, red: 0, green: 0, blue: 0, opacity: 1))
+        .background {
+            if settings.notchSurface == .glass && !reduceTransparency {
+                Color.black.opacity(0.45)
+                    .glassEffect(.regular.tint(.black.opacity(0.45)), in: .rect)
+                    .overlay(alignment: .top) { Color.black.frame(height: topInset) }
+            } else {
+                Color(.sRGB, red: 0, green: 0, blue: 0, opacity: 1)
+            }
+        }
+        .onHover { runner.hoverResults($0) }
         .mask(alignment: .top) {
             UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: presentation.expanded ? 24 : 10, bottomTrailingRadius: presentation.expanded ? 24 : 10, topTrailingRadius: 0)
                 .frame(width: presentation.expanded ? 360 : min(360, collapsedWidth),
@@ -540,6 +558,7 @@ struct JobHUDView: View {
         .frame(width: 340)
         .background { Color.clear.glassEffect(.regular, in: .rect).ignoresSafeArea() }
         .tint(Theme.accent)
+        .onHover { runner.hoverResults($0) }
     }
 }
 
@@ -560,9 +579,13 @@ struct JobCardView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            ProgressView(value: fraction)
-                .progressViewStyle(.linear)
-                .controlSize(.small)
+            if job.status == .done && !job.outputs.isEmpty {
+                JobOutputActions(job: job)
+            } else {
+                ProgressView(value: fraction)
+                    .progressViewStyle(.linear)
+                    .controlSize(.small)
+            }
         }
     }
 
@@ -595,3 +618,22 @@ struct JobCardView: View {
     }
 }
 
+
+/// Acts only on explicitly completed outputs. Never edits or deletes originals.
+struct JobOutputActions: View {
+    @ObservedObject var job: Job
+    var body: some View {
+        HStack(spacing: 12) {
+            Button("Open", systemImage: "arrow.up.forward.square") {
+                if let output = job.outputs.first { NSWorkspace.shared.open(output) }
+            }.help(job.outputs.count > 1 ? "Open the first output" : "Open the output")
+            Button("Show", systemImage: "folder") {
+                NSWorkspace.shared.activateFileViewerSelecting(job.outputs)
+            }.help("Show all outputs in Finder")
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 10, weight: .semibold))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Results for " + job.detail)
+    }
+}

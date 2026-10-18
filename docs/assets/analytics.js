@@ -6,7 +6,7 @@
   const privacySignal = navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true;
   let preference = null;
   try { preference = JSON.parse(localStorage.getItem(storageKey)); } catch {}
-  if (!preference || preference.expires <= Date.now() || !['allow', 'deny'].includes(preference.choice)) preference = null;
+  if (!preference || !Number.isFinite(preference.expires) || preference.expires <= Date.now() || !['allow', 'deny'].includes(preference.choice)) preference = null;
   // Remove identifiers left by the retired integration; keep only the choice.
   if (preference) {
     preference = {choice: preference.choice, expires: preference.expires};
@@ -69,7 +69,7 @@
     const anchor = event.target.closest('a[href]');
     if (!anchor) return;
     const url = new URL(anchor.href, location.href);
-    if (url.origin !== 'https://github.com' || !url.pathname.startsWith('/sintaxerrorpvtltd/Open-Tangerine')) return;
+    if (url.origin !== 'https://github.com' || !/^\/sintaxerrorpvtltd\/Open-Tangerine(?:\/|$)/.test(url.pathname)) return;
     if (/^\/sintaxerrorpvtltd\/Open-Tangerine\/releases\/download\/[^/]+\/[^/]+\.zip$/.test(url.pathname)) {
       capture('ot_download_click', {release: url.pathname.split('/')[5]});
     } else if (url.pathname.includes('/releases')) capture('ot_releases_click');

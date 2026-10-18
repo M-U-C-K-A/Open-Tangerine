@@ -92,8 +92,12 @@ struct NotchJobRow: View {
                 }
             }
             Text(detail).font(.system(size: 10)).foregroundStyle(failed ? .red : .white.opacity(0.6)).lineLimit(1).help(detail)
-            ProgressView(value: job.status == .done ? 1 : min(max(job.progress, 0), 1))
-                .tint(Theme.accent).progressViewStyle(.linear).controlSize(.mini)
+            if job.status == .done && !job.outputs.isEmpty {
+                JobOutputActions(job: job)
+            } else {
+                ProgressView(value: job.status == .done ? 1 : min(max(job.progress, 0), 1))
+                    .tint(Theme.accent).progressViewStyle(.linear).controlSize(.mini)
+            }
         }.foregroundStyle(.white).frame(height: 48)
     }
     private var title: String {

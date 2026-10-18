@@ -89,7 +89,7 @@ struct SettingsView: View {
                         .font(.system(size: 12, weight: .semibold))
                     Text("Your files. Your workflow.")
                         .font(.caption).foregroundStyle(.secondary)
-                    Text("OPEN SOURCE  /  0.1.2")
+                    Text("OPEN SOURCE  /  \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development")")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .tracking(1.2).foregroundStyle(.tertiary)
                 }
@@ -197,6 +197,11 @@ struct SettingsView: View {
                 ForEach(ProgressStyle.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
+            if settings.progressStyle == .pill {
+                Picker("Notch surface", selection: $settings.notchSurface) {
+                    ForEach(NotchSurface.allCases) { Text($0.title).tag($0) }
+                }.pickerStyle(.segmented)
+            }
         } header: {
             Text("Progress")
         } footer: {
@@ -266,7 +271,7 @@ struct SettingsView: View {
                     Text("A little less friction. A little more flow.")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
-                Text("VERSION 0.1.2  ·  DEVELOPER TRIAL")
+                Text("VERSION \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development")  ·  DEVELOPER TRIAL")
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .tracking(1.1).foregroundStyle(.secondary)
                 Divider().padding(.horizontal, 30)

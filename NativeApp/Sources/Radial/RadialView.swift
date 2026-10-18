@@ -136,6 +136,9 @@ struct WedgeShape: Shape {
 }
 
 struct RadialWheelView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
+    var presentationID: UUID = UUID()
     var items: [RadialItem]
     var highlighted: Int?
     var title: String
@@ -157,6 +160,18 @@ struct RadialWheelView: View {
             }
         }
         .frame(width: geometry.outerRadius * 2 + 40, height: geometry.outerRadius * 2 + 40)
+        .scaleEffect(appeared || reduceMotion ? 1 : 0.84)
+        .onAppear { animateIn() }
+        .onChange(of: presentationID) { animateIn() }
+    }
+
+    private func animateIn() {
+        appeared = false
+        DispatchQueue.main.async {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78)) {
+                appeared = true
+            }
+        }
     }
 
     private func wedge(_ item: RadialItem, index: Int) -> some View {
@@ -172,8 +187,11 @@ struct RadialWheelView: View {
             }
             .frame(width: rect.width, height: rect.height)
             .glassEffect(selected ? .regular.tint(Theme.accent) : .regular, in: shape)
+            .scaleEffect(selected && !reduceMotion ? 1.025 : 1)
+            .offset(x: selected && !reduceMotion ? (mid.x - rect.midX) / geometry.labelRadius * 4 : 0,
+                    y: selected && !reduceMotion ? (mid.y - rect.midY) / geometry.labelRadius * 4 : 0)
         }
-        .animation(.easeOut(duration: 0.12), value: highlighted)
+        .animation(reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.8), value: highlighted)
     }
 
     private func label(_ item: RadialItem, selected: Bool) -> some View {
@@ -252,6 +270,8 @@ final class RadialView: NSView {
             refresh()
         }
     }
+    private var presentationID = UUID()
+    func animatePresentation() { presentationID = UUID(); refresh() }
     private var trackingArea: NSTrackingArea?
     private let host: PassthroughHostingView<RadialWheelView>
 
@@ -299,6 +319,7 @@ final class RadialView: NSView {
             title = items.count == 1 ? items[0].label : (advancedMode ? "TOOLS" : "CONVERT")
         }
         host.rootView = RadialWheelView(
+            presentationID: presentationID,
             items: items,
             highlighted: highlighted,
             title: title,

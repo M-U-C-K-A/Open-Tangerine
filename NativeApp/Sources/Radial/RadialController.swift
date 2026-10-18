@@ -100,6 +100,7 @@ final class RadialController: DragMonitorDelegate {
         view.onDragSessionEnded = { [weak self] in self?.dragSessionEnded() }
         view.clearHighlight()
         reloadItems()
+        view.animatePresentation()
         panel.alphaValue = 0
         panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { context in
