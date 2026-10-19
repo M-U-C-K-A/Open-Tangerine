@@ -58,7 +58,7 @@ enum ScreenshotDriver {
         try await SampleMedia.writeVideo(to: video2, seconds: 3, hue: 0.6)
 
         let inputs: [ToolID: [URL]] = [
-            .compress: [photo, pdf, video],
+            .compress: [pdf, video],
             .editMetadata: [photo],
             .editImage: [photo],
             .frameImage: [photo],

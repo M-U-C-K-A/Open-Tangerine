@@ -77,9 +77,9 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
 
     static func windowClass(for tool: ToolID) -> WindowClass {
         switch tool {
-        case .compress, .resizeImage, .createPDF, .mergePDF, .splitPDF, .audioChannels, .rotateImage, .transcribeSpeech, .protectPDF, .unlockPDF:
+        case .compress, .createPDF, .mergePDF, .splitPDF, .audioChannels, .rotateImage, .transcribeSpeech, .protectPDF, .unlockPDF:
             return .compact
-        case .editMetadata, .normalizeAudio, .organizePDF, .createCollage, .joinVideos, .audioToVideo, .trimAudio, .redactAudio, .removeBackground, .watermarkImage, .upscaleImage, .blurFaces, .renameFiles, .translateText:
+        case .editMetadata, .normalizeAudio, .organizePDF, .createCollage, .joinVideos, .audioToVideo, .trimAudio, .redactAudio, .removeBackground, .watermarkImage, .resizeImage, .renameFiles, .translateText:
             return .standard
         default:
             return .editor
@@ -90,8 +90,6 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
         switch tool {
         case .compress:
             return NSSize(width: 680, height: 760)
-        case .resizeImage:
-            return NSSize(width: 620, height: 400)
         case .createPDF, .mergePDF:
             return NSSize(width: 680, height: 440)
         case .splitPDF, .audioChannels:
@@ -100,7 +98,7 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
             return NSSize(width: 760, height: 500)
         case .editMetadata, .normalizeAudio, .trimAudio, .redactAudio, .audioToVideo:
             return NSSize(width: 820, height: 560)
-        case .organizePDF, .createCollage, .joinVideos, .removeBackground, .watermarkImage, .upscaleImage, .blurFaces:
+        case .organizePDF, .createCollage, .joinVideos, .removeBackground, .watermarkImage, .resizeImage:
             return NSSize(width: 940, height: 620)
         case .renameFiles, .translateText:
             return NSSize(width: 760, height: 600)
@@ -132,8 +130,6 @@ struct ToolRootView: View {
             case .frameImage: FrameImageToolView(session: session)
             case .removeBackground: RemoveBackgroundToolView(session: session)
             case .watermarkImage: WatermarkToolView(session: session)
-            case .upscaleImage: UpscaleToolView(session: session)
-            case .blurFaces: BlurFacesToolView(session: session)
             case .translateText: TranslateToolView(session: session)
             case .transcribeSpeech: TranscribeToolView(session: session)
             case .protectPDF, .unlockPDF: PDFPasswordToolView(session: session)

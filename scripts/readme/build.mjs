@@ -486,7 +486,7 @@ function hero() {
     </g>
     ${chips(72, 492, [
       ["184 routes", orange.s],
-      ["34 tools", T.lime[0]],
+      ["32 tools", T.lime[0]],
       ["batch", T.grape[0]],
       ["on-device", T.mint[0]],
     ])}
@@ -710,8 +710,8 @@ function formats() {
 /* ---- 5. tools: every tool, by family ----------------------------------- */
 
 const TOOLBOX = {
-  images: { name: "Images", color: "lime", icon: "image", tools: [["edit", "Edit photo"], ["frame", "Add a background"], ["cutout", "Remove background"], ["resize", "Upscale ×2 · ×4"], ["eye", "Hide faces"], ["sparkle", "Add a watermark"], ["crop", "Crop"], ["redact", "Redact"], ["resize", "Resize"], ["rotate", "Rotate & flip"], ["doc", "Create a PDF"], ["collage", "Collage"]] },
-  video: { name: "Video", color: "grape", icon: "video", tools: [["trim", "Trim"], ["crop", "Crop"], ["speed", "Change speed"], ["link", "Join"], ["frames", "Save frames"], ["split", "Split"], ["redact", "Redact"], ["eye", "Hide faces"], ["subtitle", "Subtitles from speech"]] },
+  images: { name: "Images", color: "lime", icon: "image", tools: [["edit", "Edit photo"], ["frame", "Add a background"], ["cutout", "Remove background"], ["eye", "Blur & redact"], ["resize", "Resize & compress"], ["sparkle", "Add a watermark"], ["crop", "Crop"], ["rotate", "Rotate & flip"], ["doc", "Create a PDF"], ["collage", "Collage"]] },
+  video: { name: "Video", color: "grape", icon: "video", tools: [["trim", "Trim"], ["crop", "Crop"], ["speed", "Change speed"], ["link", "Join"], ["frames", "Save frames"], ["split", "Split"], ["eye", "Blur & redact"], ["subtitle", "Subtitles from speech"]] },
   audio: { name: "Audio", color: "berry", icon: "audio", tools: [["wave", "Normalize volume"], ["bars", "Visualizer"], ["trim", "Trim"], ["phones", "Channels"], ["bleep", "Bleep"], ["subtitle", "Subtitles from speech"]] },
   pdf: { name: "PDF", color: "lemon", icon: "doc", tools: [["merge", "Merge"], ["stack", "Organize pages"], ["splitdoc", "Split"], ["lock", "Add a password"], ["lock", "Remove the password"]] },
   any: { name: "Any file", color: "orange", icon: "layers", tools: [["compress", "Compress"], ["tag", "Edit metadata"], ["layers", "Translate"]] },
@@ -759,7 +759,7 @@ function tools() {
     <ellipse cx="960" cy="300" rx="320" ry="260" fill="url(#glowGrape)" opacity=".6"/>
     ${parts.join("\n    ")}
     <text x="640" y="${H - 20}" text-anchor="middle" font-family="${MONO}" font-size="13" fill="${T.muted}">hold ⌘ while dragging · the wheel only offers the tools that fit the files you hold</text>`
-  return svg(W, H, body, "34 tools and 10 file actions: images, video, audio, PDF and any file")
+  return svg(W, H, body, "32 tools and 10 file actions: images, video, audio, PDF and any file")
 }
 
 /* ---- 6. notch: progress that grows out of the hardware notch ----------- */
@@ -882,8 +882,8 @@ const ROADMAP = [
     note: "0.2.0",
     color: "lime",
     cards: [
-      ["check", "184 routes, 34 tools", "convert, crop, trim, OCR, translate…"],
-      ["sparkle", "Upscale, hide faces", "super resolution · Vision, on-device"],
+      ["check", "184 routes, 32 tools", "convert, crop, trim, OCR, translate…"],
+      ["sparkle", "Resize & compress, blur faces", "super resolution · Vision, on-device"],
       ["subtitle", "Subtitles from speech", "transcribe, translate, unzip, QR…"],
     ],
   },
@@ -948,7 +948,7 @@ function roadmap() {
     ${isoGrid(W, H, 34)}
     <ellipse cx="640" cy="260" rx="330" ry="230" fill="url(#glowOrange)"/>
     ${parts.join("\n    ")}`
-  return svg(W, H, body, "Roadmap: shipped in 0.2.0 (184 routes, 34 tools, upscaling, face hiding, subtitles from speech), proposed next, ideas for later")
+  return svg(W, H, body, "Roadmap: shipped in 0.2.0 (184 routes, 32 tools, super resolution, face blurring, subtitles from speech), proposed next, ideas for later")
 }
 
 /* ---- 8. divider: a dotted rule with a segment of zest running along it -- */

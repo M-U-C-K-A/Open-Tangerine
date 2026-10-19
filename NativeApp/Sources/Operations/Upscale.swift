@@ -44,12 +44,39 @@ enum Upscale {
         }
     }
 
-    /// Smooth resampling, optionally with a light sharpen where enhancement is not available.
+    /// The picture at exactly `size`: shrunk smoothly, or grown, with *Enhance* rebuilding
+    /// detail ×2 at a time until it is at least that big, then settling on the size.
+    static func resize(_ image: CGImage, to size: CGSize, method: Method) async throws -> CGImage {
+        let w = Int(size.width.rounded()), h = Int(size.height.rounded())
+        guard w > 0, h > 0 else { throw OpenTangerineError.invalidInput("Choose a size of at least one pixel.") }
+        guard w != image.width || h != image.height else { return image }
+        guard w <= maxSide, h <= maxSide, w * h <= maxPixels else {
+            throw OpenTangerineError.invalidInput("\(w) × \(h) pixels is more than this Mac should hold at once. Choose a smaller size, or crop first.")
+        }
+        guard w > image.width || h > image.height else { return ImageIOBridge.scaled(image, to: size) }
+        var source = image
+        if method == .enhance, enhanceAvailable {
+            while source.width < w || source.height < h, source.width * 2 <= maxSide, source.height * 2 <= maxSide, source.width * source.height * 4 <= maxPixels {
+                source = try await superResolvePadded(source)
+            }
+        }
+        if source.width == w, source.height == h { return source }
+        if source.width >= w, source.height >= h { return ImageIOBridge.scaled(source, to: size) }
+        let sx = Double(w) / Double(source.width), sy = Double(h) / Double(source.height)
+        return try enlarge(source, scaleX: sx, scaleY: sy, sharpen: method == .enhance && !enhanceAvailable)
+    }
+
     static func enlarge(_ image: CGImage, factor: Double, sharpen: Bool = false) throws -> CGImage {
+        try enlarge(image, scaleX: factor, scaleY: factor, sharpen: sharpen)
+    }
+
+    /// Smooth resampling, optionally with a light sharpen where enhancement is not available.
+    static func enlarge(_ image: CGImage, scaleX: Double, scaleY: Double, sharpen: Bool = false) throws -> CGImage {
+        let factor = max(scaleX, scaleY)
         let lanczos = CIFilter.lanczosScaleTransform()
         lanczos.inputImage = CIImage(cgImage: image)
-        lanczos.scale = Float(factor)
-        lanczos.aspectRatio = 1
+        lanczos.scale = Float(scaleY)
+        lanczos.aspectRatio = Float(scaleX / scaleY)
         guard var output = lanczos.outputImage else { throw OpenTangerineError.encodeFailed("the enlarged image") }
         if sharpen {
             let filter = CIFilter.sharpenLuminance()
@@ -58,7 +85,7 @@ enum Upscale {
             filter.radius = Float(1.2 * factor)
             output = filter.outputImage ?? output
         }
-        let extent = CGRect(x: 0, y: 0, width: (Double(image.width) * factor).rounded(), height: (Double(image.height) * factor).rounded())
+        let extent = CGRect(x: 0, y: 0, width: (Double(image.width) * scaleX).rounded(), height: (Double(image.height) * scaleY).rounded())
         guard let rendered = ImageOps.render(output.cropped(to: extent), extent: extent) else { throw OpenTangerineError.encodeFailed("the enlarged image") }
         return rendered
     }

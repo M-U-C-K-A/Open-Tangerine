@@ -121,7 +121,7 @@ final class RadialController: DragMonitorDelegate {
         // Folders, archives and unknown files can only take file actions: start there.
         let detected = urls.compactMap(FileFormat.detect)
         let convertible = detected.count == urls.count && !urls.contains(where: FileAction.isDirectory)
-            && (!ConversionMatrix.targets(for: detected).isEmpty || !ToolID.available(for: detected).isEmpty)
+            && (!ConversionMatrix.targets(for: detected).isEmpty || !ToolID.available(for: urls).isEmpty)
         self.mode = convertible || urls.isEmpty ? mode : .actions
         formats = urls.compactMap(FileFormat.detect)
         let screen = NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
@@ -240,10 +240,15 @@ final class RadialController: DragMonitorDelegate {
             return
         }
         if mode == .tools {
-            view.items = ToolID.available(for: formats).map(RadialItem.init(tool:))
+            view.items = ToolID.available(for: urls).map(RadialItem.init(tool:))
             view.emptyMessage = "No tools for this selection"
         } else {
-            view.items = ConversionMatrix.targets(for: formats).map(RadialItem.init(format:))
+            // A PDF that asks for a password can't be read until it is removed.
+            view.items = ToolID.containsLockedPDF(urls) ? [] : ConversionMatrix.targets(for: formats).map(RadialItem.init(format:))
+            if ToolID.containsLockedPDF(urls) {
+                view.emptyMessage = "Password-protected: scroll to Tools to remove it"
+                return
+            }
             view.emptyMessage = count > 1 ? "No shared conversion for these files" : "No conversions available"
         }
     }

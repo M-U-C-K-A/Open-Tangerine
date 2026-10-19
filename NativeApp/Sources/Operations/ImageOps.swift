@@ -31,7 +31,7 @@ enum RedactionStyle: String, CaseIterable, Identifiable {
     case pixelate
 
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
+    var title: String { self == .solid ? "Box" : rawValue.capitalized }
 }
 
 struct Redaction: Identifiable, Equatable {

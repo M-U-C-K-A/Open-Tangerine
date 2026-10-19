@@ -244,6 +244,8 @@ import PDFKit
             check(abs(probe(e, 2600, 1890, 1010) - probe(source, 1300, 945, 505)) < 40, "enhance keeps colours across tile seams")
             let four = try await Upscale.upscale(stamp.makeImage()!, factor: 4, method: .enhance)
             check(four.width == 160 && four.height == 80, "enhance ×4 runs twice")
+            let between = try await Upscale.resize(stamp.makeImage()!, to: CGSize(width: 100, height: 50), method: .enhance)
+            check(between.width == 100 && between.height == 50, "enhance ×2.5 rebuilds detail, then settles on the size")
             let clear = CGContext(data: nil, width: 200, height: 200, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
             clear.setFillColor(CGColor(red: 1, green: 0.5, blue: 0, alpha: 1)); clear.fillEllipse(in: CGRect(x: 50, y: 50, width: 100, height: 100))
             let clearUp = pixels(try await Upscale.upscale(clear.makeImage()!, factor: 2, method: .enhance))
@@ -257,6 +259,24 @@ import PDFKit
         } catch OpenTangerineError.invalidInput {
             check(true, "an oversized upscale is refused")
         }
+
+        // Resize & compress: one size rule for every picture; growing lands on the exact size.
+        var sizing = ImageSizing(mode: .longEdge, longEdge: 1000)
+        check(sizing.target(for: CGSize(width: 2000, height: 1000)) == CGSize(width: 1000, height: 500) && sizing.target(for: CGSize(width: 800, height: 600)) == CGSize(width: 800, height: 600), "the long edge shrinks, and never enlarges unasked")
+        sizing.enlargeToLongEdge = true
+        check(sizing.target(for: CGSize(width: 800, height: 600)) == CGSize(width: 1000, height: 750) && sizing.enlarges(CGSize(width: 800, height: 600)), "the long edge enlarges on request")
+        check(ImageSizing(mode: .percent, percent: 200).target(for: CGSize(width: 300, height: 101)) == CGSize(width: 600, height: 202), "percent scales both sides")
+        check(ImageSizing(mode: .exact, width: 500, height: 500).target(for: CGSize(width: 1000, height: 250)) == CGSize(width: 500, height: 125), "exact fits inside, proportions kept")
+        check(ImageSizing(mode: .exact, width: 500, height: 500, keepAspect: false).target(for: CGSize(width: 1000, height: 250)) == CGSize(width: 500, height: 500), "exact can stretch")
+        check(ImageResizer.suffix(sizing: ImageSizing(mode: .original), size: CGSize(width: 10, height: 10), compressing: true) == "compressed" && ImageResizer.suffix(sizing: ImageSizing(mode: .percent, percent: 200), size: CGSize(width: 10, height: 10), compressing: false) == "enlarged" && ImageResizer.suffix(sizing: ImageSizing(mode: .percent, percent: 50), size: CGSize(width: 10, height: 10), compressing: true) == "resized", "the copy's name says what was done")
+        let uneven = try await Upscale.resize(detailedImage, to: CGSize(width: 1950, height: 1100), method: .enlarge)
+        check(uneven.width == 1950 && uneven.height == 1100, "enlarge lands on an exact, uneven size")
+        let shrunk = try await Upscale.resize(detailedImage, to: CGSize(width: 650, height: 500), method: .enhance)
+        check(shrunk.width == 650 && shrunk.height == 500, "shrinking needs no enhancement")
+        let sizingSource = dir.appendingPathComponent("sizing.jpg"), sizingOut = dir.appendingPathComponent("sizing small.jpg")
+        try ImageIOBridge.write(detailedImage, to: sizingSource, format: .jpg, quality: 0.95)
+        try await ImageResizer.process(sizingSource, sizing: ImageSizing(mode: .percent, percent: 50), method: .enlarge, preset: .strong, targetBytes: nil, quality: 0.9, to: sizingOut, progress: { _ in })
+        check(ImageIOBridge.pixelSize(sizingOut) == CGSize(width: 650, height: 500) && FileSizeFormatter.size(of: sizingOut) < FileSizeFormatter.size(of: sizingSource), "resize and compress in one pass: half the size, a lighter file")
 
         // ZIP: one item as name.zip, several as Archive.zip, never overwriting, contents intact.
         let zipDir = dir.appendingPathComponent("zip", isDirectory: true)
@@ -301,6 +321,14 @@ import PDFKit
         }
         try PDFOps.unlock(lockedPDF, password: "orange", to: reopened)
         check(PDFDocument(url: reopened).map { !$0.isLocked && !$0.isEncrypted && $0.pageCount == 1 } == true, "the right password gives a copy that opens freely")
+        // The wheel offers what each PDF's state allows.
+        check(ToolID.available(for: [plainPDF]).contains(.protectPDF) && !ToolID.available(for: [plainPDF]).contains(.unlockPDF), "a PDF without a password is never offered Remove the password")
+        check(ToolID.available(for: [lockedPDF]) == [.unlockPDF] && ToolID.containsLockedPDF([lockedPDF]) && !ToolID.containsLockedPDF([plainPDF]), "a PDF that asks for a password is only offered Remove the password")
+        check(ToolID.available(for: [plainPDF, lockedPDF]).isEmpty, "locked and open PDFs together share no tool")
+        let restrictedPDF = dir.appendingPathComponent("restricted.pdf")
+        if onePage.write(to: restrictedPDF, withOptions: [.ownerPasswordOption: "owner-only"]), let restricted = PDFDocument(url: restrictedPDF), restricted.isEncrypted, !restricted.isLocked {
+            check(ToolID.available(for: [restrictedPDF]).contains(.unlockPDF) && ToolID.available(for: [restrictedPDF]).contains(.splitPDF), "a PDF with owner restrictions opens, and can have them removed")
+        }
 
         // Codes: a QR code drawn here is read back, with its link and place.
         let qrFilter = CIFilter(name: "CIQRCodeGenerator", parameters: ["inputMessage": Data("https://github.com/M-U-C-K-A/Open-Tangerine".utf8), "inputCorrectionLevel": "M"])!

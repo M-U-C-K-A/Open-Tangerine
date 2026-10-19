@@ -69,8 +69,7 @@ final class JobRunner: ObservableObject {
             reservedDestinations[job.id] = destination
             enqueue(job) { progress in
                 let request = ConversionRequest(source: url, sourceFormat: source, target: target, destination: destination, progress: progress)
-                try await Engines.convert(request)
-                return [destination]
+                return [try await Engines.convert(request)]
             }
         }
     }

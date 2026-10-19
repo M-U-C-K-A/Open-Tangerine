@@ -1,4 +1,5 @@
 import Foundation
+import PDFKit
 
 enum ToolArity {
     case single
@@ -13,8 +14,6 @@ enum ToolID: String, CaseIterable, Identifiable {
     case frameImage
     case removeBackground
     case watermarkImage
-    case upscaleImage
-    case blurFaces
     case translateText
     case transcribeSpeech
     case protectPDF
@@ -53,15 +52,13 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .frameImage: return "Add a background"
         case .removeBackground: return "Remove background"
         case .watermarkImage: return "Add a watermark"
-        case .upscaleImage: return "Upscale image"
-        case .blurFaces: return "Hide faces"
         case .translateText: return "Translate"
         case .transcribeSpeech: return "Subtitles from speech"
         case .protectPDF: return "Add a password"
         case .unlockPDF: return "Remove the password"
         case .cropImage: return "Crop image"
-        case .redactImage: return "Redact photo"
-        case .resizeImage: return "Resize images"
+        case .redactImage: return "Blur & redact"
+        case .resizeImage: return "Resize & compress"
         case .rotateImage: return "Rotate & flip"
         case .createPDF: return "Create a PDF"
         case .createCollage: return "Create a collage"
@@ -71,7 +68,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .joinVideos: return "Join videos"
         case .videoSnapshots: return "Save video frames"
         case .splitVideo: return "Split video"
-        case .redactVideo: return "Redact video"
+        case .redactVideo: return "Blur & redact video"
         case .normalizeAudio: return "Normalize volume"
         case .audioToVideo: return "Audio visualizer"
         case .trimAudio: return "Trim audio"
@@ -87,21 +84,19 @@ enum ToolID: String, CaseIterable, Identifiable {
     /// One line on what the tool does, for the notch.
     var summary: String {
         switch self {
-        case .compress: return "Makes files smaller, with a target size if you like."
+        case .compress: return "Makes videos, sound and PDFs smaller, with a target size if you like."
         case .editMetadata: return "Edits or removes tags, camera and location data."
         case .editImage: return "Light, color and detail, with a before and after."
         case .frameImage: return "Puts the picture on a color or image background."
         case .removeBackground: return "Keeps the subject, makes the rest transparent."
         case .watermarkImage: return "Adds a text or logo mark."
-        case .upscaleImage: return "Makes pictures ×2 or ×4 bigger, with rebuilt detail if you like."
-        case .blurFaces: return "Finds every face and blurs or covers it."
         case .translateText: return "Translates subtitles, text, and the text in pictures."
         case .transcribeSpeech: return "Writes subtitles from what is said."
         case .protectPDF: return "Makes a copy that needs a password to open."
         case .unlockPDF: return "Makes a copy without the password you know."
         case .cropImage: return "Cuts the picture to a ratio or exact size."
-        case .redactImage: return "Hides areas with a box, a blur or pixels."
-        case .resizeImage: return "Scales pictures by edge, percent or size."
+        case .redactImage: return "Blurs faces for you; move, resize or add areas by hand."
+        case .resizeImage: return "Smaller, bigger with rebuilt detail, or lighter, in one go."
         case .rotateImage: return "Turns pictures a quarter at a time, or mirrors them."
         case .createPDF: return "Makes one PDF, a page per picture."
         case .createCollage: return "Lays pictures out in a grid, row or column."
@@ -111,7 +106,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .joinVideos: return "Puts several videos end to end in one MP4."
         case .videoSnapshots: return "Saves frames as pictures."
         case .splitVideo: return "Cuts a video into parts."
-        case .redactVideo: return "Hides areas of a video, each for a time."
+        case .redactVideo: return "Blurs faces frame by frame; add areas, each for a time."
         case .normalizeAudio: return "Evens out loudness to a standard level."
         case .audioToVideo: return "Turns audio into a video with a waveform."
         case .trimAudio: return "Keeps the part you choose, trims silences."
@@ -132,8 +127,6 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .frameImage: return "Adding background"
         case .removeBackground: return "Removing background"
         case .watermarkImage: return "Adding watermark"
-        case .upscaleImage: return "Upscaling"
-        case .blurFaces: return "Hiding faces"
         case .translateText: return "Translating"
         case .transcribeSpeech: return "Transcribing"
         case .protectPDF: return "Protecting"
@@ -167,16 +160,14 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .frameImage: return "ADD BG"
         case .removeBackground: return "REMOVE BG"
         case .watermarkImage: return "WATERMARK"
-        case .upscaleImage: return "UPSCALE"
-        case .blurFaces: return "FACES"
         case .translateText: return "TRANSLATE"
         case .transcribeSpeech: return "SUBTITLES"
         case .protectPDF: return "LOCK"
         case .unlockPDF: return "UNLOCK"
         case .renameFiles: return "RENAME"
         case .cropImage, .cropVideo: return "CROP"
-        case .redactImage, .redactVideo: return "REDACT"
-        case .resizeImage: return "RESIZE"
+        case .redactImage, .redactVideo: return "BLUR"
+        case .resizeImage: return "SIZE"
         case .rotateImage: return "ROTATE"
         case .createPDF: return "PDF"
         case .createCollage: return "COLLAGE"
@@ -202,8 +193,6 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .frameImage: return "photo.artframe"
         case .removeBackground: return "person.and.background.dotted"
         case .watermarkImage: return "signature"
-        case .upscaleImage: return "arrow.up.left.and.arrow.down.right.square"
-        case .blurFaces: return "face.dashed"
         case .translateText: return "character.bubble"
         case .transcribeSpeech: return "captions.bubble"
         case .protectPDF: return "lock.doc"
@@ -233,14 +222,15 @@ enum ToolID: String, CaseIterable, Identifiable {
 
     var categories: Set<FormatCategory> {
         switch self {
-        case .compress, .editMetadata:
+        case .compress:
+            // Pictures are made lighter in Resize & compress, with their size.
+            return [.video, .audio, .document]
+        case .editMetadata:
             return [.image, .video, .audio, .document]
         case .renameFiles:
             return Set(FormatCategory.allCases)
-        case .watermarkImage, .upscaleImage:
+        case .watermarkImage:
             return [.image]
-        case .blurFaces:
-            return [.image, .video]
         case .translateText:
             return [.subtitle, .document, .image]
         case .transcribeSpeech:
@@ -260,7 +250,7 @@ enum ToolID: String, CaseIterable, Identifiable {
 
     var arity: ToolArity {
         switch self {
-        case .compress, .editMetadata, .removeBackground, .watermarkImage, .upscaleImage, .blurFaces, .translateText, .transcribeSpeech, .protectPDF, .unlockPDF, .resizeImage, .rotateImage, .createPDF, .renameFiles: return .any
+        case .compress, .editMetadata, .removeBackground, .watermarkImage, .redactImage, .translateText, .transcribeSpeech, .protectPDF, .unlockPDF, .resizeImage, .rotateImage, .createPDF, .renameFiles: return .any
         case .createCollage, .joinVideos, .mergePDF: return .multiple
         default: return .single
         }
@@ -291,6 +281,27 @@ enum ToolID: String, CaseIterable, Identifiable {
 
     static func available(for formats: [FileFormat]) -> [ToolID] {
         allCases.filter { $0.applies(to: formats) }
+    }
+
+    /// The tools for these very files: a PDF that already asks for a password is only
+    /// offered *Remove the password*, and one without any protection is never offered it.
+    static func available(for urls: [URL]) -> [ToolID] {
+        let formats = urls.compactMap(FileFormat.detect)
+        guard !urls.isEmpty, formats.count == urls.count else { return [] }
+        var tools = available(for: formats)
+        guard formats.contains(.pdf) else { return tools }
+        let documents = urls.map { PDFDocument(url: $0) }
+        if documents.contains(where: { $0?.isLocked == true }) {
+            // Nothing else can read a locked PDF until its password is removed.
+            return documents.allSatisfy({ $0?.isEncrypted == true }) ? [.unlockPDF] : []
+        }
+        if !documents.allSatisfy({ $0?.isEncrypted == true }) { tools.removeAll { $0 == .unlockPDF } }
+        return tools
+    }
+
+    /// True when any of these files is a PDF that needs a password to open.
+    static func containsLockedPDF(_ urls: [URL]) -> Bool {
+        urls.contains { FileFormat.detect($0) == .pdf && PDFDocument(url: $0)?.isLocked == true }
     }
 
     static var total: Int { allCases.count }

@@ -72,13 +72,18 @@ enum Shots {
         let fruit = samples.appendingPathComponent("tangerine.png")
         try ImageIOBridge.write(scene.makeImage()!, to: fruit, format: .png)
 
+        // Resize & compress shows its enlarging preview: twice the size, rebuilt.
+        UserDefaults.standard.set("percent", forKey: "resize.mode")
+        UserDefaults.standard.set(200, forKey: "resize.percent")
+        UserDefaults.standard.set("enhance", forKey: "resize.method")
+
         let tools: [(ToolID, [URL])] = [
             (.removeBackground, [fruit]),
-            (.upscaleImage, [photo]),
+            (.resizeImage, [photo]),
             (.watermarkImage, [photo]),
             (.cropImage, [photo]),
             (.editImage, [photo]),
-            (.compress, [photo, pdf, video]),
+            (.compress, [pdf, video]),
             (.createCollage, [photo, photo2, photo]),
             (.normalizeAudio, [audio]),
             (.organizePDF, [pdf]),

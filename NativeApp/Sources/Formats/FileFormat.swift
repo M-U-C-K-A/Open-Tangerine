@@ -128,6 +128,8 @@ enum FileFormat: String, CaseIterable, Identifiable, Hashable {
     }
 
     static func detect(_ url: URL) -> FileFormat? {
+        // A folder is never a file format, even one named “pages.png”.
+        if url.hasDirectoryPath || (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true { return nil }
         let name = url.lastPathComponent.lowercased()
         if name.hasSuffix(".tar.gz") || name.hasSuffix(".tgz") { return .gz }
         let ext = url.pathExtension.lowercased()

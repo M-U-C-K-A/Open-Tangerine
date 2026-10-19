@@ -101,6 +101,7 @@ import AVFoundation
         for style in RedactionStyle.allCases {
             await test("video redact \(style)") { let dest = out("redact-\(style).mp4"); try await VideoOps.redact(mp4, redactions: [Redaction(rect: CGRect(x: 10,y: 10,width: 30,height: 30), style: style)], displaySize: CGSize(width: 80,height: 60), to: dest, progress: {_ in}); try await inspect(dest, video: true, duration: 2, width: 160) }
         }
+        await test("video redact with faces") { let dest = out("redact-faces.mp4"); try await VideoOps.redact(mp4, redactions: [Redaction(rect: CGRect(x: 10, y: 10, width: 30, height: 30), style: .blur)], displaySize: CGSize(width: 80, height: 60), faces: FaceBlur.Options(), to: dest, progress: {_ in}); try await inspect(dest, video: true, duration: 2, width: 160) }
         let frame = out("frame.png")
         try await FFmpeg.run(["-i", mp4.path, "-frames:v", "1", frame.path], purpose: "Visualizer fixture")
         for style in AudioOps.VisualizerStyle.allCases {

@@ -94,10 +94,6 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(compressionPreset.rawValue, forKey: "compressionPreset") }
     }
 
-    @Published var compressionResizeLongEdge: Int {
-        didSet { defaults.set(compressionResizeLongEdge, forKey: "compressionResizeLongEdge") }
-    }
-
     @Published var outputLocation: OutputLocation {
         didSet { defaults.set(outputLocation.rawValue, forKey: "outputLocation") }
     }
@@ -148,7 +144,6 @@ final class AppSettings: ObservableObject {
 
     private init() {
         compressionPreset = CompressionPreset(rawValue: defaults.string(forKey: "compressionPreset") ?? "") ?? .balanced
-        compressionResizeLongEdge = defaults.integer(forKey: "compressionResizeLongEdge")
         outputLocation = OutputLocation(rawValue: defaults.string(forKey: "outputLocation") ?? "") ?? .besideOriginal
         revealInFinder = defaults.object(forKey: "revealInFinder") as? Bool ?? true
         shiftOpensWheel = defaults.object(forKey: "shiftOpensWheel") as? Bool ?? true

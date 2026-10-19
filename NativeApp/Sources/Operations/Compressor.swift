@@ -77,7 +77,14 @@ enum Compressor {
     static func compressImage(_ url: URL, format: FileFormat, preset: CompressionPreset, resizeLongEdge: Int, targetBytes: Int64?, to destination: URL, progress: @escaping (Double) -> Void) async throws {
         var image = try ImageIOBridge.load(url)
         if resizeLongEdge > 0 { image = ImageIOBridge.resized(image, longEdge: resizeLongEdge) }
-        let output = outputFormat(for: url)
+        try await writeLighter(image, from: url, preset: preset, targetBytes: targetBytes, to: destination, progress: progress)
+    }
+
+    /// Writes a picture as a lighter file in `outputFormat(for: source)`: at the preset's
+    /// quality, or searching the quality (and size, if need be) that fits `targetBytes`.
+    static func writeLighter(_ image: CGImage, from source: URL, preset: CompressionPreset, targetBytes: Int64?, to destination: URL, progress: @escaping (Double) -> Void) async throws {
+        let format = FileFormat.detect(source) ?? .png
+        let output = outputFormat(for: source)
         let hasAlpha = image.alphaInfo != .none && image.alphaInfo != .noneSkipLast && image.alphaInfo != .noneSkipFirst
         let finalFormat: FileFormat = (output == .jpg && hasAlpha && format == .png) ? .png : output
         progress(0.2)

@@ -136,7 +136,12 @@ struct RedactVideoToolView: View {
     @State private var selected: UUID?
     @State private var ranges: [UUID: ClosedRange<Double>] = [:]
     @State private var styles: [UUID: RedactionStyle] = [:]
-    @State private var defaultStyle: RedactionStyle = .solid
+    @State private var defaultStyle: RedactionStyle = .blur
+    @State private var hideFaces = true
+    @State private var faceStyle: RedactionStyle = .blur
+    @State private var margin: Double = 0.3
+    @State private var facesInFrame = 0
+    @State private var frameTask: Task<Void, Never>?
 
     init(session: ToolSession) {
         self.session = session
@@ -153,12 +158,12 @@ struct RedactVideoToolView: View {
     }
 
     var body: some View {
-        ToolShell(session: session, saveTitle: "Redact", saveEnabled: !rects.isEmpty, onSave: save) {
+        ToolShell(session: session, saveTitle: "Save copy", saveEnabled: !rects.isEmpty || hideFaces, onSave: save) {
             VStack(spacing: 10) {
                 ZStack {
                     Color.black
                     if let frame {
-                        RectangleEditorCanvas(image: frame, imageSize: videoSize, rectangles: $rects, selected: $selected, allowMultiple: true)
+                        RectangleEditorCanvas(image: frame, imageSize: videoSize, rectangles: $rects, selected: $selected, allowMultiple: true, outlinesOnly: true)
                     } else {
                         ProgressView()
                     }
@@ -175,9 +180,25 @@ struct RedactVideoToolView: View {
             }
             .padding(12)
         } sidebar: {
-            SidebarSection(title: "Style") {
+            SidebarSection(title: "Faces") {
+                Toggle("Hide faces automatically", isOn: $hideFaces)
+                if hideFaces {
+                    Picker("", selection: $faceStyle) {
+                        Text("Blur").tag(RedactionStyle.blur)
+                    Text("Pixelate").tag(RedactionStyle.pixelate)
+                    Text("Box").tag(RedactionStyle.solid)
+                    }
+                    .pickerStyle(.segmented).labelsHidden()
+                    LabeledSlider(title: "Margin around faces", value: $margin, range: 0...0.8) { String(format: "%.0f%%", $0 * 100) }
+                    Text(facesInFrame == 0 ? "No face in this frame. Every frame is searched when saving, so a face that moves stays covered." : "\(facesInFrame) face\(facesInFrame == 1 ? "" : "s") in this frame. Every frame is searched when saving, so a face that moves stays covered.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            SidebarSection(title: "Style of your areas") {
                 Picker("", selection: styleBinding) {
-                    ForEach(RedactionStyle.allCases) { Text($0.title).tag($0) }
+                    Text("Blur").tag(RedactionStyle.blur)
+                    Text("Pixelate").tag(RedactionStyle.pixelate)
+                    Text("Box").tag(RedactionStyle.solid)
                 }
                 .pickerStyle(.segmented).labelsHidden()
             }
@@ -192,7 +213,7 @@ struct RedactVideoToolView: View {
             }
             SidebarSection(title: "Areas (\(rects.count))") {
                 if rects.isEmpty {
-                    Text("Drag on the frame to add a redaction. Each area can have its own time range.").font(.caption2).foregroundStyle(.secondary)
+                    Text("Drag on the frame to cover more: a plate, a screen, a name. Drag an area to move it, its corners to resize it; each has its own time range.").font(.caption2).foregroundStyle(.secondary)
                 }
                 ForEach(rects) { overlay in
                     HStack {
@@ -219,6 +240,12 @@ struct RedactVideoToolView: View {
                 if rects[index].label != "\(index + 1)" { rects[index].label = "\(index + 1)" }
             }
         }
+        .onChange(of: rects) { _ in loadFrame() }
+        .onChange(of: styles) { _ in loadFrame() }
+        .onChange(of: defaultStyle) { _ in loadFrame() }
+        .onChange(of: hideFaces) { _ in loadFrame() }
+        .onChange(of: faceStyle) { _ in loadFrame() }
+        .onChange(of: margin) { _ in loadFrame() }
         .onDeleteCommand { if let selected { remove(selected) } }
     }
 
@@ -227,6 +254,19 @@ struct RedactVideoToolView: View {
             get: { selected.flatMap { styles[$0] } ?? defaultStyle },
             set: { new in if let selected { styles[selected] = new } else { defaultStyle = new } }
         )
+    }
+
+    private var redactions: [Redaction] {
+        rects.map { overlay -> Redaction in
+            var r = Redaction(rect: overlay.rect)
+            r.style = styles[overlay.id] ?? defaultStyle
+            if let range = ranges[overlay.id] { r.start = range.lowerBound; r.end = range.upperBound }
+            return r
+        }
+    }
+
+    private var faceOptions: FaceBlur.Options? {
+        hideFaces ? FaceBlur.Options(style: faceStyle, padding: margin) : nil
     }
 
     private func updateRange(lower: Double? = nil, upper: Double? = nil) {
@@ -244,28 +284,49 @@ struct RedactVideoToolView: View {
         if selected == id { selected = nil }
     }
 
+    /// The frame at the playhead, as it will be saved: faces and areas already hidden.
     private func loadFrame() {
         let url = session.primary
         let time = media.currentTime
-        Task.detached {
-            guard let cg = try? await VideoOps.snapshot(url, at: time) else { return }
-            let ns = ImageOps.nsImage(cg)
-            await MainActor.run { frame = ns }
+        let size = videoSize
+        let faces = faceOptions
+        let active = redactions.filter { time >= $0.start && time <= $0.end }
+        frameTask?.cancel()
+        frameTask = Task.detached(priority: .userInitiated) {
+            guard let cg = try? await VideoOps.snapshot(url, at: time), !Task.isCancelled else { return }
+            var image = CIImage(cgImage: cg)
+            var count = 0
+            if let faces, let found = try? FaceBlur.faces(in: image) {
+                count = found.count
+                image = FaceBlur.hide(image, faces: found, options: faces)
+            }
+            if !active.isEmpty, size.width > 0 {
+                let sx = CGFloat(cg.width) / size.width, sy = CGFloat(cg.height) / size.height
+                let scaled = active.map { r -> Redaction in
+                    var copy = r
+                    copy.rect = CGRect(x: r.rect.minX * sx, y: r.rect.minY * sy, width: r.rect.width * sx, height: r.rect.height * sy)
+                    return copy
+                }
+                image = ImageOps.redact(image, redactions: scaled)
+            }
+            let ns = ImageToolSupport.cgImage(image).map(ImageOps.nsImage) ?? ImageOps.nsImage(cg)
+            guard !Task.isCancelled else { return }
+            let found = count
+            await MainActor.run {
+                frame = ns
+                facesInFrame = found
+            }
         }
     }
 
     private func save() {
         let url = session.primary
         let size = videoSize
-        let redactions = rects.map { overlay -> Redaction in
-            var r = Redaction(rect: overlay.rect)
-            r.style = styles[overlay.id] ?? defaultStyle
-            if let range = ranges[overlay.id] { r.start = range.lowerBound; r.end = range.upperBound }
-            return r
-        }
+        let redactions = redactions
+        let faces = faceOptions
         let destination = session.outputURL(suffix: "redacted", ext: "mp4")
         session.run(title: "Redacting", detail: "\(url.lastPathComponent)") { progress in
-            try await VideoOps.redact(url, redactions: redactions, displaySize: size, to: destination, progress: progress)
+            try await VideoOps.redact(url, redactions: redactions, displaySize: size, faces: faces, to: destination, progress: progress)
             return [destination]
         }
     }

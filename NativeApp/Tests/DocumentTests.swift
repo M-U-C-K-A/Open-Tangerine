@@ -10,9 +10,7 @@ import PDFKit
         defer { try? fm.removeItem(at: root) }
         func url(_ name: String) -> URL { root.appendingPathComponent(name) }
         func convert(_ source: URL, _ from: FileFormat, _ to: FileFormat, _ name: String) async throws -> URL {
-            let output = url(name)
-            try await Engines.convert(ConversionRequest(source: source, sourceFormat: from, target: to, destination: output, progress: { _ in }))
-            return output
+            try await Engines.convert(ConversionRequest(source: source, sourceFormat: from, target: to, destination: url(name), progress: { _ in }))
         }
         let text = "Open Tangerine document test\nCafé & <content>\n\nSecond paragraph."
         try text.write(to: url("input.txt"), atomically: true, encoding: .utf8)
@@ -61,6 +59,7 @@ import PDFKit
         try PDFOps.fromImages([url("text.png"), url("text.jpg")], to: imagePDF, progress: { _ in })
         precondition(try! PDFOps.document(imagePDF).pageCount == 2)
         let multiImages = try await convert(merged, .pdf, .png, "pages.png")
+        precondition(multiImages.lastPathComponent == "pages (PNG pages)" && FileFormat.detect(multiImages) == nil, "a multi-page export is a plainly named folder, not something that looks like a PNG")
         let pages = try fm.contentsOfDirectory(at: multiImages, includingPropertiesForKeys: nil)
         precondition(pages.count == 2)
         for page in pages { precondition(try! ImageIOBridge.load(page).width == 2550) }

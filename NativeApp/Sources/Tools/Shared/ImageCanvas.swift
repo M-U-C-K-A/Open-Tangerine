@@ -53,6 +53,8 @@ struct RectangleEditorCanvas: View {
     var allowMultiple = true
     var aspect: CGFloat? = nil
     var minimumSize: CGFloat = 8
+    /// Draw only outlines, so the effect underneath (a blur, a box) shows as it will be saved.
+    var outlinesOnly = false
 
     @State private var dragStart: CGPoint?
     @State private var dragMode: DragMode = .none
@@ -79,9 +81,12 @@ struct RectangleEditorCanvas: View {
                     let display = fit.toDisplay(overlay.rect)
                     ZStack(alignment: .topLeading) {
                         Rectangle()
-                            .fill(overlay.color.opacity(overlay.id == selected ? 0.35 : 0.22))
+                            .fill(overlay.color.opacity(outlinesOnly ? (overlay.id == selected ? 0.08 : 0) : (overlay.id == selected ? 0.35 : 0.22)))
+                        if outlinesOnly {
+                            Rectangle().strokeBorder(Color.black.opacity(0.35), lineWidth: overlay.id == selected ? 4 : 3)
+                        }
                         Rectangle()
-                            .strokeBorder(overlay.color, lineWidth: overlay.id == selected ? 2 : 1)
+                            .strokeBorder(overlay.color, lineWidth: overlay.id == selected ? 2 : 1.5)
                         if !overlay.label.isEmpty {
                             Text(overlay.label)
                                 .font(.caption2.weight(.semibold))

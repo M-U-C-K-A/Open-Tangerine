@@ -216,9 +216,15 @@ enum VideoOps {
         return try ImageIOBridge.load(temp)
     }
 
-    static func redact(_ url: URL, redactions: [Redaction], displaySize: CGSize, to destination: URL, progress: @escaping (Double) -> Void) async throws {
+    /// Hides areas, each for its own time. With `faces`, every frame is also searched for
+    /// faces and each one is hidden, which needs a video macOS reads itself (MP4, MOV).
+    static func redact(_ url: URL, redactions: [Redaction], displaySize: CGSize, faces: FaceBlur.Options? = nil, to destination: URL, progress: @escaping (Double) -> Void) async throws {
         let asset = AVURLAsset(url: url)
-        guard !FFmpeg.isAvailable, await MediaInfo.isNativelyReadable(url) else {
+        let native = await MediaInfo.isNativelyReadable(url)
+        if faces != nil, !native {
+            throw OpenTangerineError.invalidInput("Faces can be found in MP4 and MOV videos. Convert this one to MP4 first, or turn off Hide faces.")
+        }
+        guard faces != nil || (!FFmpeg.isAvailable && native) else {
             guard displaySize.width > 0, displaySize.height > 0 else { throw OpenTangerineError.invalidInput("Invalid video preview size.") }
             let info = try await streamInfo(url)
             let sx = Double(info.width) / displaySize.width, sy = Double(info.height) / displaySize.height
@@ -239,7 +245,11 @@ enum VideoOps {
             try await VideoEngine.ffmpegConvert(source: url, destination: destination, target: .mp4, videoFilters: filters, progress: progress)
             return
         }
-        let composition = try await videoComposition(for: asset, crop: nil, outputSize: nil) { image, time in
+        let composition = try await videoComposition(for: asset, crop: nil, outputSize: nil) { frame, time in
+            var image = frame
+            if let faces, let found = try? FaceBlur.faces(in: frame), !found.isEmpty {
+                image = FaceBlur.hide(frame, faces: found, options: faces)
+            }
             let seconds = CMTimeGetSeconds(time)
             let active = redactions.filter { seconds >= $0.start && seconds <= $0.end }
             guard !active.isEmpty else { return image }

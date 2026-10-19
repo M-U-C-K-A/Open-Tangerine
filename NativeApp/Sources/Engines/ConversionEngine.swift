@@ -27,7 +27,10 @@ enum Engines {
         all.first { $0.supports(from: from, to: to) }
     }
 
-    static func convert(_ request: ConversionRequest) async throws {
+    /// Converts and returns where the result landed: the requested file, or for a
+    /// multi-page export, a folder named “name (PNG pages)” beside it, never “name.png”.
+    @discardableResult
+    static func convert(_ request: ConversionRequest) async throws -> URL {
         guard let engine = engine(from: request.sourceFormat, to: request.target) else {
             DiagnosticLog.log("no engine for \(request.sourceFormat.rawValue) -> \(request.target.rawValue)")
             throw OpenTangerineError.unsupportedConversion(request.sourceFormat, request.target)
@@ -47,12 +50,17 @@ enum Engines {
             try Task.checkCancellation()
             DiagnosticLog.log("engine finished, staged=\(temp.lastPathComponent)")
             var isDirectory: ObjCBool = false
-            if FileManager.default.fileExists(atPath: temp.path, isDirectory: &isDirectory) {
-                // moveItem refuses an existing destination; never delete another file.
-                try FileManager.default.moveItem(at: temp, to: request.destination)
-            } else {
+            guard FileManager.default.fileExists(atPath: temp.path, isDirectory: &isDirectory) else {
                 throw OpenTangerineError.encodeFailed(request.destination.lastPathComponent)
             }
+            var final = request.destination
+            if isDirectory.boolValue {
+                let base = ConversionMatrix.strippedBaseName(request.destination.lastPathComponent)
+                final = ConversionMatrix.uniqueDirectory(directory: request.destination.deletingLastPathComponent(), name: "\(base) (\(request.target.displayName) pages)")
+            }
+            // moveItem refuses an existing destination; never delete another file.
+            try FileManager.default.moveItem(at: temp, to: final)
+            return final
         } catch {
             DiagnosticLog.log("engine threw: \(error)")
             try? FileManager.default.removeItem(at: temp)
