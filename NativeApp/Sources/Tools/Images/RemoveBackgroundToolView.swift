@@ -27,6 +27,9 @@ struct RemoveBackgroundToolView: View {
     @State private var stroke: [CGPoint] = []
     @State private var strokeKeeps = false
     @State private var pointer: CGPoint?
+    /// 1 fits the picture in the window; up to 12 times that, to reach small leftovers.
+    @State private var zoom: CGFloat = 1
+    @State private var zoomAtGestureStart: CGFloat = 1
 
     enum RefineTool: String, CaseIterable, Identifiable {
         case wand, brush
@@ -63,28 +66,20 @@ struct RemoveBackgroundToolView: View {
                 CheckerboardBackground()
                 if let subject, showOriginal ? document.preview != nil : rendered != nil {
                     GeometryReader { proxy in
-                        let frame = Self.fitted(subject.size, in: proxy.size)
-                        ZStack {
-                            Group {
-                                if showOriginal, let preview = document.preview {
-                                    Image(nsImage: preview).resizable().interpolation(.high)
-                                } else if let rendered {
-                                    Image(nsImage: rendered).resizable().interpolation(.high)
-                                }
-                            }
-                            .frame(width: frame.width, height: frame.height)
-                            .position(x: frame.midX, y: frame.midY)
-                            if cropToSubject, let cropOutline {
-                                Rectangle()
-                                    .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                                    .frame(width: cropOutline.width * frame.width, height: cropOutline.height * frame.height)
-                                    .position(x: frame.minX + cropOutline.midX * frame.width, y: frame.minY + cropOutline.midY * frame.height)
-                                    .allowsHitTesting(false)
-                            }
-                            if refinable {
-                                refineSurface(frame)
-                            }
+                        let fit = Self.fitted(subject.size, in: proxy.size)
+                        let size = CGSize(width: fit.width * zoom, height: fit.height * zoom)
+                        // Zoomed in, the picture scrolls: two fingers on a trackpad, or the wheel (Shift for sideways).
+                        ScrollView([.horizontal, .vertical]) {
+                            canvas(size)
+                                .frame(width: max(size.width + 24, proxy.size.width), height: max(size.height + 24, proxy.size.height))
                         }
+                        .scrollIndicators(zoom > 1 ? .automatic : .hidden)
+                        .defaultScrollAnchor(.center)
+                        .simultaneousGesture(
+                            MagnifyGesture()
+                                .onChanged { value in setZoom(zoomAtGestureStart * value.magnification) }
+                                .onEnded { _ in zoomAtGestureStart = zoom }
+                        )
                     }
                 } else if detecting {
                     VStack(spacing: 10) {
@@ -93,6 +88,16 @@ struct RemoveBackgroundToolView: View {
                     }
                 } else {
                     LoadingOrError(error: detectionError ?? document.error)
+                }
+                if subject != nil {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            zoomControls
+                        }
+                        Spacer()
+                    }
+                    .padding(12)
                 }
                 VStack {
                     Spacer()
@@ -143,6 +148,8 @@ struct RemoveBackgroundToolView: View {
                          ? "Click a leftover patch to remove it, or a missing part to bring it back. Similar connected colors go with it. Hold ⌥ to swap Remove and Keep."
                          : "Paint over what should go, or what should stay. Hold ⌥ to swap Remove and Keep.")
                         .font(.caption2).foregroundStyle(.secondary)
+                    Text("Pinch or press ⌘+ to zoom in on the edges, scroll to move around, ⌘0 to fit.")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
             }
             SidebarSection(title: "Edges") {
@@ -170,10 +177,71 @@ struct RemoveBackgroundToolView: View {
         .onChange(of: cropToSubject) { scheduleRender() }
     }
 
+    // MARK: - Zoom
+
+    static let zoomRange: ClosedRange<CGFloat> = 1...12
+
+    private func setZoom(_ value: CGFloat) {
+        zoom = min(max(value, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
+    }
+
+    /// Zoom out, fit, zoom in; pinch works too. ⌘+, ⌘− and ⌘0 from the keyboard.
+    private var zoomControls: some View {
+        HStack(spacing: 2) {
+            Button { setZoom(zoom / 1.5); zoomAtGestureStart = zoom } label: { Image(systemName: "minus.magnifyingglass") }
+                .keyboardShortcut("-", modifiers: .command)
+                .disabled(zoom <= Self.zoomRange.lowerBound)
+                .help("Zoom out (⌘−)")
+            Button { setZoom(1); zoomAtGestureStart = 1 } label: {
+                Text(zoom <= 1.001 ? "Fit" : "\(Int((zoom * 100).rounded()))%")
+                    .monospacedDigit()
+                    .frame(minWidth: 44)
+            }
+            .keyboardShortcut("0", modifiers: .command)
+            .help("Fit the picture in the window (⌘0)")
+            Button { setZoom(zoom * 1.5); zoomAtGestureStart = zoom } label: { Image(systemName: "plus.magnifyingglass") }
+                .keyboardShortcut("+", modifiers: .command)
+                .disabled(zoom >= Self.zoomRange.upperBound)
+                .help("Zoom in (⌘+)")
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.large)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.regularMaterial, in: Capsule())
+        // The checkerboard is dark in both appearances.
+        .environment(\.colorScheme, .dark)
+    }
+
+    /// The picture at `size`, its crop outline and the surface that takes clicks and strokes.
+    private func canvas(_ size: CGSize) -> some View {
+        ZStack(alignment: .topLeading) {
+            Group {
+                if showOriginal, let preview = document.preview {
+                    Image(nsImage: preview).resizable().interpolation(zoom > 2 ? .none : .high)
+                } else if let rendered {
+                    Image(nsImage: rendered).resizable().interpolation(zoom > 2 ? .none : .high)
+                }
+            }
+            .frame(width: size.width, height: size.height)
+            if cropToSubject, let cropOutline {
+                Rectangle()
+                    .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    .frame(width: cropOutline.width * size.width, height: cropOutline.height * size.height)
+                    .offset(x: cropOutline.minX * size.width, y: cropOutline.minY * size.height)
+                    .allowsHitTesting(false)
+            }
+            if refinable {
+                refineSurface(size)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
     // MARK: - The wand and brush surface
 
     /// A transparent layer over the picture that turns clicks and strokes into refinements.
-    private func refineSurface(_ frame: CGRect) -> some View {
+    private func refineSurface(_ frame: CGSize) -> some View {
         let short = min(frame.width, frame.height)
         return ZStack {
             Color.clear.contentShape(Rectangle())
@@ -192,7 +260,7 @@ struct RemoveBackgroundToolView: View {
                 .onChanged { value in
                     pointer = value.location
                     guard tool == .brush else { return }
-                    brush(to: Self.normalised(value.location, in: frame.size))
+                    brush(to: Self.normalised(value.location, in: frame))
                 }
                 .onEnded { value in
                     switch tool {
@@ -200,7 +268,7 @@ struct RemoveBackgroundToolView: View {
                         finishStroke()
                     case .wand:
                         guard hypot(value.translation.width, value.translation.height) < 4 else { return }
-                        wand(at: Self.normalised(value.startLocation, in: frame.size))
+                        wand(at: Self.normalised(value.startLocation, in: frame))
                     }
                 }
         )
@@ -211,7 +279,6 @@ struct RemoveBackgroundToolView: View {
             }
         }
         .pointerStyle(tool == .wand ? .rectSelection : .default)
-        .position(x: frame.midX, y: frame.midY)
         .disabled(subject == nil)
     }
 
