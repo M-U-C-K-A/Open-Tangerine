@@ -1,105 +1,454 @@
-# Open Tangerine
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/hero-dark.svg"><img src="docs/readme/hero-light.svg" alt="Open Tangerine — drag a file, pick a format; it never leaves your Mac" width="100%"></picture>
+</p>
 
-A native macOS file converter and toolbox by **Syntax Error Private Limited**.
-Local processing, no account, no item limits, no subscription. GPL-3.0-only.
+<p align="center">
+  <b>A native macOS file converter and toolbox that lives in your menu bar.</b><br>
+  Drag files in Finder, hold a key, drop them on a format or a tool. The result lands next to the original.<br>
+  176 conversion routes, 25 tools, batch jobs — all processed on your Mac. No account, no limits, no subscription.
+</p>
 
-**Status: 0.1.8 developer trial — ad-hoc signed, not Apple-notarized.** This is an independent project, not affiliated with Tangerine. It builds on [Satsuma](https://github.com/plyght/satsuma), with its MIT attribution preserved. It is not yet a complete replacement for Tangerine. See [limitations](#limitations).
+<p align="center">
+  <a href="https://github.com/M-U-C-K-A/Open-Tangerine/releases"><img alt="Version 0.1.8" src="https://img.shields.io/badge/version-0.1.8-e04f00?style=flat-square"></a>
+  <img alt="macOS 26 or later" src="https://img.shields.io/badge/macOS-26%2B-24251e?style=flat-square&logo=apple&logoColor=white">
+  <img alt="Swift, SwiftUI and AppKit" src="https://img.shields.io/badge/Swift-SwiftUI%20%2B%20AppKit-f05138?style=flat-square&logo=swift&logoColor=white">
+  <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-7fae3a?style=flat-square">
+  <img alt="Processing on-device" src="https://img.shields.io/badge/processing-on--device-0f766e?style=flat-square">
+  <a href="LICENSE"><img alt="License GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-6d3fc0?style=flat-square"></a>
+  <a href="https://github.com/M-U-C-K-A/Open-Tangerine/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/M-U-C-K-A/Open-Tangerine?style=flat-square&color=d9a92a"></a>
+</p>
 
-## Download for Mac
+<p align="center">
+  <a href="#install"><img alt="Install Open Tangerine" src="https://img.shields.io/badge/%E2%AC%87%20Install-Open%20Tangerine-e04f00?style=for-the-badge"></a>
+  <a href="#build-from-source"><img alt="Build from source" src="https://img.shields.io/badge/%E2%9A%99%20Build-from%20source-24251e?style=for-the-badge"></a>
+</p>
 
-**[Website, download and installation guide](https://sintaxerrorpvtltd.github.io/Open-Tangerine/)** · [GitHub releases](https://github.com/sintaxerrorpvtltd/Open-Tangerine/releases)
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#three-keys-three-wheels">Gestures</a> ·
+  <a href="#formats">Formats</a> ·
+  <a href="#tools">Tools</a> ·
+  <a href="#progress-in-the-notch">Progress</a> ·
+  <a href="#settings">Settings</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#roadmap">Roadmap</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#privacy">Privacy</a> ·
+  <a href="#development">Development</a>
+</p>
 
-Download the trial ZIP, quit the previous app, unzip, then drag Open Tangerine into Applications and choose Replace if updating. macOS may block this unnotarized trial; see the website for Apple's official per-app opening guidance. Never disable Gatekeeper globally. Check for Updates opens the website with your installed version; the website compares published releases and provides a manual download. No Apple Developer subscription is required for update checks or hosting.
+> [!NOTE]
+> This repository is a fork of [**Open Tangerine**](https://github.com/sintaxerrorpvtltd/Open-Tangerine) by Syntax Error Private Limited, itself built on [Satsuma](https://github.com/plyght/satsuma) by plyght. It tracks upstream **0.1.8** and adds what is on the [roadmap](#roadmap): background removal, deeper compression, and more. It is an independent project, **not affiliated with Tangerine**, and still a developer trial (ad-hoc signed, not Apple-notarized).
 
-## Install from source
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
 
-Requires **macOS 26 or later**, Xcode 26 / compatible Command Line Tools, and Git. The build script uses Apple's Swift compiler directly; no package manager or third-party Swift dependencies are required.
+## Quick start
 
-```sh
-git clone https://github.com/sintaxerrorpvtltd/Open-Tangerine.git
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/workflow-dark.svg"><img src="docs/readme/workflow-light.svg" alt="Select files in Finder, drag with Shift held, drop on PNG: the result is saved beside the original" width="100%"></picture></p>
+
+1. [Install](#install) the app and open it. It lives in the **menu bar**; Settings opens on first launch.
+2. In Finder, select one file or a whole batch (say, four HEIC photos) and start dragging.
+3. While dragging, hold <kbd>⇧ Shift</kbd>. The conversion wheel opens around the pointer. Move onto **PNG** and let go.
+4. Each file is converted next to its original (`photo.heic` → `photo.png`). Progress grows out of the notch; a file that fails never stops the others.
+
+> [!TIP]
+> Not a dragger? The menu-bar icon has **Convert Files…**, **Open Tool for Files…** and **File Actions…**: they open a file picker, then the same wheel. Arrow keys move around the wheel, <kbd>Return</kbd> picks, <kbd>Esc</kbd> cancels.
+
+Start with copies of ordinary files: PNG → JPEG, crop or resize a photo, turn two images into a PDF, merge two PDFs, copy a SHA-256 checksum.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
+
+## Three keys, three wheels
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/gestures-dark.svg"><img src="docs/readme/gestures-light.svg" alt="Hold Shift to convert, Command for tools, Control for file actions, while dragging files" width="100%"></picture></p>
+
+Everything starts from a drag in Finder. The key you hold decides which wheel opens:
+
+| Hold while dragging | Wheel | What it offers |
+| --- | --- | --- |
+| <kbd>⇧ Shift</kbd> | **Convert** | Every format the files you hold can become, and only those. |
+| <kbd>⌘ Command</kbd> (or <kbd>⌥ Option</kbd> + <kbd>⇧ Shift</kbd>) | **Tools** | The tools that accept this selection: crop, trim, merge, compress… |
+| <kbd>⌃ Control</kbd> | **File actions** | Reveal in Finder, copy files, copy paths, duplicate, SHA-256. |
+
+### The wheel only offers what fits
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/hairline-drop-dark.svg"><img src="docs/readme/hairline-drop-light.svg" alt="A file hovers over the conversion dial; the format under it rises to meet it" width="64%"></picture></p>
+
+The wheel reads the extension of every file you hold, then keeps what works for all of them:
+
+- **Convert** shows the targets the files have in common. Four PNGs offer eight targets; a PNG and a WAV offer none, and the wheel says so instead of failing later.
+- **Tools** need one kind of file at a time, in the right number. One photo offers every image tool but the collage; several photos offer the batch ones (resize, rotate & flip, create a PDF) and *Create a collage*; two PDFs offer *Merge PDFs*. *Compress* and *Edit metadata* take any media.
+- **Outputs never overwrite.** `photo.png` already there? You get `photo 2.png`. Batches reserve distinct names even when jobs overlap.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
+
+## Formats
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/formats-dark.svg"><img src="docs/readme/formats-light.svg" alt="176 conversion routes across images, audio, video, documents and subtitles" width="100%"></picture></p>
+
+**176 routes** between 28 formats. Apple frameworks do most of the work (ImageIO, PDFKit, AVFoundation). [FFmpeg](#ffmpeg-optional) is optional and fills the gaps: MP3, FLAC, OGG, Opus, WMA, MKV, WebM, AVI, WMV, GIF, and AVIF/WebP encoding where macOS cannot write them. WebP has a built-in lossless fallback when FFmpeg lacks `libwebp`.
+
+<details open>
+<summary><b>Images</b> · 59 routes</summary>
+
+| From | To |
+| --- | --- |
+| **JPEG** `.jpg .jpeg .jpe .jfif` | PNG · WebP · HEIC · TIFF · AVIF · BMP · PDF · DOCX |
+| **PNG** | JPEG · WebP · HEIC · TIFF · AVIF · BMP · PDF · DOCX |
+| **WebP** · **HEIC** `.heif` · **TIFF** `.tif` · **AVIF** · **BMP** | any other of JPEG, PNG, WebP, HEIC, TIFF, AVIF, BMP · PDF |
+| **SVG** | JPEG · PNG · WebP · HEIC · TIFF · AVIF · BMP · PDF |
+
+</details>
+
+<details>
+<summary><b>Audio</b> · 56 routes</summary>
+
+| From | To |
+| --- | --- |
+| **MP3** · **M4A** `.aac .m4b` · **WAV** · **FLAC** · **OGG** · **Opus** · **AIFF** `.aif` · **WMA** | any other of the eight |
+
+</details>
+
+<details>
+<summary><b>Video</b> · 48 routes</summary>
+
+| From | To |
+| --- | --- |
+| **MP4** `.m4v` · **MOV** `.qt` · **MKV** · **WebM** · **AVI** · **WMV** | any other of the six · GIF · MP3 (the soundtrack) |
+| **GIF** | MP4 · MOV · MKV · WebM · AVI · WMV |
+
+</details>
+
+<details>
+<summary><b>Documents & subtitles</b> · 13 routes</summary>
+
+| From | To |
+| --- | --- |
+| **PDF** | DOCX · JPEG · PNG · TXT |
+| **TXT** `.txt .md .log` | PDF · JPEG · PNG · SRT · VTT |
+| **SRT** · **VTT** | each other · TXT |
+
+DOCX is an output (from PDF and images), not an input. Word files are not converted in general.
+
+</details>
+
+<details>
+<summary><b>Archives</b> · paused</summary>
+
+ZIP, TAR, GZ and RAR are recognised but have no routes. Extraction stays off until it is bounded, protected against path traversal and links, and isolated. Zipping a selection is on the [roadmap](#roadmap).
+
+</details>
+
+The catalogue describes potential routes. Codec availability depends on your FFmpeg build; see [build status](docs/BUILD-STATUS.md) for what the regression matrix covers end to end.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
+
+## Tools
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/tools-dark.svg"><img src="docs/readme/tools-light.svg" alt="25 tools and 5 file actions: images, video, audio, PDF and any file" width="100%"></picture></p>
+
+Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a live preview. Originals are never modified; every tool writes a new copy.
+
+<details open>
+<summary><b>Images</b> · 8 tools</summary>
+
+| Tool | Takes | What it does |
+| --- | --- | --- |
+| **Edit photo** | 1 image | Light, color and detail: exposure, brightness, contrast, highlights, shadows, saturation, vibrance, temperature, tint, monochrome, sepia. Hold to compare. |
+| **Add a background** | 1 image | Places the image on a color, gradient or image background at a chosen aspect ratio. |
+| **Crop image** | 1 image | Free or fixed ratio, exact pixel size, saved at full resolution. |
+| **Redact photo** | 1 image | Covers areas with a solid box, blur or pixelation. Move and resize each area. |
+| **Resize images** | 1 or more | By long edge, percent or exact size, aspect kept. Never enlarges in long-edge mode. |
+| **Rotate & flip** | 1 or more | Quarter turns and horizontal/vertical flips, same transform for all. |
+| **Create a PDF** | 1 or more | One page per image, in list order. HEIC, WebP and SVG are rasterized as needed. |
+| **Create a collage** | 2 or more | Grid, row, column or featured layout; square, landscape or portrait; spacing, corner radius, background. |
+
+</details>
+
+<details>
+<summary><b>Video</b> · 7 tools</summary>
+
+| Tool | Takes | What it does |
+| --- | --- | --- |
+| **Trim video** | 1 video | Start and end with frame stepping (<kbd>←</kbd> <kbd>→</kbd>). Copied without re-encoding when the format allows. |
+| **Crop video** | 1 video | Draw the area; output is MP4 (H.264), audio kept as is. |
+| **Change video speed** | 1 video | Faster or slower, with optional pitch preservation. |
+| **Join videos** | 2 or more | One MP4; other clips are scaled and letterboxed to the first clip's size. |
+| **Save video frames** | 1 video | Pick exact frames, or one every N seconds, at full resolution as PNG, JPEG or HEIC. |
+| **Split video** | 1 video | At chosen points or into equal parts, numbered in one folder. Lossless when possible. |
+| **Redact video** | 1 video | Cover areas, each with its own time range. |
+
+</details>
+
+<details>
+<summary><b>Audio</b> · 5 tools</summary>
+
+| Tool | Takes | What it does |
+| --- | --- | --- |
+| **Normalize volume** | 1 file | EBU R128 loudness with Podcast, Music and Broadcast presets (FFmpeg), peak normalization without it. |
+| **Audio visualizer** | 1 file | Renders an MP4 (H.264 + AAC): animated waveform, frequency bars or still image; landscape, portrait or square. Needs FFmpeg. |
+| **Trim audio** | 1 file | Start and end at the playhead; removes leading and trailing silence in one click. |
+| **Audio channels** | 1 file | Stereo, mono mix-down, left or right to both, or swap. Needs FFmpeg. |
+| **Bleep audio** | 1 file | Adds bleeps at the playhead, nudged to the tenth of a second. |
+
+</details>
+
+<details>
+<summary><b>PDF</b> · 3 tools</summary>
+
+| Tool | Takes | What it does |
+| --- | --- | --- |
+| **Merge PDFs** | 2 or more | Combined in list order, starting from the Finder selection. Password-protected PDFs are skipped with an error. |
+| **Organize PDF pages** | 1 PDF | Reorder, rotate, duplicate, remove or reverse pages. |
+| **Split PDF** | 1 PDF | One file per page, every N pages, or custom ranges like `1-3, 5`. |
+
+</details>
+
+<details>
+<summary><b>Any file</b> · 2 tools, and 5 file actions</summary>
+
+| Tool | Takes | What it does |
+| --- | --- | --- |
+| **Compress** | images, video, audio, PDF | *Balanced* or *Strong*, image long edge (2560, 1920, 1280 px), or a **target file size** per file. Transparent PNGs stay PNG. |
+| **Edit metadata** | any media | Edit fields, remove all metadata, or only camera, GPS and processing data. Writes a copy. |
+
+| File action (<kbd>⌃</kbd>) | What it does |
+| --- | --- |
+| **Reveal** | Shows the files in Finder. |
+| **Copy Files** | Puts the files on the clipboard. |
+| **Copy Paths** | Copies their paths, one per line. |
+| **Duplicate** | Makes `name copy.ext` next to each file. |
+| **SHA-256** | Streams each file and copies `checksum  name` lines to the clipboard. |
+
+</details>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
+
+## Progress in the notch
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/notch-dark.svg"><img src="docs/readme/notch-light.svg" alt="Progress grows out of the MacBook notch: a citrus companion, the file, a progress bar, then Open and Show in Finder" width="100%"></picture></p>
+
+Work shows where your eyes already are. The panel grows out of the physical notch (or the top of the screen on Macs without one) and folds back into it when done:
+
+- an original **citrus companion** that watches the wheel, gets busy, delivers and smiles, or frowns when a file fails;
+- one row per file with its own progress, up to three visible, the rest scroll; **cancel** at any time;
+- **Open** and **Show in Finder** on each result, which stays eight seconds, longer while hovered;
+- a **Pure black** (default) or **Glass** surface; Reduce Motion and Reduce Transparency are respected.
+
+Prefer a floating card in the top-right corner? *Settings → Appearance → Progress → Card*.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
+
+## Settings
+
+| Section | Setting | Default |
+| --- | --- | --- |
+| **General** | Save converted files: next to the original, Downloads or Desktop | next to the original |
+| | Reveal results in Finder | on |
+| | Start automatically at login (move the app to Applications first) | off |
+| **Appearance** | Theme: System, Light or Dark | System |
+| | Progress: Card or Notch pill · Notch surface: Pure black or Glass | Notch pill · Pure black |
+| **Formats** | JPEG / HEIC / WebP quality (30–100 %) | 90 % |
+| | Compression preset: Balanced or Strong · resize long edge (0 = keep) | Balanced · 0 |
+| | FFmpeg path, auto-detected from Homebrew, MacPorts or `/usr/local/bin` | auto |
+
+The drag modifiers are listed under *General* for reference. Settings are stored in the app's standard user defaults.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
+
+## Screenshots
+
+Real windows from the current build, light and dark follow your GitHub theme. They are rendered offscreen by [`scripts/readme/Screenshots.swift`](scripts/readme/Screenshots.swift), so they never drift from the code.
+
+<table>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-cropImage-dark.webp"><img src="docs/readme/screens/tool-cropImage-light.webp" alt="Crop image window: the photo with a crop rectangle, aspect ratio and pixel dimensions"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-editImage-dark.webp"><img src="docs/readme/screens/tool-editImage-light.webp" alt="Edit photo window: the photo and sliders for light, color and detail"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Crop image</b><br><sub>free or fixed ratio, exact pixels, full resolution</sub></td>
+<td align="center"><b>Edit photo</b><br><sub>light, color and detail, hold to compare</sub></td>
+</tr>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-createCollage-dark.webp"><img src="docs/readme/screens/tool-createCollage-light.webp" alt="Create a collage window: three images in a grid with layout, size and style controls"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-compress-dark.webp"><img src="docs/readme/screens/tool-compress-light.webp" alt="Compress window: a photo, a PDF and a video with presets and a target file size"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Create a collage</b><br><sub>grid, row, column or featured</sub></td>
+<td align="center"><b>Compress</b><br><sub>images, video, audio and PDF in one batch</sub></td>
+</tr>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-normalizeAudio-dark.webp"><img src="docs/readme/screens/tool-normalizeAudio-light.webp" alt="Normalize volume window: waveform, loudness targets and presets, input and output measurements"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-organizePDF-dark.webp"><img src="docs/readme/screens/tool-organizePDF-light.webp" alt="Organize PDF pages window: page thumbnails with rotate, duplicate, remove and reverse"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Normalize volume</b><br><sub>EBU R128 loudness, measured before and after</sub></td>
+<td align="center"><b>Organize PDF pages</b><br><sub>reorder, rotate, duplicate, remove</sub></td>
+</tr>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/settings-general-dark.webp"><img src="docs/readme/screens/settings-general-light.webp" alt="Settings, General: output location, login item and the drag modifiers"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/settings-conversion-dark.webp"><img src="docs/readme/screens/settings-conversion-light.webp" alt="Settings, Formats: image quality, compression preset and the FFmpeg path"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Settings · General</b><br><sub>where results go, login, drag modifiers</sub></td>
+<td align="center"><b>Settings · Formats</b><br><sub>quality, compression, FFmpeg</sub></td>
+</tr>
+</table>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
+
+## Roadmap
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/roadmap-dark.svg"><img src="docs/readme/roadmap-light.svg" alt="Roadmap: shipped, next in this fork (background removal, compression 2.0, ZIP), later" width="100%"></picture></p>
+
+What this fork adds on top of upstream. Everything stays on-device, built on Apple frameworks, with no service, account or API key.
+
+<table>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/hairline-cutout-dark.svg"><img src="docs/readme/hairline-cutout-light.svg" alt="Background removal: the subject lifts off the photo, the scene sinks away, the background becomes transparent"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/hairline-press-dark.svg"><img src="docs/readme/hairline-press-light.svg" alt="Compression: a photo, a video and a document shrink; the dashed outline is the size they were"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Remove background</b><br><sub>drop a photo, get the subject as a transparent PNG</sub></td>
+<td align="center"><b>Compression 2.0</b><br><sub>video, images and PDF, sized the way you ask</sub></td>
+</tr>
+</table>
+
+| Feature | What it will do | Status |
+| --- | --- | --- |
+| **Remove background** | Any photo → the subject on a transparent PNG, as a wheel action and as a tool with edge refinement. Apple Vision foreground masks, on-device. | 🟠&nbsp;next |
+| **Compression 2.0** | Video presets (HEVC or H.264, resolution, frame rate), batch target sizes for images, PDF image downsampling, a before/after size preview. | 🟠&nbsp;next |
+| **ZIP in one drop** | A <kbd>⌃</kbd> action that zips the selection; safe extraction once it is bounded and sandboxed. | 🟠&nbsp;next |
+| **Text from images** | OCR with Apple Vision on images and scanned PDFs, to the clipboard or a `.txt`. | ⚪&nbsp;later |
+| **Watch folders** | Drop files in a folder, get them converted with a saved preset. | ⚪&nbsp;later |
+| **Batch rename & watermark** | Reusable presets for names and a text or logo mark. | ⚪&nbsp;later |
+
+Ideas and requests are welcome in [issues](https://github.com/M-U-C-K-A/Open-Tangerine/issues). Upstream's longer-term direction lives in [docs/PRD.md](docs/PRD.md); roadmap items are not current capabilities.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
+
+## Install
+
+Requires **macOS 26 or later**.
+
+### From a release
+
+1. Download the ZIP from the [latest release of this fork](https://github.com/M-U-C-K-A/Open-Tangerine/releases). Until this fork publishes one, use [upstream 0.1.8](https://github.com/sintaxerrorpvtltd/Open-Tangerine/releases/latest) or [build from source](#build-from-source).
+2. Quit the previous version if it is running, unzip, and drag **Open Tangerine** into **Applications** (choose *Replace* when updating).
+3. Open it. The build is ad-hoc signed and **not notarized**, so macOS may block it the first time: allow it for this app only in *System Settings → Privacy & Security*. Never disable Gatekeeper globally.
+
+> [!IMPORTANT]
+> *Check for Updates* compares your version with the latest published release and opens a manual download. There is no automatic installation yet: that needs a notarized, signed update channel.
+
+### Build from source
+
+Needs Xcode 26 (or matching Command Line Tools) and Git. No package manager, no third-party Swift dependency: the script calls Apple's Swift compiler directly.
+
+```bash
+git clone https://github.com/M-U-C-K-A/Open-Tangerine.git
 cd Open-Tangerine
 ./scripts/build-app.sh
 open "dist/Open Tangerine.app"
 ```
 
-To keep the app, drag `dist/Open Tangerine.app` into your Applications folder in Finder. The local build is ad-hoc signed, not Apple-notarized. We do not recommend disabling Gatekeeper. A signed, notarized release and automatic updates are planned.
+Drag `dist/Open Tangerine.app` to Applications to keep it, then enable *Settings → General → Start automatically at login* if you want it there after a restart.
 
-Optional: install FFmpeg from your trusted package manager (`brew install ffmpeg` if you already use Homebrew). Settings → Formats shows whether FFmpeg is available. It is already present on the development Mac. We do not bundle or silently download it.
+### FFmpeg (optional)
 
-## What changed in 0.1.8
+```bash
+brew install ffmpeg
+```
 
-Appearance settings now offer **Pure black** (default) or **Glass** for the notch. The glass option uses native macOS material and falls back to black with Reduce Transparency. The wheel springs into view and lifts the highlighted segment; Reduce Motion disables these effects. Completed results have **Open** and **Show in Finder** actions. Results stay for eight seconds and remain visible while hovered. Settings show the actual installed version.
+Open Tangerine finds FFmpeg in Homebrew, MacPorts or `/usr/local/bin`, or at a path you choose in *Settings → Formats*, which also shows whether it was found. It is never bundled or downloaded silently.
 
-Website analytics use a dedicated GoatCounter Railway project, with no PostHog connection. [Project activity](https://sintaxerrorpvtltd.github.io/Open-Tangerine/stats.html) shows GitHub ZIP counts and links to the private analytics dashboard. See [analytics setup](ANALYTICS.md) and the [DragShift comparison](DRAGSHIFT_COMPARISON.md).
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
 
-## What changed in 0.1.7
+## Privacy
 
-The notch panel now has an explicit solid sRGB black backing without the gray border. It expands from the physical notch width and top edge, and retracts into it on dismissal. Reopening interrupts dismissal safely; Reduce Motion uses immediate transitions. Includes all 0.1.6 conversion repairs.
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/hairline-local-dark.svg"><img src="docs/readme/hairline-local-light.svg" alt="Everything stays on your Mac: files circle the laptop inside a boundary they never cross" width="64%"></picture></p>
 
-## What changed in 0.1.6
+- **Files never leave your Mac.** Every conversion and tool runs locally with Apple frameworks, or with your own FFmpeg.
+- **One network request:** the update check reads the latest public GitHub release, at most once a day. It sends no file names, content or account.
+- **No account, no analytics in the app, no AI service**, so no API key and no usage charge. Any future AI feature must be opt-in and bring-your-own-key.
+- Metadata removal and visible redaction are helpful, not certified: review exported files before sharing sensitive documents.
 
-WebP conversion now has a built-in lossless fallback when the installed FFmpeg lacks `libwebp`. AVIF and Ogg choose available encoders. Batch jobs reserve distinct filenames across overlapping requests and report unsupported inputs individually. PDF/DOCX page order, precise video trimming, silent-video operations, audio channels/bleep, PNG compression, image rotation, framing and metadata handling have regression fixes. [Test coverage and known gaps](docs/BUILD-STATUS.md).
+See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
-The lossless WebP fallback prioritizes compatibility, produces larger files, and does not use the lossy quality slider. It supports up to 16,384 pixels per side and keeps outputs within the app's 100 MB input limit; larger images need a compressed WebP encoder or resizing. Audio/video still require a suitable FFmpeg build for many operations. Word support is DOCX export, not general DOCX input conversion.
-
-## What changed in 0.1.2
-
-Notch progress is now the default, with an original animated citrus companion, clearer job status and batch scrolling. The menu bar has Check for Updates and marks newer GitHub releases. [Update details](docs/UPDATES.md).
-
-## What changed in 0.1.1
-
-Roomier settings with sidebar navigation, orange selection highlights, contextual headers, animated file artwork, softer transitions and a larger menu-bar icon. Motion responds to macOS Reduce Motion. See [design notes](docs/DESIGN.md) for validation status.
-
-## Try it
-
-The app lives in the menu bar; Settings opens on first launch. Enable **Settings → General → Start automatically at login** after moving it to Applications. Future logins start it quietly in the menu bar. If macOS needs approval, the app links to Login Items.
-
-1. Select one or several files in Finder (for example four PNGs), drag them together, hold **Shift**, and drop on JPEG or another common target. Each input produces its own output; a failed file does not stop the others.
-2. Hold **Command** while dragging for the tool wheel. **Option + Shift** also works.
-3. Hold **Control** while dragging for file actions.
-4. If dragging does not trigger a wheel, use the menu-bar **Convert Files…**, **Open Tool for Files…**, or **File Actions…** commands. These also support multiple selections.
-5. Converted outputs appear beside the source by default. Change this to Downloads or Desktop in Settings. Existing conversion destinations are never intentionally replaced.
-
-Start with copies of ordinary files. Try PNG → JPEG, crop/resize, create a PDF, merge two PDFs, and copy a SHA-256 checksum.
-
-## Features in this trial
-
-| Area | Included implementation |
-|---|---|
-| Images | PNG, JPEG, HEIC, TIFF, BMP, WebP, AVIF and SVG input routes; quality settings; edit, crop, resize, rotate, visible redaction, background framing, collage, PDF creation |
-| Documents | PDF to text/images/DOCX; text to PDF/images/subtitles; PDF merge, split and page organization |
-| Media | Audio/video conversions; trim, split, join, crop, speed, snapshots, visible redaction, audio normalization/channel tools/bleeping/visualizer; many need FFmpeg |
-| Subtitles | SRT, VTT and text conversions |
-| File actions | Reveal in Finder, copy files, copy paths, duplicate, streaming SHA-256 checksum copied to clipboard |
-| Workflow | Batch jobs, cancellation, output naming, floating or notch progress, light/dark appearance, launch at login |
-
-The active format matrix describes **176 potential routes** and **25 tool types**. This is a catalogue, not a claim that every codec, tool or route has passed end-to-end tests. Archive routes are disabled in this trial. Optional codec availability varies by FFmpeg build.
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
 
 ## Limitations
 
-- Not full Tangerine parity: no AI background removal, OCR, translation, universal Office conversion, watch folders, undo history or plugin installer yet.
-- Background framing adds a background; it does not remove the existing one.
-- Archive conversion is intentionally disabled until bounded extraction, traversal/link defenses and isolation are implemented.
-- Native image loading is limited to 100 MB / 40 megapixels. Animated/multipage image behavior needs further work; use single-frame images for this trial.
-- This is not a security-certified sanitizer. Metadata editing and visible redaction should not be relied on to anonymize sensitive documents. Review exported files.
-- Heavy native operations can temporarily block the interface. Cancellation is best-effort for external processes. Worker isolation and timeouts are release gates.
+- **Not full Tangerine parity yet:** no background removal, OCR, translation, universal Office conversion, watch folders, undo history or plugin installer. The first items are on the [roadmap](#roadmap).
+- *Add a background* adds a background; it does not remove the existing one.
+- Archive conversion is disabled until bounded extraction, traversal and link defenses, and isolation are in place.
+- Native image loading is limited to 100 MB and 40 megapixels. Animated and multipage images need more work; use single-frame images.
+- Heavy native operations can briefly block the interface. Cancelling external processes is best-effort; worker isolation and timeouts are release gates.
 - No App Sandbox, notarization, automatic updates, Intel-specific verification or complete accessibility audit yet.
-- No AI service is implemented, so there is no API key or usage charge. Update checks contact GitHub; file processing stays local. Future AI integrations must be opt-in and bring-your-own-key.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
 
 ## Development
 
-```sh
-./scripts/test.sh
-./scripts/build-app.sh
+```bash
+./scripts/test.sh               # compile once, run the 8 regression suites in separate processes
+./scripts/build-app.sh          # build and ad-hoc sign dist/Open Tangerine.app
+./scripts/readme/build.sh       # regenerate the README art (add --screens for the screenshots)
+node scripts/test-site.cjs      # website checks (also test-demo.cjs, test-analytics.cjs)
 ```
 
-- `NativeApp/Sources/`: shipping trial implementation (SwiftUI/AppKit, ImageIO, PDFKit, AVFoundation).
-- `NativeApp/Tests/`: inherited deterministic tests and real conversion regression tests.
-- `scripts/`: reproducible compiler, test and packaging entry points.
-- `docs/PRD.md`: product direction; roadmap items are not current capabilities.
+**How it works.** `DragMonitor` notices a Finder drag with a modifier held and hands the file URLs to `RadialController`. The wheel's items come from `ConversionMatrix.targets(for:)` (common targets of every file), `ToolID.available(for:)` (tools whose category and arity fit) or `FileAction`. Picking one queues a job per file on `JobRunner`, which picks an engine (ImageIO, AVFoundation, PDFKit, FFmpeg), reserves a unique output name next to the source, and reports progress to the notch or card HUD. Tools open a SwiftUI window over a `ToolSession` and write copies the same way.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [build status](docs/BUILD-STATUS.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
+```text
+NativeApp/Sources/
+├─ App.swift            entry point: a menu-bar app with a Settings scene
+├─ App/                 menu and delegate, settings, update checker, screenshot driver
+├─ Radial/              drag monitor, wheel controller, wheel view (Liquid Glass)
+├─ Formats/             FileFormat (detection, aliases, UTTypes), ConversionMatrix (routes, output names)
+├─ Engines/             image, video, audio, document, subtitle, archive, FFmpeg, AVExporter, WebP lossless, DOCX writer
+├─ Operations/          image, video, audio, PDF and metadata operations, Compressor
+├─ Tools/               ToolID catalogue, tool windows by family, file actions
+├─ Core/                JobRunner (batches, progress, notch and card), Shell, MediaInfo, errors, log
+└─ UI/                  theme, brand artwork, the citrus companion
+NativeApp/Tests/        8 suites: Satsuma, Integration, Interaction, ImageConversion, Document, Batch, ImageTools, MediaIntegration
+scripts/                build, test and packaging entry points; readme/ for this page's art
+docs/                   the website (GitHub Pages), design and build notes, readme/ assets
+```
 
-## License and attribution
+**Tests** run real conversions: each format route, batch naming, documents, image tools and media through FFmpeg where installed. [Build status](docs/BUILD-STATUS.md) lists what is covered and the known gaps. CI (`.github/workflows/build.yml`) runs the website checks, the suites and a packaged build on macOS 26.
 
-Open Tangerine additions © 2026 Syntax Error Private Limited, licensed under **GPL-3.0-only**. See [LICENSE](LICENSE). Commercial use and sale are permitted under that license; distribution of covered derivatives requires corresponding source and the GPL terms. Upstream Satsuma code © 2026 plyght remains available under its original MIT terms, reproduced in [NativeApp/LICENSE](NativeApp/LICENSE). Contributors retain copyright in their contributions. The license does not grant rights to company names or logos.
+**README art.** Every illustration here is generated, light and dark, on a transparent background:
+
+| Script | Makes |
+| --- | --- |
+| [`scripts/readme/build.mjs`](scripts/readme/build.mjs) | the animated isometric SVGs: hero, workflow, gestures, formats, tools, notch, roadmap, divider |
+| [`scripts/readme/hairline.mjs`](scripts/readme/hairline.mjs) | the hairline figures (one 1px stroke, one bright edge), in the style of [@lucasmarkes/hairline](https://lucasmarkes.com/lab/hairline) |
+| [`scripts/readme/Screenshots.swift`](scripts/readme/Screenshots.swift) | the screenshots, rendered offscreen from the real app windows, then framed and saved as WebP |
+
+Run `python3 -m http.server` at the repository root and open `/scripts/readme/preview.html` to see them all side by side. Node is only needed for this art, never for the app.
+
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Notes: [design](docs/DESIGN.md), [updates](docs/UPDATES.md), [analytics](ANALYTICS.md), [DragShift comparison](DRAGSHIFT_COMPARISON.md), [third-party notices](THIRD_PARTY_NOTICES.md).
+
+<details>
+<summary><b>Upstream changelog</b> · 0.1.1 → 0.1.8</summary>
+
+- **0.1.8** — *Pure black* (default) or *Glass* notch surface, with a black fallback under Reduce Transparency. The wheel springs in and lifts the highlighted segment. Results get **Open** and **Show in Finder**, stay eight seconds and remain while hovered. Settings show the installed version. Website analytics moved to a dedicated GoatCounter project.
+- **0.1.7** — The notch panel has a solid sRGB black backing, expands from the physical notch and retracts into it. Reopening interrupts dismissal safely.
+- **0.1.6** — Built-in lossless WebP fallback; AVIF and Ogg pick available encoders; batches reserve distinct names and report unsupported inputs per file; fixes for PDF/DOCX page order, precise trims, silent video, audio channels and bleeps, PNG compression, rotation, framing and metadata.
+- **0.1.4** — GitHub Pages website and manual download updates.
+- **0.1.2** — Notch progress by default, the citrus companion, clearer job status, batch scrolling, Check for Updates.
+- **0.1.1** — Roomier settings with a sidebar, orange highlights, animated artwork, softer transitions, Reduce Motion support.
+
+</details>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
+
+## Credits
+
+- [**Open Tangerine**](https://github.com/sintaxerrorpvtltd/Open-Tangerine) by Syntax Error Private Limited — the app this fork builds on, its design and its citrus companion.
+- [**Satsuma**](https://github.com/plyght/satsuma) by plyght — the original native converter, MIT licensed.
+- [**@lucasmarkes/hairline**](https://lucasmarkes.com/lab/hairline) — the visual language of the line figures.
+- Inspired by Tangerine. This project is independent and not affiliated with it.
+
+## License
+
+Open Tangerine additions © 2026 Syntax Error Private Limited and contributors, licensed under **GPL-3.0-only**: see [LICENSE](LICENSE). Commercial use and sale are permitted under that license; distributing covered derivatives requires the corresponding source and the GPL terms. Upstream Satsuma code © 2026 plyght remains under its original MIT terms, reproduced in [NativeApp/LICENSE](NativeApp/LICENSE). Contributors keep the copyright in their contributions. The license grants no rights to company names or logos.

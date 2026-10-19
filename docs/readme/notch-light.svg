@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 430" width="1280" height="430" role="img" aria-label="Progress grows out of the MacBook notch: a citrus companion, the file, a progress bar, then Open and Show in Finder">
+  <title>Progress grows out of the MacBook notch: a citrus companion, the file, a progress bar, then Open and Show in Finder</title>
+  <defs>
+    <radialGradient id="glowOrange" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#e04f00" stop-opacity="0.19"/><stop offset="1" stop-color="#e04f00" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowLime" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#4d7c0f" stop-opacity="0.14"/><stop offset="1" stop-color="#4d7c0f" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowGrape" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#6d3fc0" stop-opacity="0.14"/><stop offset="1" stop-color="#6d3fc0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowBerry" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#c0266d" stop-opacity="0.12"/><stop offset="1" stop-color="#c0266d" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowSky" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#0b6aa8" stop-opacity="0.12"/><stop offset="1" stop-color="#0b6aa8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowLemon" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#9a6700" stop-opacity="0.13"/><stop offset="1" stop-color="#9a6700" stop-opacity="0"/></radialGradient>
+    <radialGradient id="fadeGrad" cx=".5" cy=".5" r=".5"><stop offset=".35" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <mask id="fade" maskUnits="userSpaceOnUse" x="0" y="0" width="1280" height="430"><rect width="1280" height="430" fill="url(#fadeGrad)"/></mask>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+    <filter id="softer" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"/></filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <style>
+    .float { animation: float 6s ease-in-out infinite; }
+    .float.d1 { animation-delay: -1.5s; }
+    .float.d2 { animation-delay: -3s; }
+    .float.d3 { animation-delay: -4.5s; }
+    .breathe { animation: breathe 6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .breathe.d1 { animation-delay: -1.5s; }
+    .breathe.d2 { animation-delay: -3s; }
+    .breathe.d3 { animation-delay: -4.5s; }
+    .twinkle { animation: twinkle 4s ease-in-out infinite; }
+    .drift { animation: drift 16s linear infinite; }
+    .press { animation: press 6s cubic-bezier(.32,.72,0,1) infinite; }
+    .press.k1 { animation-delay: 2s; }
+    .press.k2 { animation-delay: 4s; }
+    .run { animation: run 1.6s linear infinite; }
+    @keyframes float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-12px) } }
+    @keyframes breathe { 0%, 100% { opacity: .5; transform: scale(1) } 50% { opacity: .3; transform: scale(.9) } }
+    @keyframes twinkle { 0%, 100% { opacity: .15 } 50% { opacity: .75 } }
+    @keyframes drift { from { transform: translateY(0) } to { transform: translateY(-640px) } }
+    @keyframes press { 0%, 4% { transform: translateY(0) } 9%, 28% { transform: translateY(9px) } 34%, 100% { transform: translateY(0) } }
+    @keyframes run { to { stroke-dashoffset: -20 } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important } }
+  </style>
+  
+    <defs>
+      <linearGradient id="wall-light" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbf3e6"/><stop offset="1" stop-color="#fde2cc"/></linearGradient>
+      <linearGradient id="screenFade-light" x1="0" y1="0" x2="0" y2="1"><stop offset=".55" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <mask id="screenMask-light" maskUnits="userSpaceOnUse" x="0" y="0" width="1280" height="430"><rect width="1280" height="360" fill="url(#screenFade-light)"/></mask>
+      <radialGradient id="citrus-light" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffc85c"/><stop offset="1" stop-color="#ee672c"/></radialGradient>
+    </defs>
+    <g mask="url(#screenMask-light)">
+      <!-- the lid and the screen -->
+      <rect x="134" y="42" width="1012" height="430" rx="26" fill="#0b0b0c" stroke="#c9c9c2"/>
+      <rect x="150" y="58" width="980" height="430" rx="10" fill="url(#wall-light)"/>
+      <ellipse cx="380" cy="250" rx="260" ry="130" fill="url(#glowOrange)"/>
+      <ellipse cx="900" cy="270" rx="260" ry="130" fill="url(#glowLime)"/>
+      <!-- menu bar -->
+      <rect x="150" y="58" width="980" height="28" fill="#ffffff" fill-opacity="0.55"/>
+      <g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#24251e">
+        <circle cx="172" cy="72" r="5" fill="#24251e" opacity=".8"/>
+        <text x="190" y="76.5" font-weight="700">Finder</text>
+        <text x="246" y="76.5">File</text>
+        <text x="282" y="76.5">Edit</text>
+        <text x="318" y="76.5">View</text>
+        <text x="360" y="76.5">Go</text>
+        <text x="1110" y="76.5" text-anchor="end">Mon 9:41</text>
+        <rect x="1010" y="67" width="20" height="10" rx="2.5" fill="none" stroke="#24251e" opacity=".7"/>
+        <rect x="1012" y="69" width="13" height="6" rx="1" fill="#24251e" opacity=".7"/>
+      </g>
+      <g transform="translate(970 62) scale(.2)"><rect x="4" y="4" width="92" height="92" rx="22" fill="#e04f00"/><ellipse cx="50" cy="54" rx="27" ry="26" fill="none" stroke="#ffffff" stroke-width="5.5"/><path d="M49 27C49 12 66 12 72 16C70 27 59 29 49 27" fill="#ffffff"/><path d="M34 51Q34 43 43 39" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/></g>
+      <!-- a file on the desktop -->
+      <g transform="translate(980 148)">
+        <rect width="64" height="48" rx="6" fill="#8f6cf0"/>
+        <path d="M27 16L40 24L27 32Z" fill="#fff"/>
+        <text x="32" y="66" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#24251e">geese.mov</text>
+      </g>
+      <g transform="translate(230 148)">
+        <rect width="54" height="66" rx="5" fill="#fffdf8" stroke="#a3a593" stroke-opacity=".6"/>
+        <rect x="9" y="12" width="20" height="8" rx="2" fill="#9a6700"/>
+        <rect x="9" y="28" width="34" height="3" rx="1.5" fill="#a3a593" opacity=".6"/><rect x="9" y="36" width="28" height="3" rx="1.5" fill="#a3a593" opacity=".6"/><rect x="9" y="44" width="32" height="3" rx="1.5" fill="#a3a593" opacity=".6"/>
+        <text x="27" y="84" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#24251e">report.pdf</text>
+      </g>
+    </g>
+
+    <!-- the notch grows into a panel; the clip keeps its top flush with the lid -->
+    <clipPath id="lid-light"><rect x="0" y="43" width="1280" height="430"/></clipPath>
+    <g clip-path="url(#lid-light)">
+      <rect x="540" y="18" width="200" height="72" rx="30" fill="#000000">
+        <animate attributeName="x" values="540;540;340;340;540;540" keyTimes="0;0.1;0.17;0.83;0.9;1" calcMode="spline" keySplines="0 0 1 1;0.32 0.72 0 1;0 0 1 1;0.32 0.72 0 1;0 0 1 1" dur="9s" repeatCount="indefinite"/><animate attributeName="width" values="200;200;600;600;200;200" keyTimes="0;0.1;0.17;0.83;0.9;1" calcMode="spline" keySplines="0 0 1 1;0.32 0.72 0 1;0 0 1 1;0.32 0.72 0 1;0 0 1 1" dur="9s" repeatCount="indefinite"/><animate attributeName="height" values="72;72;168;168;72;72" keyTimes="0;0.1;0.17;0.83;0.9;1" calcMode="spline" keySplines="0 0 1 1;0.32 0.72 0 1;0 0 1 1;0.32 0.72 0 1;0 0 1 1" dur="9s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+    <g opacity="0"><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.14;0.19;0.81;0.86;1" dur="9s" repeatCount="indefinite"/>
+      <g transform="translate(398 120)">
+        <circle r="27" fill="url(#citrus-light)"/>
+        <path d="M2 -26C4 -36 14 -38 20 -35C18 -28 10 -25 2 -26Z" fill="#7eaa62"/>
+        <g fill="#422310">
+          <ellipse cx="-9" cy="-4" rx="3.2" ry="4.6"><animate attributeName="ry" values="4.6;4.6;.6;4.6;4.6" keyTimes="0;.46;.5;.54;1" dur="3s" repeatCount="indefinite"/></ellipse>
+          <ellipse cx="9" cy="-4" rx="3.2" ry="4.6"><animate attributeName="ry" values="4.6;4.6;.6;4.6;4.6" keyTimes="0;.46;.5;.54;1" dur="3s" repeatCount="indefinite"/></ellipse>
+        </g>
+        <path d="M-6 8Q0 14 6 8" fill="none" stroke="#422310" stroke-width="2.4" stroke-linecap="round"/>
+      </g>
+      <!-- working -->
+      <g opacity="0"><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.16;0.19;0.63;0.67;1" dur="9s" repeatCount="indefinite"/>
+        <text x="446" y="110" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="18" font-weight="600" fill="#ffffff">Compressing</text>
+        <text x="446" y="132" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" fill="#a1a1a6">geese.mov · 64.2 MB</text>
+        <rect x="446" y="146" width="440" height="7" rx="3.5" fill="#ffffff" fill-opacity=".14"/>
+        <rect x="446" y="146" width="0" height="7" rx="3.5" fill="#e04f00">
+          <animate attributeName="width" values="0;0;440;440;0" keyTimes="0;0.19;0.61;0.66;1" dur="9s" repeatCount="indefinite"/>
+        </rect>
+      </g>
+      <!-- done -->
+      <g opacity="0"><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.64;0.68;0.81;0.84;1" dur="9s" repeatCount="indefinite"/>
+        <text x="446" y="110" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="18" font-weight="600" fill="#ffffff">Saved <tspan fill="#a8de73">✓</tspan></text>
+        <text x="446" y="132" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" fill="#a1a1a6">geese.mov · 64.2 MB → <tspan fill="#ffffff">18.9 MB</tspan></text>
+        <rect x="446" y="142" width="66" height="26" rx="13" fill="#ffffff" fill-opacity=".16"/>
+        <text x="479" y="159" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#ffffff">Open</text>
+        <rect x="520" y="142" width="126" height="26" rx="13" fill="#ffffff" fill-opacity=".16"/>
+        <text x="583" y="159" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#ffffff">Show in Finder</text>
+      </g>
+    </g>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12.5" fill="#6c6e62">
+      <circle cx="93.2" cy="399" r="4" fill="#e04f00"/><text x="230" y="403" text-anchor="middle">pure black or glass, your choice</text><circle cx="507.1" cy="399" r="4" fill="#4d7c0f"/><text x="640" y="403" text-anchor="middle">Open · Show in Finder when done</text><circle cx="889.8" cy="399" r="4" fill="#6d3fc0"/><text x="1050" y="403" text-anchor="middle">Reduce Motion &amp; Transparency respected</text>
+    </g>
+</svg>

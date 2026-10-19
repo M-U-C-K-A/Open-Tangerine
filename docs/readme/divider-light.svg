@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 28" width="1280" height="28" role="img" aria-label="divider">
+  <style>.run { animation: run 2.4s linear infinite } @keyframes run { to { stroke-dashoffset: -14 } } @media (prefers-reduced-motion: reduce) { .run { animation: none } }</style>
+  <line class="run" x1="30" y1="14" x2="1250" y2="14" stroke="#a3a593" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 5"/>
+  <circle cx="16" cy="14" r="5" fill="none" stroke="#e04f00" stroke-width="1.6"/>
+  <circle cx="1264" cy="14" r="5" fill="none" stroke="#e04f00" stroke-width="1.6"/>
+  <circle cy="14" r="3" fill="#e04f00"><animate attributeName="cx" values="30;1250" dur="9s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.92;1" dur="9s" repeatCount="indefinite"/></circle>
+</svg>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>README art preview</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 13px -apple-system, BlinkMacSystemFont, sans-serif; background: #f6f8fa; color: #1f2328; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; gap: 12px; align-items: center; padding: 10px 16px; background: #ffffffee; border-bottom: 1px solid #d0d7de; }
+  header b { margin-right: auto; }
+  button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid #d0d7de; background: #fff; color: #1f2328; cursor: pointer; }
+  button[aria-pressed="true"] { background: #1f2328; color: #fff; }
+  section { display: grid; gap: 0; }
+  section.both { grid-template-columns: 1fr 1fr; }
+  figure { margin: 0; padding: 24px; }
+  figure.light { background: #ffffff; }
+  figure.dark { background: #0d1117; }
+  figure img { width: 100%; display: block; }
+  figcaption { font: 11px ui-monospace, monospace; opacity: .6; margin-bottom: 8px; }
+  figure.dark figcaption { color: #e6edf3; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<!-- Serve the repository root (python3 -m http.server) and open /scripts/readme/preview.html -->
+<header><b>README art</b><button data-mode="both" aria-pressed="true">Both</button><button data-mode="light">Light</button><button data-mode="dark">Dark</button></header>
+<main id="list"></main>
+<script>
+  const names = ["hero", "workflow", "gestures", "formats", "tools", "notch", "roadmap", "hairline-drop", "hairline-cutout", "hairline-press", "hairline-local", "divider"]
+  const list = document.getElementById("list")
+  // ?svg=hero-dark&zoom=2 shows one file at its own size (times zoom), for close checks.
+  const params = new URLSearchParams(location.search)
+  const only = params.get("svg")
+  if (only) {
+    const zoom = Number(params.get("zoom") || 1)
+    const theme = only.endsWith("-dark") ? "dark" : "light"
+    document.querySelector("header").remove()
+    document.body.style.background = theme === "dark" ? "#0d1117" : "#ffffff"
+    const img = new Image()
+    img.src = `../../docs/readme/${only}.svg`
+    img.onload = () => { img.style.width = `${img.naturalWidth * zoom}px` }
+    img.style.display = "block"
+    list.append(img)
+  }
+  for (const name of only ? [] : names) {
+    const section = document.createElement("section")
+    section.className = "both"
+    for (const theme of ["light", "dark"]) {
+      const figure = document.createElement("figure")
+      figure.className = theme
+      figure.innerHTML = `<figcaption>${name}-${theme}.svg</figcaption><img src="../../docs/readme/${name}-${theme}.svg" alt="">`
+      section.append(figure)
+    }
+    list.append(section)
+  }
+  for (const button of document.querySelectorAll("button")) {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.mode
+      for (const b of document.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b === button))
+      for (const section of document.querySelectorAll("section")) section.className = mode === "both" ? "both" : ""
+      for (const figure of document.querySelectorAll("figure")) figure.classList.toggle("hidden", mode !== "both" && !figure.classList.contains(mode))
+    })
+  }
+</script>
+</body>
+</html>
