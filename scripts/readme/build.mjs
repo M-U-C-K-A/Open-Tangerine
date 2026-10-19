@@ -486,7 +486,7 @@ function hero() {
     </g>
     ${chips(72, 492, [
       ["176 routes", orange.s],
-      ["25 tools", T.lime[0]],
+      ["26 tools", T.lime[0]],
       ["batch", T.grape[0]],
       ["on-device", T.mint[0]],
     ])}
@@ -710,7 +710,7 @@ function formats() {
 /* ---- 5. tools: every tool, by family ----------------------------------- */
 
 const TOOLBOX = {
-  images: { name: "Images", color: "lime", icon: "image", tools: [["edit", "Edit photo"], ["frame", "Add a background"], ["crop", "Crop"], ["redact", "Redact"], ["resize", "Resize"], ["rotate", "Rotate & flip"], ["doc", "Create a PDF"], ["collage", "Collage"]] },
+  images: { name: "Images", color: "lime", icon: "image", tools: [["edit", "Edit photo"], ["frame", "Add a background"], ["cutout", "Remove background"], ["crop", "Crop"], ["redact", "Redact"], ["resize", "Resize"], ["rotate", "Rotate & flip"], ["doc", "Create a PDF"], ["collage", "Collage"]] },
   video: { name: "Video", color: "grape", icon: "video", tools: [["trim", "Trim"], ["crop", "Crop"], ["speed", "Change speed"], ["link", "Join"], ["frames", "Save frames"], ["split", "Split"], ["redact", "Redact"]] },
   audio: { name: "Audio", color: "berry", icon: "audio", tools: [["wave", "Normalize volume"], ["bars", "Visualizer"], ["trim", "Trim"], ["phones", "Channels"], ["bleep", "Bleep"]] },
   pdf: { name: "PDF", color: "lemon", icon: "doc", tools: [["merge", "Merge"], ["stack", "Organize pages"], ["splitdoc", "Split"]] },
@@ -759,7 +759,7 @@ function tools() {
     <ellipse cx="960" cy="300" rx="320" ry="260" fill="url(#glowGrape)" opacity=".6"/>
     ${parts.join("\n    ")}
     <text x="640" y="${H - 20}" text-anchor="middle" font-family="${MONO}" font-size="13" fill="${T.muted}">hold ⌘ while dragging · the wheel only offers the tools that fit the files you hold</text>`
-  return svg(W, H, body, "25 tools and 5 file actions: images, video, audio, PDF and any file")
+  return svg(W, H, body, "26 tools and 5 file actions: images, video, audio, PDF and any file")
 }
 
 /* ---- 6. notch: progress that grows out of the hardware notch ----------- */
@@ -879,11 +879,11 @@ function notch() {
 const ROADMAP = [
   {
     name: "Shipped",
-    note: "upstream 0.1.8",
+    note: "0.1.8 + this fork",
     color: "lime",
     cards: [
-      ["check", "176 conversion routes", "images · audio · video · PDF"],
-      ["check", "25 tools, 5 file actions", "crop, trim, merge, redact…"],
+      ["check", "176 routes, 26 tools", "convert, crop, trim, merge, redact…"],
+      ["cutout", "Remove background", "new in this fork · transparent PNG"],
       ["check", "Batch & notch progress", "a failed file never stops the rest"],
     ],
   },
@@ -892,7 +892,6 @@ const ROADMAP = [
     note: "in progress",
     color: "orange",
     cards: [
-      ["cutout", "Remove background", "photo → transparent PNG, on-device"],
       ["compress", "Compression 2.0", "video · images · PDF · target size"],
       ["archive", "ZIP in one drop", "zip a selection, unzip safely"],
     ],
@@ -949,7 +948,7 @@ function roadmap() {
     ${isoGrid(W, H, 34)}
     <ellipse cx="640" cy="260" rx="330" ry="230" fill="url(#glowOrange)"/>
     ${parts.join("\n    ")}`
-  return svg(W, H, body, "Roadmap: shipped, next in this fork (background removal, compression 2.0, ZIP), later")
+  return svg(W, H, body, "Roadmap: shipped (176 routes, 26 tools, background removal), next in this fork (compression 2.0, ZIP), later")
 }
 
 /* ---- 8. divider: a dotted rule with a segment of zest running along it -- */

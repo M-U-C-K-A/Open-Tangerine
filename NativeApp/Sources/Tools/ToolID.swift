@@ -11,6 +11,7 @@ enum ToolID: String, CaseIterable, Identifiable {
     case editMetadata
     case editImage
     case frameImage
+    case removeBackground
     case cropImage
     case redactImage
     case resizeImage
@@ -41,6 +42,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .editMetadata: return "Edit metadata"
         case .editImage: return "Edit photo"
         case .frameImage: return "Add a background"
+        case .removeBackground: return "Remove background"
         case .cropImage: return "Crop image"
         case .redactImage: return "Redact photo"
         case .resizeImage: return "Resize images"
@@ -71,6 +73,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .editMetadata: return "Editing metadata"
         case .editImage: return "Editing photo"
         case .frameImage: return "Adding background"
+        case .removeBackground: return "Removing background"
         case .cropImage, .cropVideo: return "Cropping"
         case .redactImage, .redactVideo: return "Redacting"
         case .resizeImage: return "Resizing"
@@ -97,6 +100,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .editMetadata: return "METADATA"
         case .editImage: return "EDIT"
         case .frameImage: return "ADD BG"
+        case .removeBackground: return "REMOVE BG"
         case .cropImage, .cropVideo: return "CROP"
         case .redactImage, .redactVideo: return "REDACT"
         case .resizeImage: return "RESIZE"
@@ -123,6 +127,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .editMetadata: return "tag"
         case .editImage: return "slider.horizontal.3"
         case .frameImage: return "photo.artframe"
+        case .removeBackground: return "person.and.background.dotted"
         case .cropImage, .cropVideo: return "crop"
         case .redactImage: return "eye.slash"
         case .redactVideo: return "video.slash"
@@ -149,7 +154,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         switch self {
         case .compress, .editMetadata:
             return [.image, .video, .audio, .document]
-        case .editImage, .frameImage, .cropImage, .redactImage, .resizeImage, .rotateImage, .createPDF, .createCollage:
+        case .editImage, .frameImage, .removeBackground, .cropImage, .redactImage, .resizeImage, .rotateImage, .createPDF, .createCollage:
             return [.image]
         case .trimVideo, .cropVideo, .changeVideoSpeed, .joinVideos, .videoSnapshots, .splitVideo, .redactVideo:
             return [.video]
@@ -162,7 +167,7 @@ enum ToolID: String, CaseIterable, Identifiable {
 
     var arity: ToolArity {
         switch self {
-        case .compress, .editMetadata, .resizeImage, .rotateImage, .createPDF: return .any
+        case .compress, .editMetadata, .removeBackground, .resizeImage, .rotateImage, .createPDF: return .any
         case .createCollage, .joinVideos, .mergePDF: return .multiple
         default: return .single
         }

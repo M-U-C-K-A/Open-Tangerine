@@ -79,7 +79,7 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
         switch tool {
         case .compress, .resizeImage, .createPDF, .mergePDF, .splitPDF, .audioChannels, .rotateImage:
             return .compact
-        case .editMetadata, .normalizeAudio, .organizePDF, .createCollage, .joinVideos, .audioToVideo, .trimAudio, .redactAudio:
+        case .editMetadata, .normalizeAudio, .organizePDF, .createCollage, .joinVideos, .audioToVideo, .trimAudio, .redactAudio, .removeBackground:
             return .standard
         default:
             return .editor
@@ -100,7 +100,7 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
             return NSSize(width: 760, height: 500)
         case .editMetadata, .normalizeAudio, .trimAudio, .redactAudio, .audioToVideo:
             return NSSize(width: 820, height: 560)
-        case .organizePDF, .createCollage, .joinVideos:
+        case .organizePDF, .createCollage, .joinVideos, .removeBackground:
             return NSSize(width: 940, height: 620)
         default:
             return NSSize(width: 1040, height: 700)
@@ -126,6 +126,7 @@ struct ToolRootView: View {
             case .editMetadata: MetadataToolView(session: session)
             case .editImage: EditImageToolView(session: session)
             case .frameImage: FrameImageToolView(session: session)
+            case .removeBackground: RemoveBackgroundToolView(session: session)
             case .cropImage: CropImageToolView(session: session)
             case .redactImage: RedactImageToolView(session: session)
             case .resizeImage: ResizeImageToolView(session: session)

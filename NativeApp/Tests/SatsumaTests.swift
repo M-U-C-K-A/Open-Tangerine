@@ -44,8 +44,8 @@ struct OpenTangerineTests {
             try expectEqual(ConversionMatrix.targets(for: .zip).count, 0)
         }
 
-        runner.test("25 advanced tools") {
-            try expectEqual(ToolID.total, 25)
+        runner.test("26 advanced tools") {
+            try expectEqual(ToolID.total, 26)
         }
 
         runner.test("no format converts to itself") {
@@ -179,6 +179,8 @@ struct OpenTangerineTests {
             try expect(!ToolID.cropImage.applies(to: [.jpg, .png]), "crop needs one image")
             try expect(ToolID.createCollage.applies(to: [.jpg, .heic]), "collage multiple images")
             try expect(!ToolID.createCollage.applies(to: [.jpg]), "collage needs two")
+            try expect(ToolID.removeBackground.applies(to: [.jpg]) && ToolID.removeBackground.applies(to: [.heic, .png, .webp]), "remove background on one or several images")
+            try expect(!ToolID.removeBackground.applies(to: [.mp4]) && !ToolID.removeBackground.applies(to: [.pdf]), "remove background is images only")
             try expect(ToolID.compress.applies(to: [.pdf, .pdf]), "compress pdfs")
             try expect(!ToolID.compress.applies(to: [.jpg, .mp4]), "mixed categories")
             try expect(!ToolID.trimVideo.applies(to: [.gif]), "gif is not trimmable")

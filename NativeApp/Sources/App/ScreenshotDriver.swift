@@ -62,6 +62,7 @@ enum ScreenshotDriver {
             .editMetadata: [photo],
             .editImage: [photo],
             .frameImage: [photo],
+            .removeBackground: [photo],
             .cropImage: [photo],
             .redactImage: [photo],
             .resizeImage: [photo, photo2],

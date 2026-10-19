@@ -106,6 +106,39 @@ import PDFKit
         try await MetadataOps.write(pdfURL,edits:await MetadataOps.read(pdfURL),removeAll:false,removeSensitive:true,to:pdfClean,progress:{_ in})
         let pdfFields=await MetadataOps.read(pdfClean)
         check(!pdfFields.contains {$0.key=="Author"} && pdfFields.contains {$0.value=="Keep title"}, "PDF sensitive stripping retains title")
+        // Background removal: an orange disc on a flat backdrop.
+        let scene = CGContext(data: nil, width: 320, height: 240, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        scene.setFillColor(CGColor(red: 0.92, green: 0.93, blue: 0.95, alpha: 1)); scene.fill(CGRect(x: 0, y: 0, width: 320, height: 240))
+        let backdrop = scene.makeImage()!
+        scene.setFillColor(CGColor(red: 0.9, green: 0.3, blue: 0.05, alpha: 1)); scene.fillEllipse(in: CGRect(x: 110, y: 70, width: 100, height: 100))
+        let subject = scene.makeImage()!
+        do {
+            let png = dir.appendingPathComponent("subject (no background).png")
+            try ImageIOBridge.write(try BackgroundRemoval.remove(subject), to: png, format: .png)
+            let cutout = try ImageIOBridge.load(png), rgba = pixels(cutout)
+            func alpha(_ x: Int, _ y: Int) -> UInt8 { rgba[(y * cutout.width + x) * 4 + 3] }
+            check(cutout.width == 320 && cutout.height == 240, "background removal keeps dimensions")
+            check(![CGImageAlphaInfo.none, .noneSkipLast, .noneSkipFirst].contains(cutout.alphaInfo), "background removal writes a PNG with alpha")
+            check([(2, 2), (317, 2), (2, 237), (317, 237), (40, 120), (280, 120), (160, 10), (160, 230)].allSatisfy { alpha($0.0, $0.1) == 0 }, "background removal clears the background")
+            let center = (120 * 320 + 160) * 4
+            check(alpha(160, 120) > 250 && rgba[center] > 200 && rgba[center + 1] < 110 && rgba[center + 2] < 40, "background removal keeps the subject and its color")
+            let tight = try BackgroundRemoval.remove(subject, options: BackgroundRemoval.Options(cropToSubject: true))
+            check(abs(tight.width - 100) <= 12 && abs(tight.height - 100) <= 12, "crop to subject trims to the subject (\(tight.width) × \(tight.height))")
+            let soft = try BackgroundRemoval.remove(subject, options: BackgroundRemoval.Options(softness: 1)), softPixels = pixels(soft)
+            check(softPixels != pixels(try BackgroundRemoval.remove(subject)) && softPixels[center + 3] > 250 && softPixels[3] == 0, "edge softness feathers only the edge")
+        } catch OpenTangerineError.toolFailed(_, let reason) {
+            print("BLOCKED Vision foreground masks unavailable in this process: \(reason)")
+        }
+        do {
+            _ = try BackgroundRemoval.remove(backdrop)
+            check(false, "background removal reports an image without a subject")
+        } catch OpenTangerineError.invalidInput {
+            check(true, "background removal reports an image without a subject")
+        } catch OpenTangerineError.toolFailed(_, let reason) {
+            print("BLOCKED Vision foreground masks unavailable in this process: \(reason)")
+        }
+        let batchNames = BackgroundRemoval.outputURLs(for: [dir.appendingPathComponent("a.jpg"), dir.appendingPathComponent("a.png")]) { $0.deletingLastPathComponent() }
+        check(batchNames.map(\.lastPathComponent) == ["a (no background).png", "a (no background) 2.png"], "background removal batch outputs never collide")
         print("Image tool failures: \(failures)")
         if failures > 0 { exit(1) }
     }
