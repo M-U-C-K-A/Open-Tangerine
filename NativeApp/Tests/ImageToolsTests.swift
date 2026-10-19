@@ -225,6 +225,39 @@ import PDFKit
         let logoed = pixels(try Watermark.apply(grey, options: Watermark.Options(position: .topLeft, size: 0.1, opacity: 1), logo: stamp.makeImage()!))
         check(logoed[(15 * 400 + 15) * 4] > 200 && logoed[(15 * 400 + 15) * 4 + 1] < 60 && !region(logoed, 200, 150, 400, 300), "a logo watermark lands top-left at full opacity")
 
+        // Upscale: tiles cover the picture; Enlarge and Enhance double or quadruple it, transparency kept.
+        check(Upscale.origins(length: 2000, tile: 960, overlap: 24) == [0, 936, 1040] && Upscale.origins(length: 500, tile: 500, overlap: 24) == [0], "upscale tiles cover every pixel, the last flush with the edge")
+        let detailed = CGContext(data: nil, width: 1300, height: 1000, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        for y in stride(from: 0, to: 1000, by: 20) { for x in stride(from: 0, to: 1300, by: 20) {
+            detailed.setFillColor(CGColor(red: CGFloat(x % 260) / 260, green: CGFloat(y % 200) / 200, blue: 0.5, alpha: 1))
+            detailed.fill(CGRect(x: x, y: y, width: 20, height: 20))
+        }}
+        let detailedImage = detailed.makeImage()!
+        let enlarged = try await Upscale.upscale(detailedImage, factor: 2, method: .enlarge)
+        check(enlarged.width == 2600 && enlarged.height == 2000, "enlarge doubles the size")
+        do {
+            let enhanced = try await Upscale.upscale(detailedImage, factor: 2, method: .enhance)
+            check(enhanced.width == 2600 && enhanced.height == 2000, "enhance doubles the size through tiles (\(enhanced.width) × \(enhanced.height))")
+            let e = pixels(enhanced), source = pixels(detailedImage)
+            // A block well inside a tile seam keeps its colour.
+            let probe = { (img: [UInt8], w: Int, x: Int, y: Int) in Int(img[(y * w + x) * 4]) }
+            check(abs(probe(e, 2600, 1890, 1010) - probe(source, 1300, 945, 505)) < 40, "enhance keeps colours across tile seams")
+            let four = try await Upscale.upscale(stamp.makeImage()!, factor: 4, method: .enhance)
+            check(four.width == 160 && four.height == 80, "enhance ×4 runs twice")
+            let clear = CGContext(data: nil, width: 200, height: 200, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            clear.setFillColor(CGColor(red: 1, green: 0.5, blue: 0, alpha: 1)); clear.fillEllipse(in: CGRect(x: 50, y: 50, width: 100, height: 100))
+            let clearUp = pixels(try await Upscale.upscale(clear.makeImage()!, factor: 2, method: .enhance))
+            check(clearUp[3] < 10 && clearUp[(200 * 400 + 200) * 4 + 3] > 245, "enhance keeps transparency")
+        } catch OpenTangerineError.toolFailed(_, let reason) {
+            print("BLOCKED super resolution unavailable in this process: \(reason)")
+        }
+        do {
+            _ = try await Upscale.upscale(detailedImage, factor: 16, method: .enlarge)
+            check(false, "an oversized upscale is refused")
+        } catch OpenTangerineError.invalidInput {
+            check(true, "an oversized upscale is refused")
+        }
+
         // ZIP: one item as name.zip, several as Archive.zip, never overwriting, contents intact.
         let zipDir = dir.appendingPathComponent("zip", isDirectory: true)
         try FileManager.default.createDirectory(at: zipDir.appendingPathComponent("Album"), withIntermediateDirectories: true)
@@ -239,6 +272,65 @@ import PDFKit
         check(archive.lastPathComponent == "Archive.zip"
               && (try? String(contentsOf: unpacked.appendingPathComponent("note.txt"), encoding: .utf8)) == "hello"
               && (try? String(contentsOf: unpacked.appendingPathComponent("Album/photo.txt"), encoding: .utf8)) == "inside", "several items, folders included, zip side by side")
+        // Unzip: a plain archive comes back whole; a malicious one is refused before anything is written.
+        let unzipped = try await SafeUnzip.extract(archive)
+        check(unzipped.lastPathComponent == "Archive" && (try? String(contentsOf: unzipped.appendingPathComponent("Album/photo.txt"), encoding: .utf8)) == "inside", "unzip unpacks next to the archive into its own folder")
+        let albumZip = try await FileAction.zip([zipDir.appendingPathComponent("Album")])
+        let albumOut = try await SafeUnzip.extract(albumZip)
+        check(albumOut.lastPathComponent == "Album 2" && FileManager.default.fileExists(atPath: albumOut.appendingPathComponent("photo.txt").path), "a single top folder is unpacked as itself, never over the original")
+        let evil = dir.appendingPathComponent("evil.zip")
+        _ = try await Shell.run("/usr/bin/python3", ["-c", "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1],'w'); z.writestr('../escaped.txt','x'); z.writestr('ok.txt','y'); z.close()", evil.path])
+        do {
+            _ = try await SafeUnzip.extract(evil)
+            check(false, "an archive that climbs out of its folder is refused")
+        } catch {
+            check(!FileManager.default.fileExists(atPath: dir.deletingLastPathComponent().appendingPathComponent("escaped.txt").path) && !FileManager.default.fileExists(atPath: dir.appendingPathComponent("evil").path), "an archive that climbs out of its folder is refused, nothing written")
+        }
+
+        // PDF passwords: protect, refuse a wrong password, unlock with the right one.
+        let plainPDF = dir.appendingPathComponent("plain.pdf"), lockedPDF = dir.appendingPathComponent("locked.pdf"), reopened = dir.appendingPathComponent("reopened.pdf")
+        let onePage = PDFDocument(); onePage.insert(PDFPage(image: NSImage(cgImage: grey, size: NSSize(width: 400, height: 300)))!, at: 0)
+        check(onePage.write(to: plainPDF), "PDF fixture writes")
+        try PDFOps.protect(plainPDF, password: "orange", to: lockedPDF)
+        check(PDFDocument(url: lockedPDF)?.isLocked == true, "a protected PDF asks for its password")
+        do {
+            try PDFOps.unlock(lockedPDF, password: "lemon", to: reopened)
+            check(false, "a wrong password is refused")
+        } catch {
+            check(!FileManager.default.fileExists(atPath: reopened.path), "a wrong password is refused")
+        }
+        try PDFOps.unlock(lockedPDF, password: "orange", to: reopened)
+        check(PDFDocument(url: reopened).map { !$0.isLocked && !$0.isEncrypted && $0.pageCount == 1 } == true, "the right password gives a copy that opens freely")
+
+        // Codes: a QR code drawn here is read back, with its link and place.
+        let qrFilter = CIFilter(name: "CIQRCodeGenerator", parameters: ["inputMessage": Data("https://github.com/M-U-C-K-A/Open-Tangerine".utf8), "inputCorrectionLevel": "M"])!
+        let qrImage = ImageOps.render(qrFilter.outputImage!.transformed(by: CGAffineTransform(scaleX: 12, y: 12)))!
+        let qrCanvas = CGContext(data: nil, width: 800, height: 600, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        qrCanvas.setFillColor(CGColor(gray: 1, alpha: 1)); qrCanvas.fill(CGRect(x: 0, y: 0, width: 800, height: 600))
+        qrCanvas.draw(qrImage, in: CGRect(x: 40, y: 600 - 40 - qrImage.height, width: qrImage.width, height: qrImage.height))
+        do {
+            let codes = try BarcodeReader.codes(in: qrCanvas.makeImage()!, file: "poster.png")
+            check(codes.count == 1 && codes[0].link?.host == "github.com" && codes[0].kind == "QR code", "a QR code is read with its link")
+            check(codes.first.map { $0.box.minX < 0.2 && $0.box.minY < 0.25 } == true, "its place is given from the top-left")
+        } catch OpenTangerineError.toolFailed(_, let reason) {
+            print("BLOCKED Vision barcodes unavailable in this process: \(reason)")
+        }
+
+        // Faces: the cover grows around each face, stays inside the picture, and hides only there.
+        let grown = FaceBlur.covered(CGRect(x: 100, y: 100, width: 50, height: 60), padding: 0.2, in: CGRect(x: 0, y: 0, width: 400, height: 300))
+        check(grown == CGRect(x: 90, y: 88, width: 70, height: 84), "face cover grows by the margin")
+        check(FaceBlur.covered(CGRect(x: 380, y: 280, width: 40, height: 40), padding: 0.5, in: CGRect(x: 0, y: 0, width: 400, height: 300)).maxX == 400, "face cover stays inside the picture")
+        let boxed = pixels(ImageOps.render(FaceBlur.hide(CIImage(cgImage: corner.isEmpty ? grey : grey), faces: [CGRect(x: 0, y: 200, width: 100, height: 100)], options: FaceBlur.Options(style: .solid, padding: 0)), extent: CGRect(x: 0, y: 0, width: 400, height: 300))!)
+        check(boxed[(50 * 400 + 50) * 4] < 20 && boxed[(250 * 400 + 300) * 4] == greyPixels[(250 * 400 + 300) * 4], "hiding covers the face only (Core Image coordinates, origin bottom-left)")
+        do {
+            _ = try FaceBlur.apply(grey, options: FaceBlur.Options())
+            check(false, "a picture without faces is reported")
+        } catch OpenTangerineError.invalidInput {
+            check(true, "a picture without faces is reported")
+        } catch OpenTangerineError.toolFailed(_, let reason) {
+            print("BLOCKED Vision faces unavailable in this process: \(reason)")
+        }
+
         let batchNames = BackgroundRemoval.outputURLs(for: [dir.appendingPathComponent("a.jpg"), dir.appendingPathComponent("a.png")]) { $0.deletingLastPathComponent() }
         check(batchNames.map(\.lastPathComponent) == ["a (no background).png", "a (no background) 2.png"], "background removal batch outputs never collide")
         print("Image tool failures: \(failures)")

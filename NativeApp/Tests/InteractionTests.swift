@@ -45,8 +45,9 @@ final class UpdateResponse: URLProtocol {
         print("PASS HTTP update detection, current version, unpublished release")
         let state = CompanionState.shared
         state.set(.watching)
-        state.watch(label: "PNG", direction: 3)
-        precondition(state.gaze == 1 && state.caption.contains("PNG"))
+        state.watch(heading: "CONVERT TO PNG", caption: FileFormat.png.targetSummary, direction: 3)
+        precondition(state.gaze == 1 && state.heading == "CONVERT TO PNG" && state.caption.contains("transparency"))
+        precondition(ToolID.allCases.allSatisfy { !$0.summary.isEmpty } && FileAction.allCases.allSatisfy { !$0.summary.isEmpty }, "every choice explains itself in the notch")
         let interrupted = state.transition(from: .received, to: .processing, after: 0.01)
         state.set(.failed)
         await interrupted.value
@@ -167,5 +168,53 @@ final class UpdateResponse: URLProtocol {
         let seen = FolderWatcher.names(in: scratch)
         precondition(!seen.contains("movie.mp4.download") && !seen.contains(".hidden.png") && !seen.contains("Album") && seen.contains("scan.png"), "\(seen)")
         print("PASS watch folders skip targets, partial downloads, hidden files and folders")
+
+        // Unzip: the table of contents decides before anything is written.
+        let zipListing = SafeUnzip.parse("""
+        Archive:  t.zip
+        Zip file size: 629 bytes, number of entries: 3
+        drwxr-xr-x  3.0 unx        0 bx stor 26-Oct-19 17:03 My Folder/
+        -rw-r--r--  3.0 unx        6 tx stor 26-Oct-19 17:03 My Folder/a b.txt
+        -rw-r--r--  3.0 unx        2 tx stor 26-Oct-19 17:03 top.txt
+        3 files, 8 bytes uncompressed, 8 bytes compressed:  0.0%
+        """)
+        precondition(zipListing.entries.map { $0.name } == ["My Folder/", "My Folder/a b.txt", "top.txt"] && zipListing.uncompressed == 8 && zipListing.entries[0].isDirectory)
+        precondition(SafeUnzip.problem(with: zipListing, freeSpace: 1_000_000) == nil, "a plain archive is fine")
+        func one(_ name: String, kind: Character = "-", size: Int64 = 10) -> SafeUnzip.Listing {
+            SafeUnzip.Listing(entries: [.init(name: name, size: size, isLink: kind == "l", isDirectory: kind == "d")], uncompressed: size, compressed: size)
+        }
+        precondition(SafeUnzip.problem(with: one("../evil.sh"), freeSpace: .max) != nil, "climbing out with .. is refused")
+        precondition(SafeUnzip.problem(with: one("a/../../evil"), freeSpace: .max) != nil)
+        precondition(SafeUnzip.problem(with: one("/etc/passwd"), freeSpace: .max) != nil, "absolute paths are refused")
+        precondition(SafeUnzip.problem(with: one("link", kind: "l"), freeSpace: .max) != nil, "links are refused")
+        precondition(SafeUnzip.problem(with: one("..hidden..name.txt"), freeSpace: .max) == nil, "dots inside a name are fine")
+        precondition(SafeUnzip.problem(with: SafeUnzip.Listing(entries: [.init(name: "bomb", size: 50_000_000_000, isLink: false, isDirectory: false)], uncompressed: 50_000_000_000, compressed: 1_000), freeSpace: .max) != nil, "more than 20 GB is refused")
+        precondition(SafeUnzip.problem(with: SafeUnzip.Listing(entries: [.init(name: "bomb", size: 2_000_000_000, isLink: false, isDirectory: false)], uncompressed: 2_000_000_000, compressed: 100_000), freeSpace: .max) != nil, "a zip bomb is refused")
+        precondition(SafeUnzip.problem(with: one("big", size: 5_000), freeSpace: 1_000) != nil, "not enough room is refused")
+        precondition(FileAction.available(for: [URL(fileURLWithPath: "/tmp/a.zip")]).contains(.unzip) && !FileAction.available(for: [image]).contains(.unzip))
+        precondition(FileAction.available(for: [image, pdf]).contains(.readCodes))
+        print("PASS unzip checks: paths, links, size, ratio, free space")
+
+        // Translation documents: subtitles keep their timing, text keeps its paragraphs.
+        let srt = scratch.appendingPathComponent("talk.srt")
+        try "1\n00:00:01,000 --> 00:00:02,500\n<i>Hello</i> there\n\n2\n00:00:03,000 --> 00:00:04,000\nGoodbye\n".write(to: srt, atomically: true, encoding: .utf8)
+        let subtitles = try TextTranslation.document(for: srt)
+        precondition(subtitles.segments == ["Hello there", "Goodbye"] && subtitles.outputFormat == .srt)
+        let rebuilt = subtitles.rebuilt(with: ["Bonjour", "Au revoir"])
+        precondition(rebuilt.contains("00:00:01,000 --> 00:00:02,500\nBonjour") && rebuilt.contains("00:00:03,000 --> 00:00:04,000\nAu revoir"), rebuilt)
+        precondition(TextTranslation.paragraphs("One\nline\n\n\nTwo\r\n\r\n  ") == ["One\nline", "Two"])
+        precondition(TextTranslation.outputURL(for: srt, language: "fr", format: .srt, directory: scratch).lastPathComponent == "talk.fr.srt")
+        print("PASS translation keeps subtitle timing and paragraphs, names files for players")
+
+        // Speech to subtitles: short cues, cut at sentences and pauses, two balanced lines.
+        let words = "Hello and welcome. This is a short test of the subtitles from speech feature in Open Tangerine".split(separator: " ").enumerated().map { index, word in
+            SpeechSubtitles.Word(text: String(word), start: Double(index) * 0.4 + (index > 10 ? 3 : 0), end: Double(index) * 0.4 + 0.35 + (index > 10 ? 3 : 0))
+        }
+        let cues = SpeechSubtitles.cues(from: words)
+        precondition(cues.first?.text == "Hello and welcome.", "\(cues.map(\.text))")
+        precondition(cues.allSatisfy { $0.end - $0.start <= 6.5 && $0.text.count <= 90 && $0.text.components(separatedBy: "\n").count <= 2 })
+        precondition(cues.count >= 3, "a long pause starts a new cue")
+        precondition(SpeechSubtitles.wrap("one two three four five six", width: 10) == "one two three\nfour five six")
+        print("PASS speech subtitles: sentence and pause cuts, length and two-line wrap")
     }
 }

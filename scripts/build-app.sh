@@ -15,10 +15,16 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.2.0</string>
-<key>CFBundleVersion</key><string>12</string>
+<key>CFBundleVersion</key><string>13</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSSpeechRecognitionUsageDescription</key><string>Open Tangerine turns what is said in your videos and recordings into subtitles, on this Mac.</string>
+<key>NSServices</key><array>
+<dict><key>NSMenuItem</key><dict><key>default</key><string>Convert with Open Tangerine</string></dict><key>NSMessage</key><string>convertFiles</string><key>NSSendFileTypes</key><array><string>public.item</string></array></dict>
+<dict><key>NSMenuItem</key><dict><key>default</key><string>Open Tangerine Tools</string></dict><key>NSMessage</key><string>openTools</string><key>NSSendFileTypes</key><array><string>public.item</string></array></dict>
+<dict><key>NSMenuItem</key><dict><key>default</key><string>Open Tangerine File Actions</string></dict><key>NSMessage</key><string>fileActions</string><key>NSSendFileTypes</key><array><string>public.item</string></array></dict>
+</array>
 <key>NSAppleEventsUsageDescription</key><string>Open Tangerine asks Finder which files are selected when you open the wheel by holding Shift alone. Nothing else is read.</string>
 </dict></plist>
 PLIST

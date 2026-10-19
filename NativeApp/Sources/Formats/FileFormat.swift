@@ -141,5 +141,38 @@ enum FileFormat: String, CaseIterable, Identifiable, Hashable {
     }
 
     var isMultiTrack: Bool { category == .video || category == .audio }
+
+    /// One line on what converting to this format gives you, for the notch.
+    var targetSummary: String {
+        switch self {
+        case .jpg: return "Small and universal. No transparency."
+        case .png: return "Lossless, keeps transparency."
+        case .webp: return "Small for the web, with transparency."
+        case .heic: return "Apple's compact photo format."
+        case .tiff: return "Lossless, for print and archives."
+        case .svg: return "Vector graphics."
+        case .avif: return "Very small, for modern browsers."
+        case .bmp: return "Uncompressed bitmap."
+        case .gif: return "A looping animation, without sound."
+        case .mp3: return "Audio that plays everywhere."
+        case .m4a: return "AAC audio, Apple's default."
+        case .wav: return "Uncompressed audio, for editing."
+        case .flac: return "Lossless audio, smaller than WAV."
+        case .ogg, .opus: return "Open, compact audio."
+        case .aiff: return "Uncompressed audio for Apple apps."
+        case .wma: return "Audio for older Windows players."
+        case .mp4: return "Video that plays everywhere."
+        case .mov: return "QuickTime video."
+        case .mkv: return "Matroska video, keeps every track."
+        case .webm: return "Video for the web."
+        case .avi, .wmv: return "Video for older players."
+        case .pdf: return "A PDF, one page per image or page."
+        case .docx: return "A Word document."
+        case .txt: return "Plain text. Pictures and scans are read for you."
+        case .srt: return "Subtitles for video players."
+        case .vtt: return "Subtitles for the web."
+        case .zip, .tar, .gz, .rar: return "An archive."
+        }
+    }
 }
 

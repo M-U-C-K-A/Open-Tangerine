@@ -86,19 +86,19 @@ struct NotchJobRow: View {
                         .foregroundStyle(failed ? .red : .green)
                 } else {
                     Text("\(Int(min(max(job.progress, 0), 1) * 100))%")
-                        .font(.system(size: 10, design: .monospaced)).foregroundStyle(.white.opacity(0.65))
+                        .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
                     Button(action: cancel) { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain).help("Cancel this job").accessibilityLabel("Cancel \(job.detail)")
                 }
             }
-            Text(detail).font(.system(size: 10)).foregroundStyle(failed ? .red : .white.opacity(0.6)).lineLimit(1).help(detail)
+            Text(detail).font(.system(size: 10)).foregroundStyle(failed ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary)).lineLimit(1).help(detail)
             if job.status == .done && !job.outputs.isEmpty {
                 JobOutputActions(job: job)
             } else {
                 ProgressView(value: job.status == .done ? 1 : min(max(job.progress, 0), 1))
                     .tint(Theme.accent).progressViewStyle(.linear).controlSize(.mini)
             }
-        }.foregroundStyle(.white).frame(height: 48)
+        }.foregroundStyle(.primary).frame(height: 48)
     }
     private var title: String {
         switch job.status {

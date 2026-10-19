@@ -64,9 +64,10 @@ struct WatermarkToolView: View {
                         Button { options.position = position } label: {
                             Image(systemName: position.symbol)
                                 .frame(width: 30, height: 24)
+                                .foregroundStyle(options.position == position ? Color.white : Color.primary)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(options.position == position ? Theme.accent : Color.primary.opacity(0.07)))
                         }
-                        .buttonStyle(.bordered)
-                        .tint(options.position == position ? Theme.accent : nil)
+                        .buttonStyle(.plain)
                         .help(position.rawValue)
                     }
                 }

@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let dragMonitor = DragMonitor()
     private let radial = RadialController()
     private var settingsWindow: NSWindow?
+    private var servicesProvider: FinderServices?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DiagnosticLog.start()
@@ -27,6 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dragMonitor.delegate = radial
         dragMonitor.start()
         FolderWatcher.shared.start()
+        // Right-click in Finder → Services (or Quick Actions): the same three wheels.
+        servicesProvider = FinderServices(radial: radial)
+        NSApp.servicesProvider = servicesProvider
+        NSUpdateDynamicServices()
         // Login-item launches stay quietly in the menu bar; show onboarding once.
         if !UserDefaults.standard.bool(forKey: "hasOpenedSettings") {
             UserDefaults.standard.set(true, forKey: "hasOpenedSettings")

@@ -6,17 +6,23 @@ import SwiftUI
     @Published var phase: Phase = .watching
     @Published var gaze: CGFloat = 0
     @Published var caption = "Choose a format — I’m ready"
+    /// The name of what the pointer is on in the wheel, or a greeting.
+    @Published var heading = CompanionState.restingHeading
+    static let restingHeading = "READY WHEN YOU ARE"
+    static let restingCaption = "Move onto a choice to see what it does."
     private var generation = 0
-    func watch(label: String? = nil, direction: CGFloat = 0) {
+    /// The wheel's highlighted choice: its name above, what it does below.
+    func watch(heading: String? = nil, caption: String? = nil, direction: CGFloat = 0) {
         guard phase == .watching else { return }
         gaze = max(-1, min(1, direction))
-        caption = label.map { "Looking at \($0)" } ?? "Choose a format — I’m ready"
+        self.heading = heading ?? Self.restingHeading
+        self.caption = caption ?? Self.restingCaption
     }
     func set(_ phase: Phase) {
         generation += 1
         self.phase = phase
         switch phase {
-        case .watching: caption = "Choose a format — I’m ready"
+        case .watching: caption = Self.restingCaption; heading = Self.restingHeading
         case .received: caption = "Got it!"
         case .processing: caption = "Making it happen…"
         case .delivering: caption = "Here you go…"

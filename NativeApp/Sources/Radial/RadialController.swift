@@ -118,8 +118,10 @@ final class RadialController: DragMonitorDelegate {
 
     private func present(urls: [URL], at point: NSPoint, mode: RadialMode) {
         self.urls = urls
-        // Folders and unknown files can only take file actions: start there.
-        let convertible = urls.allSatisfy { FileFormat.detect($0) != nil && !FileAction.isDirectory($0) }
+        // Folders, archives and unknown files can only take file actions: start there.
+        let detected = urls.compactMap(FileFormat.detect)
+        let convertible = detected.count == urls.count && !urls.contains(where: FileAction.isDirectory)
+            && (!ConversionMatrix.targets(for: detected).isEmpty || !ToolID.available(for: detected).isEmpty)
         self.mode = convertible || urls.isEmpty ? mode : .actions
         formats = urls.compactMap(FileFormat.detect)
         let screen = NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]

@@ -77,9 +77,9 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
 
     static func windowClass(for tool: ToolID) -> WindowClass {
         switch tool {
-        case .compress, .resizeImage, .createPDF, .mergePDF, .splitPDF, .audioChannels, .rotateImage:
+        case .compress, .resizeImage, .createPDF, .mergePDF, .splitPDF, .audioChannels, .rotateImage, .transcribeSpeech, .protectPDF, .unlockPDF:
             return .compact
-        case .editMetadata, .normalizeAudio, .organizePDF, .createCollage, .joinVideos, .audioToVideo, .trimAudio, .redactAudio, .removeBackground, .watermarkImage, .renameFiles:
+        case .editMetadata, .normalizeAudio, .organizePDF, .createCollage, .joinVideos, .audioToVideo, .trimAudio, .redactAudio, .removeBackground, .watermarkImage, .upscaleImage, .blurFaces, .renameFiles, .translateText:
             return .standard
         default:
             return .editor
@@ -100,10 +100,12 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
             return NSSize(width: 760, height: 500)
         case .editMetadata, .normalizeAudio, .trimAudio, .redactAudio, .audioToVideo:
             return NSSize(width: 820, height: 560)
-        case .organizePDF, .createCollage, .joinVideos, .removeBackground, .watermarkImage:
+        case .organizePDF, .createCollage, .joinVideos, .removeBackground, .watermarkImage, .upscaleImage, .blurFaces:
             return NSSize(width: 940, height: 620)
-        case .renameFiles:
+        case .renameFiles, .translateText:
             return NSSize(width: 760, height: 600)
+        case .transcribeSpeech, .protectPDF, .unlockPDF:
+            return NSSize(width: 620, height: 440)
         default:
             return NSSize(width: 1040, height: 700)
         }
@@ -130,6 +132,11 @@ struct ToolRootView: View {
             case .frameImage: FrameImageToolView(session: session)
             case .removeBackground: RemoveBackgroundToolView(session: session)
             case .watermarkImage: WatermarkToolView(session: session)
+            case .upscaleImage: UpscaleToolView(session: session)
+            case .blurFaces: BlurFacesToolView(session: session)
+            case .translateText: TranslateToolView(session: session)
+            case .transcribeSpeech: TranscribeToolView(session: session)
+            case .protectPDF, .unlockPDF: PDFPasswordToolView(session: session)
             case .renameFiles: RenameFilesToolView(session: session)
             case .cropImage: CropImageToolView(session: session)
             case .redactImage: RedactImageToolView(session: session)

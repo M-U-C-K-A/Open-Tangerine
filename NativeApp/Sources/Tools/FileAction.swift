@@ -3,7 +3,7 @@ import CryptoKit
 
 enum FileAction: String, CaseIterable, Hashable {
     case reveal = "Reveal", copy = "Copy Files", paths = "Copy Paths", duplicate = "Duplicate"
-    case zip = "ZIP", rename = "Rename", copyText = "Copy Text", hash = "SHA-256"
+    case zip = "ZIP", unzip = "Unzip", rename = "Rename", copyText = "Copy Text", readCodes = "Read Codes", hash = "SHA-256"
     var symbol: String {
         switch self {
         case .reveal: return "folder"
@@ -11,9 +11,27 @@ enum FileAction: String, CaseIterable, Hashable {
         case .paths: return "link"
         case .duplicate: return "plus.square.on.square"
         case .zip: return "doc.zipper"
+        case .unzip: return "archivebox"
+        case .readCodes: return "qrcode.viewfinder"
         case .rename: return "pencil.line"
         case .copyText: return "text.viewfinder"
         case .hash: return "number"
+        }
+    }
+
+    /// One line on what the action does, for the notch.
+    var summary: String {
+        switch self {
+        case .reveal: return "Shows the files in Finder."
+        case .copy: return "Copies the files, to paste elsewhere."
+        case .paths: return "Copies their paths as text."
+        case .duplicate: return "Makes a copy next to each one."
+        case .zip: return "Packs them into one .zip."
+        case .unzip: return "Unpacks the archive next to it, after checking it."
+        case .readCodes: return "Finds QR codes and barcodes, with their links."
+        case .rename: return "Renames them all from one pattern."
+        case .copyText: return "Reads their text and copies it."
+        case .hash: return "Copies a SHA-256 checksum of each."
         }
     }
 
@@ -29,10 +47,12 @@ enum FileAction: String, CaseIterable, Hashable {
             guard let format = FileFormat.detect(url) else { return false }
             return format.category == .image || format == .pdf
         }
+        let archives = !urls.isEmpty && urls.allSatisfy { FileFormat.detect($0) == .zip && !isDirectory($0) }
         return allCases.filter { action in
             switch action {
             case .hash: return !folders
-            case .copyText: return readable && !folders
+            case .unzip: return archives
+            case .copyText, .readCodes: return readable && !folders
             default: return true
             }
         }
@@ -118,6 +138,15 @@ enum FileAction: String, CaseIterable, Hashable {
             }
         case .rename:
             ToolWindowManager.shared.open(.renameFiles, files: urls)
+        case .unzip:
+            for archive in urls {
+                JobRunner.shared.run(title: "Unzipping", detail: archive.lastPathComponent, symbol: symbol) { progress in
+                    progress(0.2)
+                    return [try await SafeUnzip.extract(archive)]
+                }
+            }
+        case .readCodes:
+            CodesPanel.show(for: urls)
         case .copyText:
             JobRunner.shared.run(title: "Copying text", detail: urls.count == 1 ? urls[0].lastPathComponent : "\(urls.count) files", symbol: symbol) { progress in
                 let text = try await Task.detached(priority: .userInitiated) {

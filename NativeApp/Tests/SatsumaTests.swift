@@ -44,8 +44,8 @@ struct OpenTangerineTests {
             try expectEqual(ConversionMatrix.targets(for: .zip).count, 0)
         }
 
-        runner.test("28 advanced tools") {
-            try expectEqual(ToolID.total, 28)
+        runner.test("34 advanced tools") {
+            try expectEqual(ToolID.total, 34)
         }
 
         runner.test("no format converts to itself") {
@@ -192,8 +192,12 @@ struct OpenTangerineTests {
             try expect(!ToolID.trimVideo.applies(to: [.gif]), "gif is not trimmable")
             try expect(ToolID.compress.applies(to: [.gif]), "gif compress")
             try expect(!ToolID.mergePDF.applies(to: [.docx, .docx]), "docx merge")
-            try expectEqual(ToolID.available(for: [.mp3]).count, 7)
-            try expectEqual(ToolID.available(for: [.pdf]).count, 4)
+            try expectEqual(ToolID.available(for: [.mp3]).count, 8)
+            try expectEqual(ToolID.available(for: [.pdf]).count, 7)
+            try expect(ToolID.translateText.applies(to: [.srt]) && ToolID.translateText.applies(to: [.txt]) && !ToolID.translateText.applies(to: [.docx]), "translate subtitles and text")
+            try expect(ToolID.transcribeSpeech.applies(to: [.mp4]) && ToolID.transcribeSpeech.applies(to: [.wav]) && !ToolID.transcribeSpeech.applies(to: [.gif]), "subtitles from speech on audio and video")
+            try expect(ToolID.blurFaces.applies(to: [.jpg, .png]) && ToolID.blurFaces.applies(to: [.mov]), "hide faces in photos and videos")
+            try expect(ToolID.protectPDF.applies(to: [.pdf]) && !ToolID.protectPDF.applies(to: [.txt]), "passwords are for PDFs")
         }
 
         runner.test("compression presets") {

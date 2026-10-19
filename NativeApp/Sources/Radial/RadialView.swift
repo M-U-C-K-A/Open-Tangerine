@@ -12,6 +12,9 @@ struct RadialItem: Identifiable, Hashable {
     let label: String
     let detail: String
     let symbol: String
+    /// What the notch says while this choice is highlighted: its name, then what it does.
+    let heading: String
+    let explanation: String
 
     var id: RadialAction { action }
 
@@ -20,6 +23,8 @@ struct RadialItem: Identifiable, Hashable {
         label = fileAction.rawValue
         detail = fileAction.rawValue
         symbol = fileAction.symbol
+        heading = fileAction.rawValue.uppercased()
+        explanation = fileAction.summary
     }
 
     init(format: FileFormat) {
@@ -27,6 +32,8 @@ struct RadialItem: Identifiable, Hashable {
         label = format.displayName
         detail = "Convert to \(format.displayName)"
         symbol = format.category.symbol
+        heading = "CONVERT TO \(format.displayName)"
+        explanation = format.targetSummary
     }
 
     init(tool: ToolID) {
@@ -34,6 +41,8 @@ struct RadialItem: Identifiable, Hashable {
         label = tool.radialLabel
         detail = tool.title
         symbol = tool.symbol
+        heading = tool.title.uppercased()
+        explanation = tool.summary
     }
 }
 
@@ -289,9 +298,9 @@ final class RadialView: NSView {
     private(set) var highlighted: Int? {
         didSet {
             guard oldValue != highlighted else { return }
-            let label = highlighted.flatMap { items.indices.contains($0) ? items[$0].label : nil }
+            let item = highlighted.flatMap { items.indices.contains($0) ? items[$0] : nil }
             let direction: CGFloat = highlighted.map { cos(CGFloat($0) * 2 * .pi / CGFloat(max(items.count, 1)) - .pi / 2) } ?? 0
-            Task { @MainActor in JobRunner.shared.watchWheel(label: label, direction: direction) }
+            Task { @MainActor in JobRunner.shared.watchWheel(heading: item?.heading, caption: item?.explanation, direction: direction) }
             if highlighted != nil {
                 NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .drawCompleted)
             }

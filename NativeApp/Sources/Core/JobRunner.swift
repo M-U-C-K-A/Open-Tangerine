@@ -161,18 +161,25 @@ final class JobRunner: ObservableObject {
         enqueue(Job(title: title, detail: detail, symbol: symbol), work: work)
     }
 
-    func watchWheel(label: String? = nil, direction: CGFloat = 0) {
-        guard jobs.isEmpty, AppSettings.shared.progressStyle == .pill else { return }
-        CompanionState.shared.watch(label: label, direction: direction)
+    /// Shows what the wheel's highlighted choice does. Only while the wheel is open:
+    /// a highlight cleared as the wheel closes must not bring the notch back.
+    func watchWheel(heading: String? = nil, caption: String? = nil, direction: CGFloat = 0) {
+        guard wheelOpen, jobs.isEmpty, AppSettings.shared.progressStyle == .pill else { return }
+        CompanionState.shared.watch(heading: heading, caption: caption, direction: direction)
         showHUD()
     }
     func beginWatching() {
+        wheelOpen = true
         guard jobs.allSatisfy({ $0.status.isFinished }) else { return }
         dismissAll()
         CompanionState.shared.set(.watching)
         watchWheel()
     }
-    func endWatching() { if jobs.isEmpty { hud?.hide() } }
+    func endWatching() {
+        wheelOpen = false
+        if jobs.isEmpty { hud?.hide() }
+    }
+    private var wheelOpen = false
 
     private func showHUD() {
         guard presentsHUD else { return }
@@ -414,6 +421,8 @@ struct JobPillView: View {
     @ObservedObject private var companion = CompanionState.shared
     @ObservedObject private var settings = AppSettings.shared
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
+    private var hardwareNotch: Bool { topInset > 0 }
     enum Layout {
         static let rowHeight: CGFloat = 16
         static let iconWidth: CGFloat = 16
@@ -429,21 +438,22 @@ struct JobPillView: View {
             CitrusCompanion()
             VStack(alignment: .leading, spacing: 7) {
                 HStack {
-                    Text(presentation.jobs.isEmpty ? "READY WHEN YOU ARE" : companion.caption.uppercased())
+                    Text(presentation.jobs.isEmpty ? companion.heading : companion.caption.uppercased())
                         .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(1.5)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                     Spacer()
                     if presentation.jobs.count > 1 {
-                        Text("\(presentation.jobs.count) files").font(.system(size: 9)).foregroundStyle(.white.opacity(0.5))
+                        Text("\(presentation.jobs.count) files").font(.system(size: 9)).foregroundStyle(.secondary)
                     }
                     if !working {
                         Button { runner.dismissAll() } label: { Image(systemName: "xmark") }
-                            .buttonStyle(.plain).foregroundStyle(.white.opacity(0.7)).help("Dismiss results")
+                            .buttonStyle(.plain).foregroundStyle(.secondary).help("Dismiss results")
                     }
                 }
                 if presentation.jobs.isEmpty {
-                    Text(companion.caption).font(.system(size: 12)).foregroundStyle(.white).lineLimit(2)
-                    Text("Drop a file onto your choice").font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
+                    Text(companion.caption).font(.system(size: 12)).foregroundStyle(.primary).lineLimit(2)
+                    Text("Let go on a choice, or click it").font(.system(size: 10)).foregroundStyle(.secondary)
                 }
                 ScrollView {
                     VStack(spacing: 8) {
@@ -460,7 +470,14 @@ struct JobPillView: View {
         .offset(y: presentation.expanded || reduceMotion ? 0 : -16)
         .padding(.top, topInset)
         .background {
-            if settings.notchSurface == .glass && !reduceTransparency {
+            if !hardwareNotch {
+                // No notch to continue: follow light or dark like any other panel.
+                if settings.notchSurface == .glass && !reduceTransparency {
+                    Color.clear.glassEffect(.regular, in: .rect)
+                } else {
+                    Color(nsColor: .windowBackgroundColor)
+                }
+            } else if settings.notchSurface == .glass && !reduceTransparency {
                 Color.black.opacity(0.45)
                     .glassEffect(.regular.tint(.black.opacity(0.45)), in: .rect)
                     .overlay(alignment: .top) { Color.black.frame(height: topInset) }
@@ -468,6 +485,8 @@ struct JobPillView: View {
                 Color(.sRGB, red: 0, green: 0, blue: 0, opacity: 1)
             }
         }
+        // Grown out of the black hardware notch, the panel reads as dark whatever the theme.
+        .environment(\.colorScheme, hardwareNotch ? .dark : colorScheme)
         .onHover { runner.hoverResults($0) }
         .mask(alignment: .top) {
             UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: presentation.expanded ? 24 : 10, bottomTrailingRadius: presentation.expanded ? 24 : 10, topTrailingRadius: 0)

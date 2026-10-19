@@ -21,6 +21,32 @@ enum PDFOps {
         return document
     }
 
+    /// A copy that asks for `password` to open. The owner password (for printing and
+    /// editing rights) is the same unless another is given.
+    static func protect(_ url: URL, password: String, ownerPassword: String? = nil, to destination: URL) throws {
+        guard !password.isEmpty else { throw OpenTangerineError.invalidInput("Choose a password.") }
+        let source = try document(url)
+        let owner = ownerPassword.flatMap { $0.isEmpty ? nil : $0 } ?? password
+        guard source.write(to: destination, withOptions: [.userPasswordOption: password, .ownerPasswordOption: owner]) else {
+            throw OpenTangerineError.encodeFailed(destination.lastPathComponent)
+        }
+    }
+
+    /// A copy without the password, for someone who knows it.
+    static func unlock(_ url: URL, password: String, to destination: URL) throws {
+        guard let source = PDFDocument(url: url) else { throw OpenTangerineError.unreadable(url) }
+        if source.isLocked, !source.unlock(withPassword: password) {
+            throw OpenTangerineError.invalidInput("That password doesn't open \(url.lastPathComponent).")
+        }
+        // Copy the pages into a fresh document, which is written without encryption.
+        let open = PDFDocument()
+        for index in 0..<source.pageCount {
+            if let page = source.page(at: index)?.copy() as? PDFPage { open.insert(page, at: open.pageCount) }
+        }
+        open.documentAttributes = source.documentAttributes
+        guard open.pageCount > 0, open.write(to: destination) else { throw OpenTangerineError.encodeFailed(destination.lastPathComponent) }
+    }
+
     static func merge(_ urls: [URL], to destination: URL) throws {
         guard !urls.isEmpty else { throw OpenTangerineError.invalidInput("Choose at least one PDF to merge.") }
         let output = PDFDocument()
