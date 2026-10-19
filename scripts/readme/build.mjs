@@ -485,8 +485,8 @@ function hero() {
       <text x="72" y="454" font-size="27" fill="${T.tagline}">It never leaves your Mac.</text>
     </g>
     ${chips(72, 492, [
-      ["176 routes", orange.s],
-      ["26 tools", T.lime[0]],
+      ["184 routes", orange.s],
+      ["28 tools", T.lime[0]],
       ["batch", T.grape[0]],
       ["on-device", T.mint[0]],
     ])}
@@ -660,7 +660,7 @@ function gestures() {
 /* ---- 4. formats: the route families as blocks -------------------------- */
 
 const FAMILIES = [
-  { name: "Images", routes: 59, color: "lime", icon: "image", list: "JPEG PNG WEBP HEIC TIFF AVIF BMP SVG", to: "→ 8 image formats, PDF, DOCX" },
+  { name: "Images", routes: 67, color: "lime", icon: "image", list: "JPEG PNG WEBP HEIC TIFF AVIF BMP SVG", to: "→ 8 image formats, PDF, DOCX, TXT" },
   { name: "Audio", routes: 56, color: "berry", icon: "audio", list: "MP3 M4A WAV FLAC OGG OPUS AIFF WMA", to: "→ any of the 8" },
   { name: "Video", routes: 48, color: "grape", icon: "video", list: "MP4 MOV MKV WEBM AVI WMV GIF", to: "→ video, GIF, MP3" },
   { name: "Documents", routes: 9, color: "lemon", icon: "doc", list: "PDF TXT", to: "→ DOCX, JPEG, PNG, TXT, PDF, SRT, VTT" },
@@ -703,25 +703,25 @@ function formats() {
     <ellipse cx="640" cy="310" rx="580" ry="290" fill="url(#glowOrange)" opacity=".55"/>
     ${particles(W, H, 18, 5)}
     ${cubes}
-    <text x="640" y="${H - 22}" text-anchor="middle" font-family="${MONO}" font-size="13" fill="${T.muted}">block height = number of conversion routes · <tspan fill="${T.orange[0]}">176 in total</tspan></text>`
-  return svg(W, H, body, "176 conversion routes across images, audio, video, documents and subtitles")
+    <text x="640" y="${H - 22}" text-anchor="middle" font-family="${MONO}" font-size="13" fill="${T.muted}">block height = number of conversion routes · <tspan fill="${T.orange[0]}">184 in total</tspan></text>`
+  return svg(W, H, body, "184 conversion routes across images, audio, video, documents and subtitles")
 }
 
 /* ---- 5. tools: every tool, by family ----------------------------------- */
 
 const TOOLBOX = {
-  images: { name: "Images", color: "lime", icon: "image", tools: [["edit", "Edit photo"], ["frame", "Add a background"], ["cutout", "Remove background"], ["crop", "Crop"], ["redact", "Redact"], ["resize", "Resize"], ["rotate", "Rotate & flip"], ["doc", "Create a PDF"], ["collage", "Collage"]] },
+  images: { name: "Images", color: "lime", icon: "image", tools: [["edit", "Edit photo"], ["frame", "Add a background"], ["cutout", "Remove background"], ["sparkle", "Add a watermark"], ["crop", "Crop"], ["redact", "Redact"], ["resize", "Resize"], ["rotate", "Rotate & flip"], ["doc", "Create a PDF"], ["collage", "Collage"]] },
   video: { name: "Video", color: "grape", icon: "video", tools: [["trim", "Trim"], ["crop", "Crop"], ["speed", "Change speed"], ["link", "Join"], ["frames", "Save frames"], ["split", "Split"], ["redact", "Redact"]] },
   audio: { name: "Audio", color: "berry", icon: "audio", tools: [["wave", "Normalize volume"], ["bars", "Visualizer"], ["trim", "Trim"], ["phones", "Channels"], ["bleep", "Bleep"]] },
   pdf: { name: "PDF", color: "lemon", icon: "doc", tools: [["merge", "Merge"], ["stack", "Organize pages"], ["splitdoc", "Split"]] },
   any: { name: "Any file", color: "orange", icon: "layers", tools: [["compress", "Compress"], ["tag", "Edit metadata"]] },
-  actions: { name: "File actions", color: "mint", icon: "folder", tools: [["folder", "Reveal in Finder"], ["copy", "Copy files"], ["link", "Copy paths"], ["dup", "Duplicate"], ["hash", "SHA-256 checksum"]], note: "hold ⌃" },
+  actions: { name: "File actions", color: "mint", icon: "folder", tools: [["folder", "Reveal in Finder"], ["copy", "Copy files"], ["link", "Copy paths"], ["dup", "Duplicate"], ["archive", "ZIP"], ["edit", "Rename…"], ["ocr", "Copy text"], ["hash", "SHA-256 checksum"]], note: "hold ⌃" },
 }
 
 function tools() {
   const W = 1280
-  const H = 600
-  const columns = [["images"], ["video"], ["audio", "pdf"], ["any", "actions"]]
+  const H = 630
+  const columns = [["images"], ["video", "any"], ["audio", "pdf"], ["actions"]]
   const colW = 282
   const gap = 24
   const x0 = (W - (colW * columns.length + gap * (columns.length - 1))) / 2
@@ -759,7 +759,7 @@ function tools() {
     <ellipse cx="960" cy="300" rx="320" ry="260" fill="url(#glowGrape)" opacity=".6"/>
     ${parts.join("\n    ")}
     <text x="640" y="${H - 20}" text-anchor="middle" font-family="${MONO}" font-size="13" fill="${T.muted}">hold ⌘ while dragging · the wheel only offers the tools that fit the files you hold</text>`
-  return svg(W, H, body, "26 tools and 5 file actions: images, video, audio, PDF and any file")
+  return svg(W, H, body, "28 tools and 8 file actions: images, video, audio, PDF and any file")
 }
 
 /* ---- 6. notch: progress that grows out of the hardware notch ----------- */
@@ -879,32 +879,32 @@ function notch() {
 const ROADMAP = [
   {
     name: "Shipped",
-    note: "0.1.8 + this fork",
+    note: "0.2.0",
     color: "lime",
     cards: [
-      ["check", "176 routes, 26 tools", "convert, crop, trim, merge, redact…"],
-      ["cutout", "Remove background", "new in this fork · transparent PNG"],
-      ["check", "Batch & notch progress", "a failed file never stops the rest"],
+      ["check", "184 routes, 28 tools", "convert, crop, trim, merge, OCR…"],
+      ["cutout", "Remove background", "wand, brush, zoom · transparent PNG"],
+      ["watch", "Watch folders & more", "ZIP · rename · watermark · HEVC"],
     ],
   },
   {
-    name: "Next in this fork",
-    note: "in progress",
+    name: "Next",
+    note: "proposed",
     color: "orange",
     cards: [
-      ["compress", "Compression 2.0", "video · images · PDF · target size"],
-      ["archive", "ZIP in one drop", "zip a selection, unzip safely"],
+      ["archive", "Unzip safely", "checked paths and sizes"],
+      ["subtitle", "Subtitles from speech", "on-device transcription to SRT"],
+      ["sparkle", "Upscale images", "×2 and ×4, on this Mac"],
     ],
-    live: true,
   },
   {
     name: "Later",
-    note: "planned",
+    note: "ideas",
     color: "grape",
     cards: [
-      ["ocr", "Text from images", "OCR with Apple Vision, copy or .txt"],
-      ["watch", "Watch folders", "drop in a folder, get it converted"],
-      ["wand", "Batch rename & watermark", "presets you can reuse"],
+      ["eye", "Blur faces", "find and hide faces in photos"],
+      ["layers", "Translate text", "subtitles and OCR, on-device"],
+      ["folder", "Finder Quick Actions", "right-click → Open Tangerine"],
     ],
   },
 ]
@@ -939,7 +939,7 @@ function roadmap() {
       } else if (col.name === "Shipped") {
         parts.push(`<text x="${x + 88}" y="${y + 86}" font-family="${MONO}" font-size="10.5" fill="${c.s}">✓ available</text>`)
       } else {
-        parts.push(`<text x="${x + 88}" y="${y + 86}" font-family="${MONO}" font-size="10.5" fill="${T.muted}">○ not started</text>`)
+        parts.push(`<text x="${x + 88}" y="${y + 86}" font-family="${MONO}" font-size="10.5" fill="${T.muted}">○ ${col.name === "Next" ? "proposed" : "idea"}</text>`)
       }
       parts.push(`</g>`)
     })
@@ -948,7 +948,7 @@ function roadmap() {
     ${isoGrid(W, H, 34)}
     <ellipse cx="640" cy="260" rx="330" ry="230" fill="url(#glowOrange)"/>
     ${parts.join("\n    ")}`
-  return svg(W, H, body, "Roadmap: shipped (176 routes, 26 tools, background removal), next in this fork (compression 2.0, ZIP), later")
+  return svg(W, H, body, "Roadmap: shipped in 0.2.0 (184 routes, 28 tools, background removal, watch folders), proposed next, ideas for later")
 }
 
 /* ---- 8. divider: a dotted rule with a segment of zest running along it -- */
