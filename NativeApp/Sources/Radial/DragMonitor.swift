@@ -5,6 +5,13 @@ protocol DragMonitorDelegate: AnyObject {
     func dragMonitor(_ monitor: DragMonitor, didChangeModifiers shift: Bool, option: Bool, at point: NSPoint)
     func dragMonitor(_ monitor: DragMonitor, didUpdateDraggedURLs urls: [URL])
     func dragMonitorDidEndDrag(_ monitor: DragMonitor)
+    func dragMonitor(_ monitor: DragMonitor, didHoldShiftAt point: NSPoint)
+    func dragMonitorDidReleaseShift(_ monitor: DragMonitor)
+}
+
+extension DragMonitorDelegate {
+    func dragMonitor(_ monitor: DragMonitor, didHoldShiftAt point: NSPoint) {}
+    func dragMonitorDidReleaseShift(_ monitor: DragMonitor) {}
 }
 
 enum DragDebug {
@@ -26,6 +33,9 @@ enum DragDebug {
 
 final class DragMonitor {
     weak var delegate: DragMonitorDelegate?
+    /// Whether holding Shift alone over Finder opens the wheel (a setting, off by default).
+    var shiftHoldEnabled: () -> Bool = { AppSettings.shared.shiftOpensWheel }
+    private var shiftHold = ShiftHoldRecognizer()
 
     private var monitors: [Any] = []
     private var pollTimer: Timer?
@@ -112,6 +122,7 @@ final class DragMonitor {
     }
 
     private func poll() {
+        evaluateShiftHold()
         guard buttonPressed else {
             if mouseDown { finishPress() }
             return
@@ -173,6 +184,32 @@ final class DragMonitor {
             delegate?.dragMonitor(self, didBeginModifiedDrag: activeURLs, at: point, advanced: mods.option)
         } else if presenting {
             delegate?.dragMonitor(self, didChangeModifiers: mods.shift, option: mods.option, at: point)
+        }
+    }
+
+    /// Shift held alone for a moment over Finder opens the wheel; letting go picks.
+    private func evaluateShiftHold() {
+        guard shiftHoldEnabled() else {
+            shiftHold.reset()
+            return
+        }
+        let flags = NSEvent.modifierFlags
+        let event = shiftHold.update(
+            now: ProcessInfo.processInfo.systemUptime,
+            shift: flags.contains(.shift),
+            otherModifiers: !flags.intersection([.command, .option, .control, .function]).isEmpty,
+            mouseDown: buttonPressed,
+            finderFront: NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.finder",
+            secondsSinceKeyDown: CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown)
+        )
+        switch event {
+        case .fire:
+            DragDebug.log("shift held alone over Finder; asking for the selection")
+            delegate?.dragMonitor(self, didHoldShiftAt: NSEvent.mouseLocation)
+        case .release:
+            delegate?.dragMonitorDidReleaseShift(self)
+        case .none:
+            break
         }
     }
 

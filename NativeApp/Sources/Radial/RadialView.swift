@@ -145,6 +145,7 @@ struct RadialWheelView: View {
     var emptyMessage: String
     var emptyDetail: String
     var geometry: RadialGeometry
+    var mode: RadialMode = .convert
 
     var body: some View {
         GlassEffectContainer(spacing: 0) {
@@ -155,7 +156,10 @@ struct RadialWheelView: View {
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                         wedge(item, index: index)
                     }
-                    pill
+                    VStack(spacing: 7) {
+                        pill
+                        modeDots
+                    }
                 }
             }
         }
@@ -223,6 +227,20 @@ struct RadialWheelView: View {
             .glassEffect(.regular, in: Capsule())
     }
 
+    /// Which of the three wheels is showing; scrolling moves the bright dash.
+    private var modeDots: some View {
+        HStack(spacing: 5) {
+            ForEach(RadialMode.allCases, id: \.self) { candidate in
+                Capsule()
+                    .fill(candidate == mode ? Theme.accent : Color.primary.opacity(0.3))
+                    .frame(width: candidate == mode ? 16 : 6, height: 6)
+            }
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: mode)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(mode.accessibilityName) wheel. Scroll to switch wheels.")
+    }
+
     private var empty: some View {
         VStack(spacing: 3) {
             Text(emptyMessage)
@@ -234,6 +252,7 @@ struct RadialWheelView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
+            modeDots.padding(.top, 6)
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 12)
@@ -256,7 +275,14 @@ final class RadialView: NSView {
     var onDragEntered: ((NSDraggingInfo) -> Void)?
     var onDragSessionEnded: (() -> Void)?
     var interactive = false
-    var advancedMode = false { didSet { refresh() } }
+    var mode: RadialMode = .convert { didSet { if oldValue != mode { refresh() } } }
+    /// Called with +1 or -1 when a scroll (or Tab) asks for the next or previous wheel.
+    var onModeStep: ((Int) -> Void)?
+    private var scrollStepper = ScrollStepper()
+
+    var highlightedItem: RadialItem? {
+        highlighted.flatMap { items.indices.contains($0) ? items[$0] : nil }
+    }
 
     private(set) var highlighted: Int? {
         didSet {
@@ -316,7 +342,7 @@ final class RadialView: NSView {
         if let highlighted, highlighted < items.count {
             title = items[highlighted].label
         } else {
-            title = items.count == 1 ? items[0].label : (advancedMode ? "TOOLS" : "CONVERT")
+            title = items.count == 1 ? items[0].label : mode.title
         }
         host.rootView = RadialWheelView(
             presentationID: presentationID,
@@ -325,7 +351,8 @@ final class RadialView: NSView {
             title: title,
             emptyMessage: emptyMessage,
             emptyDetail: subtitle,
-            geometry: geometry
+            geometry: geometry,
+            mode: mode
         )
     }
 
@@ -393,9 +420,25 @@ final class RadialView: NSView {
         }
     }
 
+    /// Scrolling over the wheel, even mid-drag, moves between Convert, Tools and File actions.
+    override func scrollWheel(with event: NSEvent) {
+        let vertical = abs(event.scrollingDeltaY) >= abs(event.scrollingDeltaX)
+        let delta = Double(vertical ? event.scrollingDeltaY : event.scrollingDeltaX)
+        let step = scrollStepper.step(
+            delta: delta,
+            precise: event.hasPreciseScrollingDeltas,
+            momentum: event.momentumPhase != [],
+            ended: event.phase.contains(.ended) || event.phase.contains(.cancelled),
+            at: event.timestamp
+        )
+        if step != 0 { onModeStep?(step) }
+    }
+
     override func keyDown(with event: NSEvent) {
         guard interactive else { return }
         switch event.keyCode {
+        case 48:
+            onModeStep?(event.modifierFlags.contains(.shift) ? -1 : 1)
         case 53:
             onCancel?()
         case 36, 76:

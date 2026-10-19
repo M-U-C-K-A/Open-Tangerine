@@ -5,11 +5,11 @@
 <p align="center">
   <b>A native macOS file converter and toolbox that lives in your menu bar.</b><br>
   Drag files in Finder, hold a key, drop them on a format or a tool. The result lands next to the original.<br>
-  176 conversion routes, 25 tools, batch jobs — all processed on your Mac. No account, no limits, no subscription.
+  176 conversion routes, 26 tools, batch jobs — all processed on your Mac. No account, no limits, no subscription.
 </p>
 
 <p align="center">
-  <a href="https://github.com/M-U-C-K-A/Open-Tangerine/releases"><img alt="Version 0.1.8" src="https://img.shields.io/badge/version-0.1.8-e04f00?style=flat-square"></a>
+  <a href="https://github.com/M-U-C-K-A/Open-Tangerine/releases"><img alt="Version 0.2.0" src="https://img.shields.io/badge/version-0.2.0-e04f00?style=flat-square"></a>
   <img alt="macOS 26 or later" src="https://img.shields.io/badge/macOS-26%2B-24251e?style=flat-square&logo=apple&logoColor=white">
   <img alt="Swift, SwiftUI and AppKit" src="https://img.shields.io/badge/Swift-SwiftUI%20%2B%20AppKit-f05138?style=flat-square&logo=swift&logoColor=white">
   <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-7fae3a?style=flat-square">
@@ -38,7 +38,7 @@
 </p>
 
 > [!NOTE]
-> This repository is a fork of [**Open Tangerine**](https://github.com/sintaxerrorpvtltd/Open-Tangerine) by Syntax Error Private Limited, itself built on [Satsuma](https://github.com/plyght/satsuma) by plyght. It tracks upstream **0.1.8** and adds what is on the [roadmap](#roadmap): background removal, deeper compression, and more. It is an independent project, **not affiliated with Tangerine**, and still a developer trial (ad-hoc signed, not Apple-notarized).
+> This repository is a fork of [**Open Tangerine**](https://github.com/sintaxerrorpvtltd/Open-Tangerine) by Syntax Error Private Limited, itself built on [Satsuma](https://github.com/plyght/satsuma) by plyght. Version **0.2.0** builds on upstream 0.1.8 and adds **background removal**, **scrolling between wheels** and **Shift alone** to open the wheel, with deeper compression and more on the [roadmap](#roadmap). Check for Updates follows this fork's releases, never upstream's. It is an independent project, **not affiliated with Tangerine**, and still a developer trial (ad-hoc signed, not Apple-notarized).
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
 
@@ -69,6 +69,10 @@ Everything starts from a drag in Finder. The key you hold decides which wheel op
 | <kbd>⇧ Shift</kbd> | **Convert** | Every format the files you hold can become, and only those. |
 | <kbd>⌘ Command</kbd> (or <kbd>⌥ Option</kbd> + <kbd>⇧ Shift</kbd>) | **Tools** | The tools that accept this selection: crop, trim, merge, compress… |
 | <kbd>⌃ Control</kbd> | **File actions** | Reveal in Finder, copy files, copy paths, duplicate, SHA-256. |
+
+**Scroll to switch wheels.** Whichever key opened it, scroll over the wheel (mouse wheel or trackpad, even mid-drag) to move from **Convert** to **Tools** to **File actions** and round again. The dots under the title show where you are. In the picker, <kbd>Tab</kbd> and <kbd>⇧ Tab</kbd> do the same.
+
+**No drag at all.** Turn on *Settings → General → Open the wheel with Shift alone*, select files in Finder, and hold <kbd>⇧ Shift</kbd> for a moment: the wheel opens around the pointer for the selection. Move onto a choice and let go of Shift, or click it; <kbd>Esc</kbd> closes it. Typing a capital letter never opens it, and it only listens while Finder is in front. The first time, macOS asks to let Open Tangerine see Finder's selection (*Privacy & Security → Automation*).
 
 ### The wheel only offers what fits
 
@@ -145,17 +149,18 @@ The catalogue describes potential routes. Codec availability depends on your FFm
 
 ## Tools
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/tools-dark.svg"><img src="docs/readme/tools-light.svg" alt="25 tools and 5 file actions: images, video, audio, PDF and any file" width="100%"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/tools-dark.svg"><img src="docs/readme/tools-light.svg" alt="26 tools and 5 file actions: images, video, audio, PDF and any file" width="100%"></picture></p>
 
 Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a live preview. Originals are never modified; every tool writes a new copy.
 
 <details open>
-<summary><b>Images</b> · 8 tools</summary>
+<summary><b>Images</b> · 9 tools</summary>
 
 | Tool | Takes | What it does |
 | --- | --- | --- |
 | **Edit photo** | 1 image | Light, color and detail: exposure, brightness, contrast, highlights, shadows, saturation, vibrance, temperature, tint, monochrome, sepia. Hold to compare. |
 | **Add a background** | 1 image | Places the image on a color, gradient or image background at a chosen aspect ratio. |
+| **Remove background** | 1 or more | Keeps the people, animals and objects in front and makes the rest transparent: a PNG next to each original. Edge softness, crop to subject, before/after. Apple Vision, on-device. |
 | **Crop image** | 1 image | Free or fixed ratio, exact pixel size, saved at full resolution. |
 | **Redact photo** | 1 image | Covers areas with a solid box, blur or pixelation. Move and resize each area. |
 | **Resize images** | 1 or more | By long edge, percent or exact size, aspect kept. Never enlarges in long-edge mode. |
@@ -246,13 +251,14 @@ Prefer a floating card in the top-right corner? *Settings → Appearance → Pro
 | **General** | Save converted files: next to the original, Downloads or Desktop | next to the original |
 | | Reveal results in Finder | on |
 | | Start automatically at login (move the app to Applications first) | off |
+| | Open the wheel with Shift alone, for Finder's selection | off |
 | **Appearance** | Theme: System, Light or Dark | System |
 | | Progress: Card or Notch pill · Notch surface: Pure black or Glass | Notch pill · Pure black |
 | **Formats** | JPEG / HEIC / WebP quality (30–100 %) | 90 % |
 | | Compression preset: Balanced or Strong · resize long edge (0 = keep) | Balanced · 0 |
 | | FFmpeg path, auto-detected from Homebrew, MacPorts or `/usr/local/bin` | auto |
 
-The drag modifiers are listed under *General* for reference. Settings are stored in the app's standard user defaults.
+The drag modifiers, and scrolling to switch wheels, are listed under *General* for reference. Settings are stored in the app's standard user defaults.
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
 
@@ -299,7 +305,7 @@ Real windows from the current build, light and dark follow your GitHub theme. Th
 
 ## Roadmap
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/roadmap-dark.svg"><img src="docs/readme/roadmap-light.svg" alt="Roadmap: shipped, next in this fork (background removal, compression 2.0, ZIP), later" width="100%"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/roadmap-dark.svg"><img src="docs/readme/roadmap-light.svg" alt="Roadmap: shipped (176 routes, 26 tools, background removal), next in this fork (compression 2.0, ZIP), later" width="100%"></picture></p>
 
 What this fork adds on top of upstream. Everything stays on-device, built on Apple frameworks, with no service, account or API key.
 
@@ -314,9 +320,9 @@ What this fork adds on top of upstream. Everything stays on-device, built on App
 </tr>
 </table>
 
-| Feature | What it will do | Status |
+| Feature | What it does | Status |
 | --- | --- | --- |
-| **Remove background** | Any photo → the subject on a transparent PNG, as a wheel action and as a tool with edge refinement. Apple Vision foreground masks, on-device. | 🟠&nbsp;next |
+| **Remove background** | Any photo → its subject on a transparent PNG, from the <kbd>⌘</kbd> wheel, one image or a batch, with edge softness and crop to subject. Apple Vision foreground masks, on-device. | 🟢&nbsp;shipped |
 | **Compression 2.0** | Video presets (HEVC or H.264, resolution, frame rate), batch target sizes for images, PDF image downsampling, a before/after size preview. | 🟠&nbsp;next |
 | **ZIP in one drop** | A <kbd>⌃</kbd> action that zips the selection; safe extraction once it is bounded and sandboxed. | 🟠&nbsp;next |
 | **Text from images** | OCR with Apple Vision on images and scanned PDFs, to the clipboard or a `.txt`. | ⚪&nbsp;later |
@@ -333,12 +339,12 @@ Requires **macOS 26 or later**.
 
 ### From a release
 
-1. Download the ZIP from the [latest release of this fork](https://github.com/M-U-C-K-A/Open-Tangerine/releases). Until this fork publishes one, use [upstream 0.1.8](https://github.com/sintaxerrorpvtltd/Open-Tangerine/releases/latest) or [build from source](#build-from-source).
+1. Download the ZIP from the [latest release of this fork](https://github.com/M-U-C-K-A/Open-Tangerine/releases). Until this fork publishes one, [build from source](#build-from-source): upstream releases do not include this fork's features.
 2. Quit the previous version if it is running, unzip, and drag **Open Tangerine** into **Applications** (choose *Replace* when updating).
 3. Open it. The build is ad-hoc signed and **not notarized**, so macOS may block it the first time: allow it for this app only in *System Settings → Privacy & Security*. Never disable Gatekeeper globally.
 
 > [!IMPORTANT]
-> *Check for Updates* compares your version with the latest published release and opens a manual download. There is no automatic installation yet: that needs a notarized, signed update channel.
+> *Check for Updates on GitHub* compares your version with this fork's latest published release and opens its releases page. There is no automatic installation yet: that needs a notarized, signed update channel.
 
 ### Build from source
 
@@ -368,6 +374,7 @@ Open Tangerine finds FFmpeg in Homebrew, MacPorts or `/usr/local/bin`, or at a p
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/hairline-local-dark.svg"><img src="docs/readme/hairline-local-light.svg" alt="Everything stays on your Mac: files circle the laptop inside a boundary they never cross" width="64%"></picture></p>
 
 - **Files never leave your Mac.** Every conversion and tool runs locally with Apple frameworks, or with your own FFmpeg.
+- **Finder's selection is read only when you ask:** with *Shift alone* on, holding Shift asks Finder which files are selected, through Apple Events you allow once. Off by default.
 - **One network request:** the update check reads the latest public GitHub release, at most once a day. It sends no file names, content or account.
 - **No account, no analytics in the app, no AI service**, so no API key and no usage charge. Any future AI feature must be opt-in and bring-your-own-key.
 - Metadata removal and visible redaction are helpful, not certified: review exported files before sharing sensitive documents.
@@ -378,8 +385,9 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Limitations
 
-- **Not full Tangerine parity yet:** no background removal, OCR, translation, universal Office conversion, watch folders, undo history or plugin installer. The first items are on the [roadmap](#roadmap).
-- *Add a background* adds a background; it does not remove the existing one.
+- **Not full Tangerine parity yet:** no OCR, translation, universal Office conversion, watch folders, undo history or plugin installer. The first items are on the [roadmap](#roadmap).
+- *Add a background* adds a background; it does not remove the existing one. Run *Remove background* first for that.
+- *Remove background* keeps every foreground subject Apple Vision finds, as one cut-out. It needs a subject that stands out from the background; it cannot pick one subject among several or refine edges by hand.
 - Archive conversion is disabled until bounded extraction, traversal and link defenses, and isolation are in place.
 - Native image loading is limited to 100 MB and 40 megapixels. Animated and multipage images need more work; use single-frame images.
 - Heavy native operations can briefly block the interface. Cancelling external processes is best-effort; worker isolation and timeouts are release gates.
@@ -429,8 +437,9 @@ Run `python3 -m http.server` at the repository root and open `/scripts/readme/pr
 Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Notes: [design](docs/DESIGN.md), [updates](docs/UPDATES.md), [analytics](ANALYTICS.md), [DragShift comparison](DRAGSHIFT_COMPARISON.md), [third-party notices](THIRD_PARTY_NOTICES.md).
 
 <details>
-<summary><b>Upstream changelog</b> · 0.1.1 → 0.1.8</summary>
+<summary><b>Changelog</b> · 0.1.1 → 0.2.0</summary>
 
+- **0.2.0** (this fork) — **Remove background** turns photos into transparent PNGs with Apple Vision, on-device. **Scroll over the wheel** to move between Convert, Tools and File actions. Optional **Shift alone** opens the wheel for Finder's selection, no drag needed. Check for Updates follows this fork's releases.
 - **0.1.8** — *Pure black* (default) or *Glass* notch surface, with a black fallback under Reduce Transparency. The wheel springs in and lifts the highlighted segment. Results get **Open** and **Show in Finder**, stay eight seconds and remain while hovered. Settings show the installed version. Website analytics moved to a dedicated GoatCounter project.
 - **0.1.7** — The notch panel has a solid sRGB black backing, expands from the physical notch and retracts into it. Reopening interrupts dismissal safely.
 - **0.1.6** — Built-in lossless WebP fallback; AVIF and Ogg pick available encoders; batches reserve distinct names and report unsupported inputs per file; fixes for PDF/DOCX page order, precise trims, silent video, audio channels and bleeps, PNG compression, rotation, framing and metadata.

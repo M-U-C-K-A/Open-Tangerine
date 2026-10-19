@@ -15,12 +15,11 @@ struct AppVersion: Comparable {
 
 @MainActor final class UpdateChecker {
     static let shared = UpdateChecker()
-    private let endpoint = URL(string: "https://api.github.com/repos/sintaxerrorpvtltd/Open-Tangerine/releases/latest")!
+    /// This fork's releases. Upstream builds lack the fork's tools, so updates never point there.
+    static let repository = "M-U-C-K-A/Open-Tangerine"
+    private let endpoint = URL(string: "https://api.github.com/repos/\(UpdateChecker.repository)/releases/latest")!
     var downloadPage: URL {
-        var page = URLComponents(string: "https://sintaxerrorpvtltd.github.io/Open-Tangerine/")!
-        page.queryItems = [URLQueryItem(name: "version", value: currentVersion)]
-        page.fragment = "download"
-        return page.url!
+        URL(string: "https://github.com/\(Self.repository)/releases")!
     }
     private let session: URLSession
     private let defaults: UserDefaults

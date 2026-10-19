@@ -106,6 +106,11 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(revealInFinder, forKey: "revealInFinder") }
     }
 
+    /// Hold Shift alone over Finder to open the wheel for the selected files, no drag needed.
+    @Published var shiftOpensWheel: Bool {
+        didSet { defaults.set(shiftOpensWheel, forKey: "shiftOpensWheel") }
+    }
+
     @Published var notchSurface: NotchSurface {
         didSet { defaults.set(notchSurface.rawValue, forKey: "notchSurface") }
     }
@@ -141,6 +146,7 @@ final class AppSettings: ObservableObject {
         compressionResizeLongEdge = defaults.integer(forKey: "compressionResizeLongEdge")
         outputLocation = OutputLocation(rawValue: defaults.string(forKey: "outputLocation") ?? "") ?? .besideOriginal
         revealInFinder = defaults.object(forKey: "revealInFinder") as? Bool ?? true
+        shiftOpensWheel = defaults.object(forKey: "shiftOpensWheel") as? Bool ?? false
         notchSurface = NotchSurface(rawValue: defaults.string(forKey: "notchSurface") ?? "") ?? .black
         progressStyle = ProgressStyle(rawValue: defaults.string(forKey: "progressStyle") ?? "") ?? .pill
         // One-time migration requested for existing trial installs; future user choices persist.

@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.applicationIconImage = BrandArtwork.image(size: 256)
         installStatusItem()
         UpdateChecker.shared.onAvailable = { [weak self] version in
-            self?.updateMenuItem?.title = "Download update \(version) from website…"
+            self?.updateMenuItem?.title = "Download update \(version) from GitHub…"
             self?.statusItem?.button?.toolTip = "Open Tangerine — update \(version) available"
             self?.statusItem?.button?.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: "Update available")
         }
@@ -53,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: "About Open Tangerine", action: #selector(about), keyEquivalent: "").target = self
-        let update = menu.addItem(withTitle: "Check for Updates on Website…", action: #selector(checkForUpdates), keyEquivalent: "")
+        let update = menu.addItem(withTitle: "Check for Updates on GitHub…", action: #selector(checkForUpdates), keyEquivalent: "")
         update.target = self
         update.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Check for updates")
         updateMenuItem = update

@@ -26,10 +26,16 @@ final class RadialController: DragMonitorDelegate {
     private var panel: RadialPanel?
     private var urls: [URL] = []
     private var formats: [FileFormat] = []
-    private var advanced = false
-    private var actions = false
+    private var mode: RadialMode = .convert
+    /// The wheel the held modifiers last asked for. A scroll can move on from it;
+    /// only a change of modifiers moves the wheel back.
+    private var modifierMode: RadialMode = .convert
     private var visible = false
     private var pickerMode = false
+    /// The wheel was opened by holding Shift alone, and Shift is still down.
+    private var holdingShift = false
+    /// The app in front before a Shift-alone wheel took focus; it gets focus back.
+    private var returnFocusTo: NSRunningApplication?
     private var outsideClickMonitor: Any?
 
     weak var dragMonitor: DragMonitor?
@@ -37,23 +43,55 @@ final class RadialController: DragMonitorDelegate {
     func dragMonitor(_ monitor: DragMonitor, didBeginModifiedDrag urls: [URL], at point: NSPoint, advanced: Bool) {
         dragMonitor = monitor
         pickerMode = false
-        actions = NSEvent.modifierFlags.contains(.control)
-        present(urls: urls, at: point, advanced: advanced)
+        holdingShift = false
+        let wanted = RadialMode.forModifiers(command: false, option: advanced, control: NSEvent.modifierFlags.contains(.control))
+        modifierMode = wanted
+        present(urls: urls, at: point, mode: wanted)
     }
 
     func dragMonitor(_ monitor: DragMonitor, didChangeModifiers shift: Bool, option: Bool, at point: NSPoint) {
         guard !pickerMode else { return }
         if !shift { return }
-        let newActions = NSEvent.modifierFlags.contains(.control)
-        if actions != newActions { actions = newActions; reloadItems() }
+        let wanted = RadialMode.forModifiers(command: false, option: option, control: NSEvent.modifierFlags.contains(.control))
         if !visible {
-            present(urls: urls, at: point, advanced: option)
+            modifierMode = wanted
+            present(urls: urls, at: point, mode: wanted)
             return
         }
-        if option != advanced {
-            advanced = option
-            reloadItems()
+        guard wanted != modifierMode else { return }
+        modifierMode = wanted
+        setMode(wanted)
+    }
+
+    /// Shift held alone over Finder: open the wheel for Finder's selection.
+    func dragMonitor(_ monitor: DragMonitor, didHoldShiftAt point: NSPoint) {
+        dragMonitor = monitor
+        guard !visible else { return }
+        let front = NSWorkspace.shared.frontmostApplication
+        Task { @MainActor [weak self] in
+            switch await FinderSelection.current() {
+            case .success(let urls):
+                guard let self, !self.visible, !urls.isEmpty else {
+                    DiagnosticLog.log("shift hold: nothing selected in Finder")
+                    return
+                }
+                DiagnosticLog.log("shift hold: wheel for \(urls.count) Finder file(s)")
+                self.presentPicker(for: urls)
+                self.holdingShift = NSEvent.modifierFlags.contains(.shift)
+                self.returnFocusTo = front
+            case .failure(.notAuthorized):
+                FinderSelection.explainPermission()
+            case .failure(.failed(let message)):
+                DiagnosticLog.log("shift hold: Finder selection failed: \(message)")
+            }
         }
+    }
+
+    /// Letting go of Shift over a choice picks it; anywhere else the wheel stays open to click.
+    func dragMonitorDidReleaseShift(_ monitor: DragMonitor) {
+        guard holdingShift else { return }
+        holdingShift = false
+        if visible, let item = panel?.radialView.highlightedItem { select(item) }
     }
 
     func dragMonitor(_ monitor: DragMonitor, didUpdateDraggedURLs urls: [URL]) {
@@ -69,10 +107,11 @@ final class RadialController: DragMonitorDelegate {
     }
 
     func presentPicker(for urls: [URL], advanced: Bool = false, actions: Bool = false) {
-        self.actions = actions
+        let wanted: RadialMode = actions ? .actions : advanced ? .tools : .convert
+        modifierMode = wanted
         pickerMode = true
         let point = NSEvent.mouseLocation
-        present(urls: urls, at: point, advanced: advanced)
+        present(urls: urls, at: point, mode: wanted)
         panel?.radialView.interactive = true
         panel?.makeKeyAndOrderFront(nil)
         panel?.makeFirstResponder(panel?.radialView)
@@ -80,9 +119,9 @@ final class RadialController: DragMonitorDelegate {
         installOutsideClickMonitor()
     }
 
-    private func present(urls: [URL], at point: NSPoint, advanced: Bool) {
+    private func present(urls: [URL], at point: NSPoint, mode: RadialMode) {
         self.urls = urls
-        self.advanced = advanced
+        self.mode = mode
         formats = urls.compactMap(FileFormat.detect)
         let screen = NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
         let panel = self.panel ?? RadialPanel(screen: screen)
@@ -91,13 +130,17 @@ final class RadialController: DragMonitorDelegate {
 
         let view = panel.radialView
         view.interactive = pickerMode
-        view.advancedMode = advanced
+        view.mode = mode
         let clamped = clampedCenter(point, in: screen.frame, radius: view.discRadius + 48)
         view.center = NSPoint(x: clamped.x - screen.frame.minX, y: clamped.y - screen.frame.minY)
         view.onSelect = { [weak self] item in self?.select(item) }
         view.onCancel = { [weak self] in self?.hide() }
         view.onDragEntered = { [weak self] info in self?.adoptDraggedFiles(from: info) }
         view.onDragSessionEnded = { [weak self] in self?.dragSessionEnded() }
+        view.onModeStep = { [weak self] step in
+            guard let self else { return }
+            self.setMode(self.mode.stepped(step))
+        }
         view.clearHighlight()
         reloadItems()
         view.animatePresentation()
@@ -139,18 +182,32 @@ final class RadialController: DragMonitorDelegate {
         dragMonitor?.markHandled()
     }
 
+    /// Shows another of the three wheels for the same files.
+    private func setMode(_ newMode: RadialMode) {
+        guard visible, newMode != mode else { return }
+        mode = newMode
+        panel?.radialView.clearHighlight()
+        reloadItems()
+        panel?.radialView.animatePresentation()
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+    }
+
     private func reloadItems() {
         guard let view = panel?.radialView else { return }
-        view.advancedMode = advanced
+        view.mode = mode
         let count = urls.count
         if count == 0 {
             view.items = []
             view.subtitle = "Move the files over the wheel"
-            view.emptyMessage = advanced ? "Drop here for tools" : "Drop here to convert"
+            switch mode {
+            case .convert: view.emptyMessage = "Drop here to convert"
+            case .tools: view.emptyMessage = "Drop here for tools"
+            case .actions: view.emptyMessage = "Drop here for file actions"
+            }
             return
         }
         view.subtitle = count == 1 ? urls[0].lastPathComponent : "\(count) files"
-        if actions {
+        if mode == .actions {
             view.items = FileAction.allCases.map(RadialItem.init(fileAction:))
             view.emptyMessage = "No file actions"
             return
@@ -160,7 +217,7 @@ final class RadialController: DragMonitorDelegate {
             view.emptyMessage = "Selection includes unsupported files"
             return
         }
-        if advanced {
+        if mode == .tools {
             view.items = ToolID.available(for: formats).map(RadialItem.init(tool:))
             view.emptyMessage = "No tools for this selection"
         } else {
@@ -172,7 +229,11 @@ final class RadialController: DragMonitorDelegate {
     private func select(_ item: RadialItem) {
         let selectedURLs = urls
         DiagnosticLog.log("radial select \(item.detail) for \(selectedURLs.map(\.lastPathComponent))")
-        hide()
+        // A tool opens its own window and the checksum shows an alert: those keep focus here.
+        switch item.action {
+        case .tool, .fileAction(.hash): hide(returningFocus: false)
+        default: hide()
+        }
         dragMonitor?.markHandled()
         DiagnosticLog.log("radial hidden, dispatching action")
         Task { @MainActor in
@@ -192,7 +253,10 @@ final class RadialController: DragMonitorDelegate {
         panel?.radialView.highlight(index)
     }
 
-    func hide() {
+    func hide(returningFocus: Bool = true) {
+        let previous = returnFocusTo
+        returnFocusTo = nil
+        holdingShift = false
         visible = false
         Task { @MainActor in JobRunner.shared.endWatching() }
         pickerMode = false
@@ -202,6 +266,9 @@ final class RadialController: DragMonitorDelegate {
         if let outsideClickMonitor {
             NSEvent.removeMonitor(outsideClickMonitor)
             self.outsideClickMonitor = nil
+        }
+        if returningFocus, let previous, previous != NSRunningApplication.current {
+            previous.activate()
         }
     }
 

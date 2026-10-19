@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-# 0.1.8: optional glass notch, spring wheel motion and completed-output actions.
+# 0.2.0 (fork): background removal, scroll to switch wheels, Shift alone opens the wheel, updates from this fork.
 cd "$(dirname "$0")/.."
 app="$PWD/dist/Open Tangerine.app"
 mkdir -p "$app/Contents/MacOS" "$PWD/.build/module-cache"
@@ -14,11 +14,12 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>Open Tangerine</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.8</string>
-<key>CFBundleVersion</key><string>9</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>10</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSAppleEventsUsageDescription</key><string>Open Tangerine asks Finder which files are selected when you open the wheel by holding Shift alone. Nothing else is read.</string>
 </dict></plist>
 PLIST
 mkdir -p "$app/Contents/Resources"

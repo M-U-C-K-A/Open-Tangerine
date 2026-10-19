@@ -178,10 +178,14 @@ struct SettingsView: View {
                 Label("Command (or Option + Shift)", systemImage: "option").labelStyle(.titleAndIcon)
             }
             LabeledContent("File actions", value: "Control")
+            LabeledContent("Switch wheels", value: "Scroll over the wheel")
+            Toggle("Open the wheel with Shift alone", isOn: $settings.shiftOpensWheel)
         } header: {
             Text("Drag Modifiers")
         } footer: {
-            Text("Hold the modifier while dragging files in Finder.")
+            Text(settings.shiftOpensWheel
+                 ? "Hold the modifier while dragging files in Finder, or hold Shift alone for a moment with files selected in Finder. Let go of Shift on a choice, or click one. macOS asks once to let Open Tangerine see Finder's selection."
+                 : "Hold the modifier while dragging files in Finder. Scrolling over the wheel moves between Convert, Tools and File actions.")
         }
     }
 
