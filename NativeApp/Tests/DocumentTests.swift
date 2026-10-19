@@ -67,7 +67,9 @@ import PDFKit
         let scanDOCX = try await convert(imagePDF, .pdf, .docx, "scanned.docx")
         let listing = try await Shell.run("/usr/bin/unzip", ["-l", scanDOCX.path])
         precondition(listing.stdout.contains("image1.png") && listing.stdout.contains("image2.png"))
-        do { _ = try await convert(imagePDF, .pdf, .txt, "scan.txt"); fatalError("Empty scanned text reported as success") } catch { }
+        // Scanned pages have no text layer: they are read with Vision now.
+        let scanText = try await convert(imagePDF, .pdf, .txt, "scan.txt")
+        precondition(try! String(contentsOf: scanText, encoding: .utf8).localizedCaseInsensitiveContains("paragraph"), "Scanned PDF read with OCR")
         let protected = url("protected.pdf")
         precondition(mergedDoc.write(to: protected, withOptions: [.userPasswordOption: "test-password", .ownerPasswordOption: "owner-password"]))
         do { _ = try await convert(protected, .pdf, .png, "locked.png"); fatalError("Locked PDF accepted") } catch { }

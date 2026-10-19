@@ -118,7 +118,9 @@ final class RadialController: DragMonitorDelegate {
 
     private func present(urls: [URL], at point: NSPoint, mode: RadialMode) {
         self.urls = urls
-        self.mode = mode
+        // Folders and unknown files can only take file actions: start there.
+        let convertible = urls.allSatisfy { FileFormat.detect($0) != nil && !FileAction.isDirectory($0) }
+        self.mode = convertible || urls.isEmpty ? mode : .actions
         formats = urls.compactMap(FileFormat.detect)
         let screen = NSScreen.screens.first { NSMouseInRect(point, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
         let panel = self.panel ?? RadialPanel(screen: screen)
@@ -127,7 +129,7 @@ final class RadialController: DragMonitorDelegate {
 
         let view = panel.radialView
         view.interactive = pickerMode
-        view.mode = mode
+        view.mode = self.mode
         let clamped = clampedCenter(point, in: screen.frame, radius: view.discRadius + 48)
         view.center = NSPoint(x: clamped.x - screen.frame.minX, y: clamped.y - screen.frame.minY)
         view.onSelect = { [weak self] item in self?.select(item) }
@@ -226,13 +228,13 @@ final class RadialController: DragMonitorDelegate {
         }
         view.subtitle = count == 1 ? urls[0].lastPathComponent : "\(count) files"
         if mode == .actions {
-            view.items = FileAction.allCases.map(RadialItem.init(fileAction:))
+            view.items = FileAction.available(for: urls).map(RadialItem.init(fileAction:))
             view.emptyMessage = "No file actions"
             return
         }
         if formats.count != urls.count {
             view.items = []
-            view.emptyMessage = "Selection includes unsupported files"
+            view.emptyMessage = urls.contains(where: FileAction.isDirectory) ? "Folders: scroll to File actions" : "Some files can't be converted: scroll to File actions"
             return
         }
         if mode == .tools {

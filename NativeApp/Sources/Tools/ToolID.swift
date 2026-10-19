@@ -12,6 +12,7 @@ enum ToolID: String, CaseIterable, Identifiable {
     case editImage
     case frameImage
     case removeBackground
+    case watermarkImage
     case cropImage
     case redactImage
     case resizeImage
@@ -33,6 +34,8 @@ enum ToolID: String, CaseIterable, Identifiable {
     case mergePDF
     case organizePDF
     case splitPDF
+    /// Opened from the File actions wheel (Control), for any files and folders.
+    case renameFiles
 
     var id: String { rawValue }
 
@@ -43,6 +46,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .editImage: return "Edit photo"
         case .frameImage: return "Add a background"
         case .removeBackground: return "Remove background"
+        case .watermarkImage: return "Add a watermark"
         case .cropImage: return "Crop image"
         case .redactImage: return "Redact photo"
         case .resizeImage: return "Resize images"
@@ -64,6 +68,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .mergePDF: return "Merge PDFs"
         case .organizePDF: return "Organize PDF pages"
         case .splitPDF: return "Split PDF"
+        case .renameFiles: return "Rename files"
         }
     }
 
@@ -74,6 +79,8 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .editImage: return "Editing photo"
         case .frameImage: return "Adding background"
         case .removeBackground: return "Removing background"
+        case .watermarkImage: return "Adding watermark"
+        case .renameFiles: return "Renaming"
         case .cropImage, .cropVideo: return "Cropping"
         case .redactImage, .redactVideo: return "Redacting"
         case .resizeImage: return "Resizing"
@@ -101,6 +108,8 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .editImage: return "EDIT"
         case .frameImage: return "ADD BG"
         case .removeBackground: return "REMOVE BG"
+        case .watermarkImage: return "WATERMARK"
+        case .renameFiles: return "RENAME"
         case .cropImage, .cropVideo: return "CROP"
         case .redactImage, .redactVideo: return "REDACT"
         case .resizeImage: return "RESIZE"
@@ -128,6 +137,8 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .editImage: return "slider.horizontal.3"
         case .frameImage: return "photo.artframe"
         case .removeBackground: return "person.and.background.dotted"
+        case .watermarkImage: return "signature"
+        case .renameFiles: return "pencil.line"
         case .cropImage, .cropVideo: return "crop"
         case .redactImage: return "eye.slash"
         case .redactVideo: return "video.slash"
@@ -154,6 +165,10 @@ enum ToolID: String, CaseIterable, Identifiable {
         switch self {
         case .compress, .editMetadata:
             return [.image, .video, .audio, .document]
+        case .renameFiles:
+            return Set(FormatCategory.allCases)
+        case .watermarkImage:
+            return [.image]
         case .editImage, .frameImage, .removeBackground, .cropImage, .redactImage, .resizeImage, .rotateImage, .createPDF, .createCollage:
             return [.image]
         case .trimVideo, .cropVideo, .changeVideoSpeed, .joinVideos, .videoSnapshots, .splitVideo, .redactVideo:
@@ -167,14 +182,15 @@ enum ToolID: String, CaseIterable, Identifiable {
 
     var arity: ToolArity {
         switch self {
-        case .compress, .editMetadata, .removeBackground, .resizeImage, .rotateImage, .createPDF: return .any
+        case .compress, .editMetadata, .removeBackground, .watermarkImage, .resizeImage, .rotateImage, .createPDF, .renameFiles: return .any
         case .createCollage, .joinVideos, .mergePDF: return .multiple
         default: return .single
         }
     }
 
     func applies(to formats: [FileFormat]) -> Bool {
-        guard !formats.isEmpty else { return false }
+        // Renaming takes any files and folders, so it lives on the File actions wheel.
+        guard self != .renameFiles, !formats.isEmpty else { return false }
         let categories = Set(formats.map(\.category))
         guard categories.count == 1, let category = categories.first, self.categories.contains(category) else { return false }
         if category == .document {

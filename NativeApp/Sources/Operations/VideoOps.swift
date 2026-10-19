@@ -255,35 +255,49 @@ enum VideoOps {
         try await AVExporter.export(asset: asset, to: destination, format: .mp4, preset: AVAssetExportPresetHighestQuality, videoComposition: composition, progress: progress)
     }
 
-    static func compress(_ url: URL, preset: CompressionPreset, targetBytes: Int64?, to destination: URL, progress: @escaping (Double) -> Void) async throws {
+    static func compress(_ url: URL, preset: CompressionPreset, targetBytes: Int64?, video: VideoCompression = VideoCompression(), to destination: URL, progress: @escaping (Double) -> Void) async throws {
         let info = await MediaInfo.load(url)
         let target = FileFormat.detect(url) ?? .mp4
         let outputFormat: FileFormat = VideoEngine.nativeTargets.contains(target) ? target : .mp4
+        let filters = video.filters(size: info.naturalSize, frameRate: info.frameRate, presetScale: preset.videoScale)
+        let codec = video.codec == .hevc ? await hevcEncoder() : nil
         if let targetBytes, info.duration > 0 {
             let totalBits = Double(targetBytes) * 8 * 0.94
             let audioBits = Double(min(preset.audioBitrate, 128_000))
             let videoBitrate = max(150_000, Int(totalBits / info.duration - audioBits))
-            let scale = preset.videoScale
-            var filters: [String] = []
-            if scale < 1 { filters.append("scale=trunc(iw*\(scale)/2)*2:trunc(ih*\(scale)/2)*2") }
-            try await VideoEngine.ffmpegConvert(source: url, destination: destination, target: outputFormat, videoFilters: filters, videoBitrate: videoBitrate, audioBitrate: Int(audioBits), progress: progress)
+            try await VideoEngine.ffmpegConvert(source: url, destination: destination, target: outputFormat, videoFilters: filters, videoBitrate: videoBitrate, audioBitrate: Int(audioBits), videoCodec: codec, progress: progress)
             return
         }
         if !FFmpeg.isAvailable, await MediaInfo.isNativelyReadable(url) {
-            let longEdge = max(info.naturalSize.width, info.naturalSize.height) * preset.videoScale
-            let presetName: String
-            if preset == .strong || longEdge <= 1280 {
-                presetName = longEdge > 1280 ? AVAssetExportPreset1280x720 : (longEdge > 960 ? AVAssetExportPreset960x540 : AVAssetExportPreset640x480)
-            } else {
-                presetName = longEdge > 1920 ? AVAssetExportPreset1920x1080 : AVAssetExportPreset1280x720
-            }
-            try await AVExporter.export(asset: AVURLAsset(url: url), to: destination, format: outputFormat, preset: presetName, progress: progress)
+            var longEdge = max(info.naturalSize.width, info.naturalSize.height) * preset.videoScale
+            if video.maxLongEdge > 0 { longEdge = min(longEdge, Double(video.maxLongEdge)) }
+            try await AVExporter.export(asset: AVURLAsset(url: url), to: destination, format: outputFormat, preset: nativePreset(longEdge: longEdge, strong: preset == .strong, hevc: video.codec == .hevc), progress: progress)
             return
         }
-        let videoBitrate = Int(max(300_000, info.estimatedBitrate * preset.videoBitrateFactor))
-        var filters: [String] = []
-        if preset.videoScale < 1 { filters.append("scale=trunc(iw*\(preset.videoScale)/2)*2:trunc(ih*\(preset.videoScale)/2)*2") }
-        try await VideoEngine.ffmpegConvert(source: url, destination: destination, target: outputFormat, videoFilters: filters, videoBitrate: videoBitrate, audioBitrate: preset.audioBitrate, progress: progress)
+        // HEVC holds the same picture in roughly two thirds of the bits.
+        let factor = preset.videoBitrateFactor * (codec == nil ? 1 : 0.65)
+        let videoBitrate = Int(max(300_000, info.estimatedBitrate * factor))
+        try await VideoEngine.ffmpegConvert(source: url, destination: destination, target: outputFormat, videoFilters: filters, videoBitrate: videoBitrate, audioBitrate: preset.audioBitrate, videoCodec: codec, progress: progress)
+    }
+
+    /// The HEVC encoder this FFmpeg has: x265 when built in, the Mac's hardware encoder otherwise.
+    static func hevcEncoder() async -> String? {
+        guard FFmpeg.isAvailable else { return nil }
+        let encoders = await FFmpeg.availableEncoders()
+        if encoders.contains("libx265") { return "libx265" }
+        if encoders.contains("hevc_videotoolbox") { return "hevc_videotoolbox" }
+        return nil
+    }
+
+    /// Without FFmpeg, AVFoundation's presets: HEVC down to 1080p, H.264 below.
+    static func nativePreset(longEdge: Double, strong: Bool, hevc: Bool) -> String {
+        if hevc, longEdge > 1280 {
+            return longEdge > 1920 && !strong ? AVAssetExportPresetHEVC3840x2160 : AVAssetExportPresetHEVC1920x1080
+        }
+        if strong || longEdge <= 1280 {
+            return longEdge > 1280 ? AVAssetExportPreset1280x720 : (longEdge > 960 ? AVAssetExportPreset960x540 : AVAssetExportPreset640x480)
+        }
+        return longEdge > 1920 ? AVAssetExportPreset1920x1080 : AVAssetExportPreset1280x720
     }
 }
 

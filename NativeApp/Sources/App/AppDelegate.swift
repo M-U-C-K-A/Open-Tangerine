@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         dragMonitor.delegate = radial
         dragMonitor.start()
+        FolderWatcher.shared.start()
         // Login-item launches stay quietly in the menu bar; show onboarding once.
         if !UserDefaults.standard.bool(forKey: "hasOpenedSettings") {
             UserDefaults.standard.set(true, forKey: "hasOpenedSettings")

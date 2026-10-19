@@ -5,9 +5,9 @@ enum ConversionMatrix {
         let list: [FileFormat]
         switch source {
         case .jpg, .png:
-            list = FileFormat.imageTargets + [.docx]
+            list = FileFormat.imageTargets + [.docx, .txt]
         case .webp, .heic, .tiff, .svg, .avif, .bmp:
-            list = FileFormat.imageTargets
+            list = FileFormat.imageTargets + [.txt]
         case .mp3, .m4a, .wav, .flac, .ogg, .opus, .aiff, .wma:
             list = FileFormat.audio
         case .mp4, .mov, .mkv, .webm, .avi, .wmv:

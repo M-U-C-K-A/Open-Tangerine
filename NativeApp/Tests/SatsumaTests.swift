@@ -40,12 +40,12 @@ struct OpenTangerineTests {
         let runner = TestRunner()
 
         runner.test("conversion matrix excludes disabled archives") {
-            try expectEqual(ConversionMatrix.totalConversions, 176)
+            try expectEqual(ConversionMatrix.totalConversions, 184)
             try expectEqual(ConversionMatrix.targets(for: .zip).count, 0)
         }
 
-        runner.test("26 advanced tools") {
-            try expectEqual(ToolID.total, 26)
+        runner.test("28 advanced tools") {
+            try expectEqual(ToolID.total, 28)
         }
 
         runner.test("no format converts to itself") {
@@ -59,6 +59,12 @@ struct OpenTangerineTests {
             try expect(ConversionMatrix.targets(for: .png).contains(.docx), "png → docx")
             try expect(!ConversionMatrix.targets(for: .webp).contains(.docx), "webp → docx")
             try expect(ConversionMatrix.targets(for: .svg).contains(.pdf), "svg → pdf")
+        }
+
+        runner.test("every image reads its text into TXT") {
+            for format in FileFormat.images {
+                try expect(ConversionMatrix.targets(for: format).contains(.txt), "\(format) → txt")
+            }
         }
 
         runner.test("video exports GIF and MP3, GIF does not") {
@@ -77,7 +83,7 @@ struct OpenTangerineTests {
         }
 
         runner.test("mixed selection intersects targets") {
-            try expectEqual(ConversionMatrix.targets(for: [.jpg, .webp]), [.png, .heic, .tiff, .avif, .bmp, .pdf])
+            try expectEqual(ConversionMatrix.targets(for: [.jpg, .webp]), [.png, .heic, .tiff, .avif, .bmp, .pdf, .txt])
             try expectEqual(ConversionMatrix.targets(for: [.jpg, .mp3]), [])
             try expectEqual(ConversionMatrix.targets(for: []), [])
         }

@@ -187,6 +187,50 @@ struct SettingsView: View {
                  ? "Hold the modifier while dragging files in Finder, or hold Shift alone for a moment with files selected in Finder. Let go of Shift on a choice, or click one. macOS asks once to let Open Tangerine see Finder's selection."
                  : "Hold the modifier while dragging files in Finder. Scrolling over the wheel moves between Convert, Tools and File actions.")
         }
+        Section {
+            ForEach($settings.watchRules) { $rule in
+                HStack(spacing: 10) {
+                    Toggle("", isOn: $rule.enabled).labelsHidden()
+                    Image(systemName: "folder").foregroundStyle(.secondary)
+                    Text(rule.folder.lastPathComponent)
+                        .lineLimit(1).truncationMode(.middle)
+                        .help(rule.path)
+                    Spacer()
+                    Text("to").foregroundStyle(.secondary)
+                    Picker("", selection: $rule.target) {
+                        ForEach(Self.watchTargets, id: \.self) { Text($0.displayName).tag($0.rawValue) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    Button {
+                        settings.watchRules.removeAll { $0.id == rule.id }
+                    } label: { Image(systemName: "minus.circle") }
+                    .buttonStyle(.borderless)
+                    .help("Stop watching this folder")
+                }
+            }
+            Button("Add a Folder…", action: addWatchFolder)
+        } header: {
+            Text("Watch Folders")
+        } footer: {
+            Text("Files that arrive in these folders are converted to the chosen format, where you save converted files. Files already there are left alone, and files in that format are skipped.")
+        }
+    }
+
+    /// Formats a watched folder can convert to: everything a route can produce.
+    static let watchTargets: [FileFormat] = FileFormat.allCases.filter { target in
+        FileFormat.allCases.contains { ConversionMatrix.targets(for: $0).contains(target) }
+    }
+
+    private func addWatchFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Watch"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard !settings.watchRules.contains(where: { $0.path == url.path }) else { return }
+        settings.watchRules.append(WatchRule(path: url.path, target: FileFormat.jpg.rawValue))
     }
 
     @ViewBuilder private var appearance: some View {

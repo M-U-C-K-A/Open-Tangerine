@@ -88,6 +88,15 @@ import AVFoundation
         await test("join silent MKV and audio MP4") { let dest = out("join.mp4"); try await VideoOps.join([silent, mp4], to: dest, progress: {_ in}); try await inspect(dest, video: true, duration: 4, width: 160) }
         await test("snapshot") { let image = try await VideoOps.snapshot(mp4, at: 0.5); try check(image.width == 160 && image.height == 120, "Invalid snapshot") }
         await test("video compression") { let dest = out("compressed.mp4"); try await VideoOps.compress(silent, preset: .balanced, targetBytes: nil, to: dest, progress: {_ in}); try await inspect(dest, audio: false, video: true, duration: 2) }
+        await test("video compression to HEVC, smaller and slower") {
+            let dest = out("compressed-hevc.mp4")
+            try await VideoOps.compress(mp4, preset: .balanced, targetBytes: nil, video: VideoCompression(codec: .hevc, maxLongEdge: 80, maxFrameRate: 12), to: dest, progress: {_ in})
+            try await inspect(dest, audio: true, video: true, duration: 2)
+            let probe = try await Shell.run(FFmpeg.probePath!, ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,codec_tag_string,width,height,r_frame_rate", "-of", "csv=p=0", dest.path])
+            let fields = probe.stdout.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: ",").map(String.init)
+            try check(fields.first == "hevc" && fields.contains("hvc1"), "Expected HEVC tagged hvc1, got \(fields)")
+            try check(fields.contains("80") && fields.contains("12/1"), "Expected an 80 px long edge at 12 fps, got \(fields)")
+        }
         await test("audio compression") { let dest = out("compressed.m4a"); try await Compressor.compressAudio(wav, format: .wav, preset: .balanced, targetBytes: nil, to: dest, progress: {_ in}); try await inspect(dest, duration: 2) }
         for style in RedactionStyle.allCases {
             await test("video redact \(style)") { let dest = out("redact-\(style).mp4"); try await VideoOps.redact(mp4, redactions: [Redaction(rect: CGRect(x: 10,y: 10,width: 30,height: 30), style: style)], displaySize: CGSize(width: 80,height: 60), to: dest, progress: {_ in}); try await inspect(dest, video: true, duration: 2, width: 160) }

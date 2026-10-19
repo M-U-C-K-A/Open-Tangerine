@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 final class UpdateResponse: URLProtocol {
     static var body = ""
@@ -95,8 +96,76 @@ final class UpdateResponse: URLProtocol {
         precondition(run(&hold, [(0, true, false, false, true, 5), (0.2, false, false, false, true, 5.2), (0.3, true, false, false, true, 5.3), (0.5, true, false, false, true, 5.5), (0.71, true, false, false, true, 5.71)]) == [.none, .none, .none, .none, .fire], "letting go restarts the hold")
         print("PASS Shift-alone hold: timing, typing, other modifiers, drags, Finder in front, release")
 
-        precondition(FinderSelection.parse("/Users/me/photo.heic\n/Users/me/Folder/\n/Users/me/clip copy.mov\n\nnot a path\n") == [URL(fileURLWithPath: "/Users/me/photo.heic"), URL(fileURLWithPath: "/Users/me/clip copy.mov")])
+        precondition(FinderSelection.parse("/Users/me/photo.heic\n/Users/me/Folder/\n/Users/me/clip copy.mov\n\nnot a path\n") == [URL(fileURLWithPath: "/Users/me/photo.heic"), URL(fileURLWithPath: "/Users/me/Folder", isDirectory: true), URL(fileURLWithPath: "/Users/me/clip copy.mov")])
         precondition(FinderSelection.parse("").isEmpty)
-        print("PASS Finder selection parsing keeps files and leaves folders out")
+        print("PASS Finder selection parsing keeps files and folders")
+
+        // File actions follow the selection: folders zip but have no checksum, text comes from images and PDFs.
+        let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("ot-actions-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: scratch) }
+        let image = scratch.appendingPathComponent("scan.png"), pdf = scratch.appendingPathComponent("doc.pdf"), note = scratch.appendingPathComponent("note.key")
+        for url in [image, pdf, note] { try Data("x".utf8).write(to: url) }
+        let folder = scratch.appendingPathComponent("Album", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        precondition(FileAction.available(for: [image, pdf]).contains(.copyText) && FileAction.available(for: [image, pdf]).contains(.hash))
+        precondition(!FileAction.available(for: [image, note]).contains(.copyText), "unknown files have no text to read")
+        precondition(FileAction.available(for: [folder]).contains(.zip) && !FileAction.available(for: [folder]).contains(.hash), "folders zip but have no checksum")
+        precondition(FileAction.available(for: [note]).contains(.rename))
+        precondition(!ToolID.available(for: [.png]).contains(.renameFiles), "renaming lives on the File actions wheel")
+        print("PASS file actions for folders, unknown files, images and PDFs")
+
+        // Batch rename: pattern, counter, find and replace, case, conflicts, swaps and rollback.
+        let names = ["IMG_001.JPG", "IMG_002.JPG", "notes.txt"].map { scratch.appendingPathComponent($0) }
+        for url in names { try Data(url.lastPathComponent.utf8).write(to: url) }
+        let day = Date(timeIntervalSince1970: 1_790_000_000)
+        var plan = BatchRename.plan(names, options: BatchRename.Options(pattern: "Trip {n} {name}", find: "IMG_", replace: "", start: 7, digits: 3, textCase: .lower), date: { _ in day })
+        precondition(plan.map(\.name) == ["trip 007 001.JPG", "trip 008 002.JPG", "trip 009 notes.txt"], "\(plan.map(\.name))")
+        precondition(BatchRename.problems(plan).isEmpty)
+        plan = BatchRename.plan(names, options: BatchRename.Options(pattern: "{date}"), date: { _ in day })
+        precondition(plan[0].name == "\(BatchRename.dayFormat.string(from: day)).JPG" && BatchRename.problems(plan)[0] == .duplicate && BatchRename.problems(plan)[1] == .duplicate, "same date twice clashes")
+        precondition(BatchRename.problems(BatchRename.plan([names[0]], options: BatchRename.Options(pattern: "notes"))) == [:], "a different extension does not clash")
+        precondition(BatchRename.problems([BatchRename.Item(source: names[0], name: "IMG_002.JPG"), BatchRename.Item(source: names[1], name: "IMG_001.JPG")], exists: { _ in true }) == [:], "taking a name another file in the batch gives up is not a clash")
+        precondition(BatchRename.problems([BatchRename.Item(source: names[2], name: "IMG_001.JPG")], exists: { _ in true }) == [0: .exists], "taking the name of a file that stays is a clash")
+        precondition(BatchRename.problems([BatchRename.Item(source: names[2], name: "a/b.txt")])[0] == .invalidCharacter)
+        precondition(BatchRename.problems([BatchRename.Item(source: names[2], name: ".hidden.txt")])[0] == .hidden)
+        precondition(BatchRename.problems([BatchRename.Item(source: names[2], name: "")])[0] == .empty)
+        // A swap and a case-only change both go through.
+        let swapped = try BatchRename.apply([BatchRename.Item(source: names[0], name: "IMG_002.JPG"), BatchRename.Item(source: names[1], name: "IMG_001.JPG"), BatchRename.Item(source: names[2], name: "Notes.txt")])
+        let first = try String(contentsOf: swapped[0], encoding: .utf8), second = try String(contentsOf: swapped[1], encoding: .utf8)
+        precondition(first == "IMG_001.JPG" && second == "IMG_002.JPG", "the two files traded names")
+        let listing = try FileManager.default.contentsOfDirectory(atPath: scratch.path)
+        precondition(listing.contains("Notes.txt") && !listing.contains("notes.txt"), "case-only rename")
+        // A failure halfway puts everything back.
+        let blocker = scratch.appendingPathComponent("locked", isDirectory: true)
+        try FileManager.default.createDirectory(at: blocker, withIntermediateDirectories: true)
+        let inside = blocker.appendingPathComponent("a.txt")
+        try Data("a".utf8).write(to: inside)
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: blocker.path)
+        do {
+            _ = try BatchRename.apply([BatchRename.Item(source: swapped[0], name: "first.JPG"), BatchRename.Item(source: inside, name: "b.txt")])
+            preconditionFailure("renaming in a locked folder must fail")
+        } catch {
+            precondition(FileManager.default.fileExists(atPath: swapped[0].path) && !FileManager.default.fileExists(atPath: scratch.appendingPathComponent("first.JPG").path), "rollback restores the first rename")
+        }
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: blocker.path)
+        print("PASS batch rename: pattern, counter, case, clashes, swaps, case-only changes and rollback")
+
+        // Compression 2.0: shrink to the long edge, never enlarge, cap the frame rate.
+        let wide = VideoCompression(codec: .hevc, maxLongEdge: 1280, maxFrameRate: 30)
+        precondition(wide.filters(size: CGSize(width: 3840, height: 2160), frameRate: 59.94, presetScale: 1) == ["scale=1280:-2", "fps=30"])
+        precondition(wide.filters(size: CGSize(width: 1080, height: 1920), frameRate: 30, presetScale: 1) == ["scale=-2:1280"], "portrait keeps its orientation; 30 fps is left alone")
+        precondition(wide.filters(size: CGSize(width: 640, height: 360), frameRate: 24, presetScale: 1).isEmpty, "small videos are never enlarged")
+        precondition(VideoCompression().filters(size: CGSize(width: 1920, height: 1080), frameRate: 30, presetScale: 0.75) == ["scale=1440:-2"], "the Strong preset still shrinks")
+        precondition(VideoOps.nativePreset(longEdge: 3840, strong: false, hevc: true) == AVAssetExportPresetHEVC3840x2160 && VideoOps.nativePreset(longEdge: 1600, strong: false, hevc: true) == AVAssetExportPresetHEVC1920x1080)
+        print("PASS video compression options: long edge, orientation, no upscaling, frame rate, native presets")
+
+        // Watch folders: what gets converted, and what is ignored.
+        precondition(FolderWatcher.shouldConvert(URL(fileURLWithPath: "/w/a.heic"), to: .jpg) && !FolderWatcher.shouldConvert(URL(fileURLWithPath: "/w/a.jpg"), to: .jpg) && !FolderWatcher.shouldConvert(URL(fileURLWithPath: "/w/a.wav"), to: .jpg))
+        try Data("x".utf8).write(to: scratch.appendingPathComponent("movie.mp4.download"))
+        try Data("x".utf8).write(to: scratch.appendingPathComponent(".hidden.png"))
+        let seen = FolderWatcher.names(in: scratch)
+        precondition(!seen.contains("movie.mp4.download") && !seen.contains(".hidden.png") && !seen.contains("Album") && seen.contains("scan.png"), "\(seen)")
+        print("PASS watch folders skip targets, partial downloads, hidden files and folders")
     }
 }

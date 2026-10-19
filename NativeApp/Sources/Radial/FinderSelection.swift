@@ -32,12 +32,14 @@ enum FinderSelection {
         }
     }
 
-    /// One POSIX path per line. Folders end with a slash and are left out, as in a drag.
+    /// One POSIX path per line. Folders end with a slash; they stay, for the file actions.
     static func parse(_ output: String) -> [URL] {
         output.split(whereSeparator: \.isNewline).compactMap { line in
-            let path = String(line)
-            guard path.hasPrefix("/"), !path.hasSuffix("/") else { return nil }
-            return URL(fileURLWithPath: path).standardizedFileURL
+            var path = String(line)
+            guard path.hasPrefix("/") else { return nil }
+            let folder = path.count > 1 && path.hasSuffix("/")
+            if folder { path.removeLast() }
+            return URL(fileURLWithPath: path, isDirectory: folder).standardizedFileURL
         }
     }
 

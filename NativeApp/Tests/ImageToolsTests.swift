@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import CoreImage
 import ImageIO
 import UniformTypeIdentifiers
@@ -177,6 +178,67 @@ import PDFKit
         } catch OpenTangerineError.toolFailed(_, let reason) {
             print("BLOCKED Vision foreground masks unavailable in this process: \(reason)")
         }
+        // Text recognition: reading order, a picture of text, a scanned PDF.
+        let ordered = TextRecognition.lines(from: [
+            .init(box: CGRect(x: 0.5, y: 0.78, width: 0.2, height: 0.05), text: "world"),
+            .init(box: CGRect(x: 0.1, y: 0.4, width: 0.3, height: 0.05), text: "second"),
+            .init(box: CGRect(x: 0.1, y: 0.79, width: 0.3, height: 0.05), text: "hello"),
+        ])
+        check(ordered == "hello world\nsecond", "text recognition keeps reading order")
+        let words = CGContext(data: nil, width: 1200, height: 260, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        words.setFillColor(CGColor(gray: 1, alpha: 1)); words.fill(CGRect(x: 0, y: 0, width: 1200, height: 260))
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: "Fresh tangerines 2026", attributes: [.font: NSFont.systemFont(ofSize: 96, weight: .bold), .foregroundColor: NSColor.black]))
+        words.textPosition = CGPoint(x: 40, y: 90); CTLineDraw(line, words)
+        let wordsImage = words.makeImage()!
+        do {
+            let read = try TextRecognition.text(in: wordsImage).lowercased()
+            check(read.contains("tangerines") && read.contains("2026"), "text recognition reads a picture of text (\(read))")
+            let png = dir.appendingPathComponent("words.png"), txt = dir.appendingPathComponent("words.txt")
+            try ImageIOBridge.write(wordsImage, to: png, format: .png)
+            try await Engines.convert(ConversionRequest(source: png, sourceFormat: .png, target: .txt, destination: txt, progress: { _ in }))
+            check(try String(contentsOf: txt, encoding: .utf8).lowercased().contains("tangerines"), "PNG to TXT reads the text in the picture")
+            let scan = PDFDocument(); scan.insert(PDFPage(image: NSImage(cgImage: wordsImage, size: NSSize(width: 600, height: 130)))!, at: 0)
+            let scanURL = dir.appendingPathComponent("scan.pdf"), scanText = dir.appendingPathComponent("scan.txt")
+            check(scan.write(to: scanURL), "scanned PDF fixture writes")
+            try await Engines.convert(ConversionRequest(source: scanURL, sourceFormat: .pdf, target: .txt, destination: scanText, progress: { _ in }))
+            check(try String(contentsOf: scanText, encoding: .utf8).lowercased().contains("tangerines"), "a scanned PDF becomes text")
+            let copied = try TextRecognition.text(in: [png, scanURL]).lowercased()
+            check(copied.components(separatedBy: "tangerines").count == 3, "Copy Text joins every file's text")
+        } catch OpenTangerineError.toolFailed(_, let reason) {
+            print("BLOCKED Vision text recognition unavailable in this process: \(reason)")
+        }
+
+        // Watermark: text in a corner, repeated, or a logo; the rest of the picture is untouched.
+        let plain = CGContext(data: nil, width: 400, height: 300, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        plain.setFillColor(CGColor(gray: 0.4, alpha: 1)); plain.fill(CGRect(x: 0, y: 0, width: 400, height: 300))
+        let grey = plain.makeImage()!, greyPixels = pixels(grey)
+        func region(_ p: [UInt8], _ x0: Int, _ y0: Int, _ x1: Int, _ y1: Int) -> Bool {
+            for y in y0..<y1 { for x in x0..<x1 where p[(y * 400 + x) * 4] != greyPixels[(y * 400 + x) * 4] { return true } }
+            return false
+        }
+        let corner = pixels(try Watermark.apply(grey, options: Watermark.Options(text: "MARK", position: .bottomRight, size: 0.1, opacity: 1)))
+        check(region(corner, 250, 230, 400, 300) && !region(corner, 0, 0, 200, 150), "watermark sits in the bottom-right corner only")
+        let tiled = pixels(try Watermark.apply(grey, options: Watermark.Options(text: "MARK", position: .tiled, size: 0.06, opacity: 1)))
+        check(region(tiled, 0, 0, 200, 150) && region(tiled, 200, 150, 400, 300), "a repeated watermark covers the whole picture")
+        let stamp = CGContext(data: nil, width: 40, height: 20, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        stamp.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1)); stamp.fill(CGRect(x: 0, y: 0, width: 40, height: 20))
+        let logoed = pixels(try Watermark.apply(grey, options: Watermark.Options(position: .topLeft, size: 0.1, opacity: 1), logo: stamp.makeImage()!))
+        check(logoed[(15 * 400 + 15) * 4] > 200 && logoed[(15 * 400 + 15) * 4 + 1] < 60 && !region(logoed, 200, 150, 400, 300), "a logo watermark lands top-left at full opacity")
+
+        // ZIP: one item as name.zip, several as Archive.zip, never overwriting, contents intact.
+        let zipDir = dir.appendingPathComponent("zip", isDirectory: true)
+        try FileManager.default.createDirectory(at: zipDir.appendingPathComponent("Album"), withIntermediateDirectories: true)
+        let note = zipDir.appendingPathComponent("note.txt")
+        try Data("hello".utf8).write(to: note)
+        try Data("inside".utf8).write(to: zipDir.appendingPathComponent("Album/photo.txt"))
+        let single = try await FileAction.zip([note]), again = try await FileAction.zip([note])
+        check(single.lastPathComponent == "note.txt.zip" && again.lastPathComponent == "note.txt 2.zip", "zipping one item twice never overwrites")
+        let archive = try await FileAction.zip([note, zipDir.appendingPathComponent("Album")])
+        let unpacked = dir.appendingPathComponent("unzipped")
+        _ = try await Shell.run("/usr/bin/ditto", ["-x", "-k", archive.path, unpacked.path])
+        check(archive.lastPathComponent == "Archive.zip"
+              && (try? String(contentsOf: unpacked.appendingPathComponent("note.txt"), encoding: .utf8)) == "hello"
+              && (try? String(contentsOf: unpacked.appendingPathComponent("Album/photo.txt"), encoding: .utf8)) == "inside", "several items, folders included, zip side by side")
         let batchNames = BackgroundRemoval.outputURLs(for: [dir.appendingPathComponent("a.jpg"), dir.appendingPathComponent("a.png")]) { $0.deletingLastPathComponent() }
         check(batchNames.map(\.lastPathComponent) == ["a (no background).png", "a (no background) 2.png"], "background removal batch outputs never collide")
         print("Image tool failures: \(failures)")

@@ -232,7 +232,7 @@ enum ImageIOBridge {
 struct ImageEngine: ConversionEngine {
     func supports(from: FileFormat, to: FileFormat) -> Bool {
         guard from.category == .image else { return false }
-        return to.category == .image || to == .pdf || to == .docx
+        return to.category == .image || to == .pdf || to == .docx || to == .txt
     }
 
     func convert(_ request: ConversionRequest) async throws {
@@ -246,6 +246,11 @@ struct ImageEngine: ConversionEngine {
             defer { try? FileManager.default.removeItem(at: temp) }
             try ImageIOBridge.write(image, to: temp, format: .png)
             try await DocxWriter.write(paragraphs: [], images: [temp], to: request.destination)
+        case .txt:
+            // Text in the picture, read with Vision on this Mac.
+            let text = try TextRecognition.text(in: image)
+            guard !text.isEmpty else { throw OpenTangerineError.invalidInput("No text found in \(request.source.lastPathComponent).") }
+            try (text + "\n").write(to: request.destination, atomically: true, encoding: .utf8)
         default:
             let quality = AppSettings.shared.jpegQuality
             try await ImageIOBridge.writeAnyFormat(image, to: request.destination, format: request.target, quality: quality)

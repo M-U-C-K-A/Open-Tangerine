@@ -1,14 +1,48 @@
 import AVFoundation
 import Foundation
 
+/// How videos are re-encoded when compressed: the codec, a ceiling on the long edge and on the frame rate.
+struct VideoCompression: Equatable {
+    enum Codec: String, CaseIterable, Identifiable {
+        case h264, hevc
+        var id: String { rawValue }
+        var title: String { self == .h264 ? "H.264" : "HEVC" }
+    }
+
+    var codec: Codec = .h264
+    /// Longest edge in pixels; 0 keeps the size.
+    var maxLongEdge = 0
+    /// Frames per second; 0 keeps the rate.
+    var maxFrameRate = 0
+
+    /// FFmpeg filters for a source of this size and rate: shrink, never enlarge.
+    func filters(size: CGSize, frameRate: Double, presetScale: Double) -> [String] {
+        var filters: [String] = []
+        let long = max(size.width, size.height) * presetScale
+        let limit = maxLongEdge > 0 ? min(long, Double(maxLongEdge)) : long
+        if size.width > 0, size.height > 0, limit < max(size.width, size.height) - 1 {
+            let even = { (value: Double) in max(2, Int((value / 2).rounded()) * 2) }
+            if size.width >= size.height {
+                filters.append("scale=\(even(limit)):-2")
+            } else {
+                filters.append("scale=-2:\(even(limit))")
+            }
+        }
+        if maxFrameRate > 0, frameRate > Double(maxFrameRate) + 0.5 {
+            filters.append("fps=\(maxFrameRate)")
+        }
+        return filters
+    }
+}
+
 enum Compressor {
-    static func compress(_ url: URL, preset: CompressionPreset, resizeLongEdge: Int, targetBytes: Int64?, to destination: URL, progress: @escaping (Double) -> Void) async throws {
+    static func compress(_ url: URL, preset: CompressionPreset, resizeLongEdge: Int, targetBytes: Int64?, video: VideoCompression = VideoCompression(), to destination: URL, progress: @escaping (Double) -> Void) async throws {
         guard let format = FileFormat.detect(url) else { throw OpenTangerineError.unreadable(url) }
         switch format.category {
         case .image:
             try await compressImage(url, format: format, preset: preset, resizeLongEdge: resizeLongEdge, targetBytes: targetBytes, to: destination, progress: progress)
         case .video:
-            try await VideoOps.compress(url, preset: preset, targetBytes: targetBytes, to: destination, progress: progress)
+            try await VideoOps.compress(url, preset: preset, targetBytes: targetBytes, video: video, to: destination, progress: progress)
         case .audio:
             try await compressAudio(url, format: format, preset: preset, targetBytes: targetBytes, to: destination, progress: progress)
         case .document where format == .pdf:

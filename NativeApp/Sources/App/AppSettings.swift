@@ -106,6 +106,11 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(revealInFinder, forKey: "revealInFinder") }
     }
 
+    /// Folders whose new files are converted on arrival.
+    @Published var watchRules: [WatchRule] {
+        didSet { defaults.set(try? JSONEncoder().encode(watchRules), forKey: "watchRules") }
+    }
+
     /// Hold Shift alone over Finder to open the wheel for the selected files, no drag needed.
     @Published var shiftOpensWheel: Bool {
         didSet { defaults.set(shiftOpensWheel, forKey: "shiftOpensWheel") }
@@ -147,6 +152,7 @@ final class AppSettings: ObservableObject {
         outputLocation = OutputLocation(rawValue: defaults.string(forKey: "outputLocation") ?? "") ?? .besideOriginal
         revealInFinder = defaults.object(forKey: "revealInFinder") as? Bool ?? true
         shiftOpensWheel = defaults.object(forKey: "shiftOpensWheel") as? Bool ?? true
+        watchRules = (defaults.data(forKey: "watchRules")).flatMap { try? JSONDecoder().decode([WatchRule].self, from: $0) } ?? []
         notchSurface = NotchSurface(rawValue: defaults.string(forKey: "notchSurface") ?? "") ?? .black
         progressStyle = ProgressStyle(rawValue: defaults.string(forKey: "progressStyle") ?? "") ?? .pill
         // One-time migration requested for existing trial installs; future user choices persist.

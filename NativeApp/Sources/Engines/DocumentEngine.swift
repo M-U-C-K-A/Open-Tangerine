@@ -158,15 +158,13 @@ struct DocumentEngine: ConversionEngine {
         let pageCount = document.pageCount
         switch request.target {
         case .txt:
-            var text = ""
-            for index in 0..<pageCount {
-                if let page = document.page(at: index), let content = page.string { text += content + "\n\n" }
-                request.progress(Double(index + 1) / Double(pageCount))
+            // Pages with their own text keep it; scanned pages are read with Vision.
+            _ = pageCount
+            let text = try TextRecognition.text(inPDF: request.source, progress: request.progress)
+            guard !text.isEmpty else {
+                throw OpenTangerineError.invalidInput("No text found in this PDF, even on its scanned pages.")
             }
-            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw OpenTangerineError.invalidInput("This PDF has no selectable text. Scanned pages require OCR, which is not supported yet.")
-            }
-            try text.write(to: request.destination, atomically: true, encoding: .utf8)
+            try (text + "\n").write(to: request.destination, atomically: true, encoding: .utf8)
         case .jpg, .png:
             if pageCount == 1, let page = document.page(at: 0) {
                 guard let image = PDFRenderer.render(page: page) else { throw OpenTangerineError.encodeFailed(request.destination.lastPathComponent) }

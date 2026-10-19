@@ -54,7 +54,7 @@ struct VideoEngine: ConversionEngine {
         return args
     }
 
-    static func ffmpegConvert(source: URL, destination: URL, target: FileFormat, videoFilters: [String] = [], videoBitrate: Int? = nil, audioBitrate: Int? = nil, progress: @escaping (Double) -> Void) async throws {
+    static func ffmpegConvert(source: URL, destination: URL, target: FileFormat, videoFilters: [String] = [], videoBitrate: Int? = nil, audioBitrate: Int? = nil, videoCodec: String? = nil, progress: @escaping (Double) -> Void) async throws {
         let duration = await FFmpeg.probeDuration(source)
         if target == .gif {
             let filters = videoFilters + ["fps=12", "scale='min(640,iw)':-2:flags=lanczos", "split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5"]
@@ -68,7 +68,15 @@ struct VideoEngine: ConversionEngine {
             filters.append("scale=trunc(iw/2)*2:trunc(ih/2)*2")
         }
         if !filters.isEmpty { args += ["-vf", filters.joined(separator: ",")] }
-        args += codecArguments(for: target, videoBitrate: videoBitrate, audioBitrate: audioBitrate)
+        var codecArgs = codecArguments(for: target, videoBitrate: videoBitrate, audioBitrate: audioBitrate)
+        if let videoCodec, [.mp4, .mov, .mkv].contains(target), let index = codecArgs.firstIndex(of: "libx264") {
+            // HEVC: swap the encoder, tag it so Apple players open it.
+            codecArgs[index] = videoCodec
+            if videoCodec == "libx265", let preset = codecArgs.firstIndex(of: "-preset") { codecArgs[preset + 1] = "fast" }
+            if videoCodec == "hevc_videotoolbox", let preset = codecArgs.firstIndex(of: "-preset") { codecArgs.removeSubrange(preset...(preset + 1)) }
+            if target != .mkv { codecArgs += ["-tag:v", "hvc1"] }
+        }
+        args += codecArgs
         args.append(destination.path)
         try await FFmpeg.run(args, purpose: "Converting to \(target.displayName)", duration: duration, progress: progress)
     }
