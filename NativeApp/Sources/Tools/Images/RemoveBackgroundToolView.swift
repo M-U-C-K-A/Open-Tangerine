@@ -30,6 +30,12 @@ struct RemoveBackgroundToolView: View {
     /// 1 fits the picture in the window; up to 12 times that, to reach small leftovers.
     @State private var zoom: CGFloat = 1
     @State private var zoomAtGestureStart: CGFloat = 1
+    @State private var maskBeforeLast: BackgroundRemoval.MaskBuffer?
+    @State private var scrollPosition = ScrollPosition()
+    @State private var scrollOffset: CGPoint = .zero
+    /// Where the pointer is over the preview, in the visible area's coordinates.
+    @State private var viewportPointer: CGPoint?
+    @State private var scrollMonitor: Any?
 
     enum RefineTool: String, CaseIterable, Identifiable {
         case wand, brush
@@ -75,9 +81,14 @@ struct RemoveBackgroundToolView: View {
                         }
                         .scrollIndicators(zoom > 1 ? .automatic : .hidden)
                         .defaultScrollAnchor(.center)
+                        .scrollPosition($scrollPosition)
+                        .onScrollGeometryChange(for: CGPoint.self, of: { $0.contentOffset }) { _, offset in scrollOffset = offset }
+                        .onContinuousHover { phase in
+                            if case .active(let location) = phase { viewportPointer = location } else { viewportPointer = nil }
+                        }
                         .simultaneousGesture(
                             MagnifyGesture()
-                                .onChanged { value in setZoom(zoomAtGestureStart * value.magnification) }
+                                .onChanged { value in zoom(to: zoomAtGestureStart * value.magnification, around: value.startLocation) }
                                 .onEnded { _ in zoomAtGestureStart = zoom }
                         )
                     }
@@ -148,7 +159,9 @@ struct RemoveBackgroundToolView: View {
                          ? "Click a leftover patch to remove it, or a missing part to bring it back. Similar connected colors go with it. Hold ⌥ to swap Remove and Keep."
                          : "Paint over what should go, or what should stay. Hold ⌥ to swap Remove and Keep.")
                         .font(.caption2).foregroundStyle(.secondary)
-                    Text("Pinch or press ⌘+ to zoom in on the edges, scroll to move around, ⌘0 to fit.")
+                    Text(tool == .wand
+                         ? "Moving Tolerance redoes your last click with the new value. Zoom with ⌃ and the scroll wheel, a pinch or ⌘+; scroll to move around; ⌘0 fits."
+                         : "Moving Brush size redoes your last stroke with the new size. Zoom with ⌃ and the scroll wheel, a pinch or ⌘+; scroll to move around; ⌘0 fits.")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
             }
@@ -175,6 +188,10 @@ struct RemoveBackgroundToolView: View {
         .onChange(of: document.preview) { detectSubject() }
         .onChange(of: softness) { scheduleRender() }
         .onChange(of: cropToSubject) { scheduleRender() }
+        .onChange(of: tolerance) { retune() }
+        .onChange(of: brushSize) { retune() }
+        .onAppear(perform: installScrollZoom)
+        .onDisappear(perform: removeScrollZoom)
     }
 
     // MARK: - Zoom
@@ -183,6 +200,36 @@ struct RemoveBackgroundToolView: View {
 
     private func setZoom(_ value: CGFloat) {
         zoom = min(max(value, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
+    }
+
+    /// Zooms keeping the picture point under `anchor` (a point in the visible area) where it is.
+    private func zoom(to value: CGFloat, around anchor: CGPoint?) {
+        let old = zoom
+        setZoom(value)
+        let new = zoom
+        guard let anchor, new != old else { return }
+        // The picture sits 12 points into the scrolled content.
+        let fit = CGPoint(x: (scrollOffset.x + anchor.x - 12) / old, y: (scrollOffset.y + anchor.y - 12) / old)
+        let target = CGPoint(x: max(0, 12 + fit.x * new - anchor.x), y: max(0, 12 + fit.y * new - anchor.y))
+        DispatchQueue.main.async { scrollPosition.scrollTo(point: target) }
+    }
+
+    /// Control with the scroll wheel or two fingers zooms where the pointer is; plain scrolling still moves around.
+    private func installScrollZoom() {
+        guard scrollMonitor == nil else { return }
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            guard event.modifierFlags.contains(.control), let pointer = viewportPointer else { return event }
+            var delta = Double(event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.scrollingDeltaY * 10)
+            if event.isDirectionInvertedFromDevice { delta = -delta }
+            zoom(to: zoom * CGFloat(exp(delta * 0.01)), around: pointer)
+            zoomAtGestureStart = zoom
+            return nil
+        }
+    }
+
+    private func removeScrollZoom() {
+        if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
+        scrollMonitor = nil
     }
 
     /// Zoom out, fit, zoom in; pinch works too. ⌘+, ⌘− and ⌘0 from the keyboard.
@@ -288,6 +335,7 @@ struct RemoveBackgroundToolView: View {
     private func wand(at point: CGPoint) {
         guard let subject, var current = mask else { return }
         let refinement = BackgroundRemoval.Refinement.wand(point: point, tolerance: tolerance, keep: keepsNow)
+        maskBeforeLast = current
         BackgroundRemoval.apply(refinement, to: &current, pixels: subject.pixels)
         mask = current
         refinements.append(refinement)
@@ -296,7 +344,10 @@ struct RemoveBackgroundToolView: View {
 
     private func brush(to point: CGPoint) {
         guard var current = mask else { return }
-        if stroke.isEmpty { strokeKeeps = keepsNow }
+        if stroke.isEmpty {
+            strokeKeeps = keepsNow
+            maskBeforeLast = current
+        }
         let segment = stroke.last.map { [$0, point] } ?? [point]
         stroke.append(point)
         BackgroundRemoval.paint(&current, path: segment, radius: brushSize, value: strokeKeeps ? 255 : 0)
@@ -316,16 +367,39 @@ struct RemoveBackgroundToolView: View {
         replayRefinements()
     }
 
+    /// Moving Tolerance (or Brush size) redoes the last click (or stroke) with the new
+    /// value, so you can find the right amount without undoing and trying again.
+    private func retune() {
+        guard let subject, let before = maskBeforeLast, let last = refinements.last else { return }
+        let updated: BackgroundRemoval.Refinement
+        switch last {
+        case let .wand(point, old, keep):
+            guard old != tolerance else { return }
+            updated = .wand(point: point, tolerance: tolerance, keep: keep)
+        case let .brush(path, old, keep):
+            guard old != brushSize else { return }
+            updated = .brush(path: path, radius: brushSize, keep: keep)
+        }
+        var current = before
+        BackgroundRemoval.apply(updated, to: &current, pixels: subject.pixels)
+        refinements[refinements.count - 1] = updated
+        mask = current
+        scheduleRender()
+    }
+
     private func resetRefinements() {
         refinements.removeAll()
         replayRefinements()
     }
 
-    /// Back to Vision's mask, then every remaining edit in order.
+    /// Back to Vision's mask, then every remaining edit in order; the mask before the
+    /// last one is kept so the sliders can retune it.
     private func replayRefinements() {
         guard let subject else { return }
         var current = subject.mask
-        BackgroundRemoval.refine(&current, with: refinements, pixels: subject.pixels)
+        BackgroundRemoval.refine(&current, with: Array(refinements.dropLast()), pixels: subject.pixels)
+        maskBeforeLast = refinements.isEmpty ? nil : current
+        if let last = refinements.last { BackgroundRemoval.apply(last, to: &current, pixels: subject.pixels) }
         mask = current
         scheduleRender()
     }
