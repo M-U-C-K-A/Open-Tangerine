@@ -63,7 +63,17 @@ enum Shots {
         try SampleMedia.writeTone(to: audio, seconds: 6)
         try await SampleMedia.writeVideo(to: video, seconds: 4, hue: 0.08)
 
+        // A clear subject for Remove background: a tangerine and its leaf on sky and grass.
+        let scene = CGContext(data: nil, width: 1600, height: 1100, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        scene.setFillColor(CGColor(red: 0.55, green: 0.72, blue: 0.85, alpha: 1)); scene.fill(CGRect(x: 0, y: 0, width: 1600, height: 1100))
+        scene.setFillColor(CGColor(red: 0.45, green: 0.62, blue: 0.35, alpha: 1)); scene.fill(CGRect(x: 0, y: 0, width: 1600, height: 380))
+        scene.setFillColor(CGColor(red: 0.95, green: 0.45, blue: 0.08, alpha: 1)); scene.fillEllipse(in: CGRect(x: 560, y: 260, width: 480, height: 460))
+        scene.setFillColor(CGColor(red: 0.3, green: 0.55, blue: 0.2, alpha: 1)); scene.fillEllipse(in: CGRect(x: 800, y: 680, width: 150, height: 70))
+        let fruit = samples.appendingPathComponent("tangerine.png")
+        try ImageIOBridge.write(scene.makeImage()!, to: fruit, format: .png)
+
         let tools: [(ToolID, [URL])] = [
+            (.removeBackground, [fruit]),
             (.cropImage, [photo]),
             (.editImage, [photo]),
             (.compress, [photo, pdf, video]),
@@ -114,7 +124,7 @@ enum Shots {
         window.ignoresMouseEvents = true
         window.center()
         window.orderFront(nil)
-        try await Task.sleep(nanoseconds: 2_200_000_000)
+        try await Task.sleep(nanoseconds: 3_500_000_000)
         let view = window.contentView!.superview ?? window.contentView!
         view.layoutSubtreeIfNeeded()
         let size = view.bounds.size

@@ -137,6 +137,46 @@ import PDFKit
         } catch OpenTangerineError.toolFailed(_, let reason) {
             print("BLOCKED Vision foreground masks unavailable in this process: \(reason)")
         }
+        // Refining by hand: masks round-trip, rows line up with pixels, the wand and the brush.
+        let pattern = (0..<(7 * 5)).map { UInt8(($0 * 37) % 256) }
+        let roundTrip = BackgroundRemoval.MaskBuffer(BackgroundRemoval.MaskBuffer(width: 7, height: 5, values: pattern).ciImage(), width: 7, height: 5)
+        check(roundTrip?.values == pattern, "refine mask survives a Core Image round trip unchanged")
+        let topHalf = CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)!
+        topHalf.setFillColor(gray: 1, alpha: 1); topHalf.fill(CGRect(x: 0, y: 4, width: 8, height: 4))
+        let maskTop = BackgroundRemoval.MaskBuffer(CIImage(cgImage: topHalf.makeImage()!, options: [.colorSpace: NSNull()]), width: 8, height: 8)
+        let redTop = CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        redTop.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1)); redTop.fill(CGRect(x: 0, y: 4, width: 8, height: 4))
+        let pixelsTop = BackgroundRemoval.Pixels(redTop.makeImage()!)
+        check(maskTop?.values.first == 255 && maskTop?.values.last == 0 && pixelsTop?.rgba.first == 255 && pixelsTop?.rgba[(8 * 8 - 1) * 4] == 0, "refine mask and pixels both put the top row first")
+
+        if let scenePixels = BackgroundRemoval.Pixels(subject) {
+            func value(_ m: BackgroundRemoval.MaskBuffer, _ x: Int, _ y: Int) -> UInt8 { m.values[y * m.width + x] }
+            var all = BackgroundRemoval.MaskBuffer(width: 320, height: 240, values: [UInt8](repeating: 255, count: 320 * 240))
+            BackgroundRemoval.apply(.wand(point: CGPoint(x: 0.02, y: 0.02), tolerance: 0.1, keep: false), to: &all, pixels: scenePixels)
+            check(value(all, 2, 2) == 0 && value(all, 317, 237) == 0 && value(all, 160, 120) == 255, "wand removes the connected backdrop and leaves the subject")
+            var none = BackgroundRemoval.MaskBuffer(width: 320, height: 240, values: [UInt8](repeating: 0, count: 320 * 240))
+            BackgroundRemoval.apply(.wand(point: CGPoint(x: 0.5, y: 0.5), tolerance: 0.1, keep: true), to: &none, pixels: scenePixels)
+            check(value(none, 160, 120) == 255 && value(none, 120, 120) == 255 && value(none, 2, 2) == 0 && value(none, 100, 120) == 0, "wand brings back the clicked region only")
+            var stroke = BackgroundRemoval.MaskBuffer(width: 320, height: 240, values: [UInt8](repeating: 0, count: 320 * 240))
+            BackgroundRemoval.apply(.brush(path: [CGPoint(x: 0.1, y: 0.5), CGPoint(x: 0.9, y: 0.5)], radius: 0.03, keep: true), to: &stroke, pixels: scenePixels)
+            check((32...288).allSatisfy { value(stroke, $0, 120) == 255 } && value(stroke, 160, 140) == 0 && value(stroke, 10, 120) == 0, "brush paints a continuous stroke of the right width")
+            // Edits are normalised: the same click lands on the same thing at twice the size.
+            let big = CGContext(data: nil, width: 640, height: 480, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            big.interpolationQuality = .none
+            big.draw(subject, in: CGRect(x: 0, y: 0, width: 640, height: 480))
+            if let bigPixels = BackgroundRemoval.Pixels(big.makeImage()!) {
+                var bigMask = BackgroundRemoval.MaskBuffer(width: 640, height: 480, values: [UInt8](repeating: 0, count: 640 * 480))
+                BackgroundRemoval.refine(&bigMask, with: [.wand(point: CGPoint(x: 0.5, y: 0.5), tolerance: 0.1, keep: true)], pixels: bigPixels)
+                check(value(bigMask, 320, 240) == 255 && value(bigMask, 240, 240) == 255 && value(bigMask, 4, 4) == 0, "refinements replay at full resolution")
+            }
+        }
+        do {
+            let restored = try BackgroundRemoval.remove(subject, refinements: [.wand(point: CGPoint(x: 0.02, y: 0.02), tolerance: 0.1, keep: true)])
+            let restoredPixels = pixels(restored)
+            check(restoredPixels[3] > 250 && restoredPixels[(120 * 320 + 160) * 4 + 3] > 250, "saving applies the refinements on top of Vision's mask")
+        } catch OpenTangerineError.toolFailed(_, let reason) {
+            print("BLOCKED Vision foreground masks unavailable in this process: \(reason)")
+        }
         let batchNames = BackgroundRemoval.outputURLs(for: [dir.appendingPathComponent("a.jpg"), dir.appendingPathComponent("a.png")]) { $0.deletingLastPathComponent() }
         check(batchNames.map(\.lastPathComponent) == ["a (no background).png", "a (no background) 2.png"], "background removal batch outputs never collide")
         print("Image tool failures: \(failures)")
