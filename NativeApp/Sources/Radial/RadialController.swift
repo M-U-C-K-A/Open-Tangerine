@@ -100,10 +100,7 @@ final class RadialController: DragMonitorDelegate {
 
     func dragMonitorDidEndDrag(_ monitor: DragMonitor) {
         guard !pickerMode else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            guard let self, !self.pickerMode else { return }
-            self.hide()
-        }
+        keepOpenAfterDrop()
     }
 
     func presentPicker(for urls: [URL], advanced: Bool = false, actions: Bool = false) {
@@ -137,6 +134,7 @@ final class RadialController: DragMonitorDelegate {
         view.onCancel = { [weak self] in self?.hide() }
         view.onDragEntered = { [weak self] info in self?.adoptDraggedFiles(from: info) }
         view.onDragSessionEnded = { [weak self] in self?.dragSessionEnded() }
+        view.onDropMissed = { [weak self] in self?.keepOpenAfterDrop() }
         view.onModeStep = { [weak self] step in
             guard let self else { return }
             self.setMode(self.mode.stepped(step))
@@ -177,9 +175,29 @@ final class RadialController: DragMonitorDelegate {
 
     private func dragSessionEnded() {
         guard !pickerMode, visible else { return }
-        DragDebug.log("drag session ended while wheel visible; dismissing")
-        hide()
-        dragMonitor?.markHandled()
+        DragDebug.log("drag session ended while wheel visible; keeping it open")
+        keepOpenAfterDrop()
+    }
+
+    /// Letting go anywhere but on a choice (the hub, a gap, beside the wheel) keeps the
+    /// wheel open: click a choice, scroll to another wheel, or click beside it to close.
+    /// The short delay lets a drop on a choice, dispatched asynchronously, win.
+    private func keepOpenAfterDrop() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let self, self.visible, !self.pickerMode, let panel = self.panel else { return }
+            DragDebug.log("drop missed every choice; wheel stays open")
+            self.pickerMode = true
+            self.holdingShift = false
+            self.dragMonitor?.markHandled()
+            self.returnFocusTo = NSWorkspace.shared.frontmostApplication
+            let view = panel.radialView
+            view.interactive = true
+            panel.makeKeyAndOrderFront(nil)
+            panel.makeFirstResponder(view)
+            NSApp.activate(ignoringOtherApps: true)
+            self.installOutsideClickMonitor()
+            view.updateHighlight(forWindowPoint: panel.mouseLocationOutsideOfEventStream)
+        }
     }
 
     /// Shows another of the three wheels for the same files.

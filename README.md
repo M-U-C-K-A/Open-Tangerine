@@ -72,7 +72,9 @@ Everything starts from a drag in Finder. The key you hold decides which wheel op
 
 **Scroll to switch wheels.** Whichever key opened it, scroll over the wheel (mouse wheel or trackpad, even mid-drag) to move from **Convert** to **Tools** to **File actions** and round again. The dots under the title show where you are. In the picker, <kbd>Tab</kbd> and <kbd>⇧ Tab</kbd> do the same.
 
-**No drag at all.** Turn on *Settings → General → Open the wheel with Shift alone*, select files in Finder, and hold <kbd>⇧ Shift</kbd> for a moment: the wheel opens around the pointer for the selection. Move onto a choice and let go of Shift, or click it; <kbd>Esc</kbd> closes it. Typing a capital letter never opens it, and it only listens while Finder is in front. The first time, macOS asks to let Open Tangerine see Finder's selection (*Privacy & Security → Automation*).
+**Let go anywhere else and the wheel stays.** Drop the files in the hub, in a gap or beside the wheel and it stays open: click a choice, scroll to another wheel, or click beside it (or press <kbd>Esc</kbd>) to close.
+
+**No drag at all.** Select files in Finder and hold <kbd>⇧ Shift</kbd> alone for a moment: the wheel opens around the pointer for the selection. Move onto a choice and let go of Shift, or click it; <kbd>Esc</kbd> closes it. Typing a capital letter never opens it, and it only listens while Finder is in front. The first time, macOS asks to let Open Tangerine see Finder's selection (*Privacy & Security → Automation*). On by default; turn it off in *Settings → General*.
 
 ### The wheel only offers what fits
 
@@ -160,7 +162,7 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | --- | --- | --- |
 | **Edit photo** | 1 image | Light, color and detail: exposure, brightness, contrast, highlights, shadows, saturation, vibrance, temperature, tint, monochrome, sepia. Hold to compare. |
 | **Add a background** | 1 image | Places the image on a color, gradient or image background at a chosen aspect ratio. |
-| **Remove background** | 1 or more | Keeps the people, animals and objects in front and makes the rest transparent: a PNG next to each original. Edge softness, crop to subject, before/after. Apple Vision, on-device. |
+| **Remove background** | 1 or more | Keeps the people, animals and objects in front and makes the rest transparent: a PNG next to each original. Refine one image by hand with a **magic wand** (click a patch of similar color) or a **brush**, to remove more or bring parts back, with undo. Edge softness, crop to subject, before/after. Apple Vision, on-device. |
 | **Crop image** | 1 image | Free or fixed ratio, exact pixel size, saved at full resolution. |
 | **Redact photo** | 1 image | Covers areas with a solid box, blur or pixelation. Move and resize each area. |
 | **Resize images** | 1 or more | By long edge, percent or exact size, aspect kept. Never enlarges in long-edge mode. |
@@ -251,7 +253,7 @@ Prefer a floating card in the top-right corner? *Settings → Appearance → Pro
 | **General** | Save converted files: next to the original, Downloads or Desktop | next to the original |
 | | Reveal results in Finder | on |
 | | Start automatically at login (move the app to Applications first) | off |
-| | Open the wheel with Shift alone, for Finder's selection | off |
+| | Open the wheel with Shift alone, for Finder's selection | on |
 | **Appearance** | Theme: System, Light or Dark | System |
 | | Progress: Card or Notch pill · Notch surface: Pure black or Glass | Notch pill · Pure black |
 | **Formats** | JPEG / HEIC / WebP quality (30–100 %) | 90 % |
@@ -265,6 +267,8 @@ The drag modifiers, and scrolling to switch wheels, are listed under *General* f
 ## Screenshots
 
 Real windows from the current build, light and dark follow your GitHub theme. They are rendered offscreen by [`scripts/readme/Screenshots.swift`](scripts/readme/Screenshots.swift), so they never drift from the code.
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-removeBackground-dark.webp"><img src="docs/readme/screens/tool-removeBackground-light.webp" alt="Remove background window: the subject on a checkerboard, with the magic wand, brush, Remove and Keep, tolerance, undo, softness and crop to subject" width="80%"></picture><br><sub><b>Remove background</b> · the subject on a checkerboard, refined with the magic wand or the brush</sub></p>
 
 <table>
 <tr>
@@ -322,7 +326,7 @@ What this fork adds on top of upstream. Everything stays on-device, built on App
 
 | Feature | What it does | Status |
 | --- | --- | --- |
-| **Remove background** | Any photo → its subject on a transparent PNG, from the <kbd>⌘</kbd> wheel, one image or a batch, with edge softness and crop to subject. Apple Vision foreground masks, on-device. | 🟢&nbsp;shipped |
+| **Remove background** | Any photo → its subject on a transparent PNG, from the <kbd>⌘</kbd> wheel, one image or a batch, refined with a magic wand or a brush, with edge softness and crop to subject. Apple Vision foreground masks, on-device. | 🟢&nbsp;shipped |
 | **Compression 2.0** | Video presets (HEVC or H.264, resolution, frame rate), batch target sizes for images, PDF image downsampling, a before/after size preview. | 🟠&nbsp;next |
 | **ZIP in one drop** | A <kbd>⌃</kbd> action that zips the selection; safe extraction once it is bounded and sandboxed. | 🟠&nbsp;next |
 | **Text from images** | OCR with Apple Vision on images and scanned PDFs, to the clipboard or a `.txt`. | ⚪&nbsp;later |
@@ -374,7 +378,7 @@ Open Tangerine finds FFmpeg in Homebrew, MacPorts or `/usr/local/bin`, or at a p
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/hairline-local-dark.svg"><img src="docs/readme/hairline-local-light.svg" alt="Everything stays on your Mac: files circle the laptop inside a boundary they never cross" width="64%"></picture></p>
 
 - **Files never leave your Mac.** Every conversion and tool runs locally with Apple frameworks, or with your own FFmpeg.
-- **Finder's selection is read only when you ask:** with *Shift alone* on, holding Shift asks Finder which files are selected, through Apple Events you allow once. Off by default.
+- **Finder's selection is read only when you ask:** with *Shift alone* on, holding Shift asks Finder which files are selected, through Apple Events you allow once. You can turn it off in *Settings → General*.
 - **One network request:** the update check reads the latest public GitHub release, at most once a day. It sends no file names, content or account.
 - **No account, no analytics in the app, no AI service**, so no API key and no usage charge. Any future AI feature must be opt-in and bring-your-own-key.
 - Metadata removal and visible redaction are helpful, not certified: review exported files before sharing sensitive documents.
@@ -387,7 +391,7 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 - **Not full Tangerine parity yet:** no OCR, translation, universal Office conversion, watch folders, undo history or plugin installer. The first items are on the [roadmap](#roadmap).
 - *Add a background* adds a background; it does not remove the existing one. Run *Remove background* first for that.
-- *Remove background* keeps every foreground subject Apple Vision finds, as one cut-out. It needs a subject that stands out from the background; it cannot pick one subject among several or refine edges by hand.
+- *Remove background* keeps every foreground subject Apple Vision finds, as one cut-out. It needs a subject that stands out from the background. Refining by hand (wand and brush) works on one image at a time, not on a batch.
 - Archive conversion is disabled until bounded extraction, traversal and link defenses, and isolation are in place.
 - Native image loading is limited to 100 MB and 40 megapixels. Animated and multipage images need more work; use single-frame images.
 - Heavy native operations can briefly block the interface. Cancelling external processes is best-effort; worker isolation and timeouts are release gates.
@@ -439,7 +443,7 @@ Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Notes: [desig
 <details>
 <summary><b>Changelog</b> · 0.1.1 → 0.2.0</summary>
 
-- **0.2.0** (this fork) — **Remove background** turns photos into transparent PNGs with Apple Vision, on-device. **Scroll over the wheel** to move between Convert, Tools and File actions. Optional **Shift alone** opens the wheel for Finder's selection, no drag needed. Check for Updates follows this fork's releases.
+- **0.2.0** (this fork) — **Remove background** turns photos into transparent PNGs with Apple Vision, on-device, refined with a magic wand or a brush. **Scroll over the wheel** to move between Convert, Tools and File actions; dropping anywhere but on a choice keeps the wheel open. **Shift alone** opens the wheel for Finder's selection, no drag needed. Check for Updates follows this fork's releases.
 - **0.1.8** — *Pure black* (default) or *Glass* notch surface, with a black fallback under Reduce Transparency. The wheel springs in and lifts the highlighted segment. Results get **Open** and **Show in Finder**, stay eight seconds and remain while hovered. Settings show the installed version. Website analytics moved to a dedicated GoatCounter project.
 - **0.1.7** — The notch panel has a solid sRGB black backing, expands from the physical notch and retracts into it. Reopening interrupts dismissal safely.
 - **0.1.6** — Built-in lossless WebP fallback; AVIF and Ogg pick available encoders; batches reserve distinct names and report unsupported inputs per file; fixes for PDF/DOCX page order, precise trims, silent video, audio channels and bleeps, PNG compression, rotation, framing and metadata.

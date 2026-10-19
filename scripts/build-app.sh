@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-# 0.2.0 (fork): background removal, scroll to switch wheels, Shift alone opens the wheel, updates from this fork.
+# 0.2.0 (fork): background removal with wand and brush, scroll to switch wheels, Shift alone opens the wheel, missed drops keep the wheel open, updates from this fork.
 cd "$(dirname "$0")/.."
 app="$PWD/dist/Open Tangerine.app"
 mkdir -p "$app/Contents/MacOS" "$PWD/.build/module-cache"
@@ -15,7 +15,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.2.0</string>
-<key>CFBundleVersion</key><string>10</string>
+<key>CFBundleVersion</key><string>11</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>

@@ -33,7 +33,7 @@ enum DragDebug {
 
 final class DragMonitor {
     weak var delegate: DragMonitorDelegate?
-    /// Whether holding Shift alone over Finder opens the wheel (a setting, off by default).
+    /// Whether holding Shift alone over Finder opens the wheel (a setting, on by default).
     var shiftHoldEnabled: () -> Bool = { AppSettings.shared.shiftOpensWheel }
     private var shiftHold = ShiftHoldRecognizer()
 

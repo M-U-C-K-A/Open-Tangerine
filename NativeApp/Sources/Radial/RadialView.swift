@@ -274,6 +274,8 @@ final class RadialView: NSView {
     var onCancel: (() -> Void)?
     var onDragEntered: ((NSDraggingInfo) -> Void)?
     var onDragSessionEnded: (() -> Void)?
+    /// A drop that landed on no choice: in the hub, between segments or beside the wheel.
+    var onDropMissed: (() -> Void)?
     var interactive = false
     var mode: RadialMode = .convert { didSet { if oldValue != mode { refresh() } } }
     /// Called with +1 or -1 when a scroll (or Tab) asks for the next or previous wheel.
@@ -397,7 +399,7 @@ final class RadialView: NSView {
         updateHighlight(forWindowPoint: sender.draggingLocation)
         DragDebug.log("performDragOperation highlighted=\(String(describing: highlighted)) mask=\(sender.draggingSourceOperationMask.rawValue)")
         guard let highlighted, highlighted < items.count else {
-            onCancel?()
+            onDropMissed?()
             return false
         }
         let item = items[highlighted]
