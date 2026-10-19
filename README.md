@@ -5,7 +5,7 @@
 <p align="center">
   <b>A native macOS file converter and toolbox that lives in your menu bar.</b><br>
   Drag files in Finder, hold a key, drop them on a format or a tool. The result lands next to the original.<br>
-  184 conversion routes, 28 tools, batch jobs and watch folders — all processed on your Mac. No account, no limits, no subscription.
+  184 conversion routes, 34 tools, batch jobs and watch folders — all processed on your Mac. No account, no limits, no subscription.
 </p>
 
 <p align="center">
@@ -52,7 +52,7 @@
 4. Each file is converted next to its original (`photo.heic` → `photo.png`). Progress grows out of the notch; a file that fails never stops the others.
 
 > [!TIP]
-> Not a dragger? The menu-bar icon has **Convert Files…**, **Open Tool for Files…** and **File Actions…**: they open a file picker, then the same wheel. Arrow keys move around the wheel, <kbd>Return</kbd> picks, <kbd>Esc</kbd> cancels.
+> Not a dragger? Right-click files in Finder → **Services** (or **Quick Actions**) → *Convert with Open Tangerine*, *Open Tangerine Tools* or *Open Tangerine File Actions*. The menu-bar icon also has **Convert Files…**, **Open Tool for Files…** and **File Actions…**: they open a file picker, then the same wheel. Arrow keys move around the wheel, <kbd>Return</kbd> picks, <kbd>Esc</kbd> cancels.
 
 Start with copies of ordinary files: PNG → JPEG, crop or resize a photo, turn two images into a PDF, merge two PDFs, copy a SHA-256 checksum.
 
@@ -68,7 +68,7 @@ Everything starts from a drag in Finder. The key you hold decides which wheel op
 | --- | --- | --- |
 | <kbd>⇧ Shift</kbd> | **Convert** | Every format the files you hold can become, and only those. |
 | <kbd>⌘ Command</kbd> (or <kbd>⌥ Option</kbd> + <kbd>⇧ Shift</kbd>) | **Tools** | The tools that accept this selection: crop, trim, merge, compress… |
-| <kbd>⌃ Control</kbd> | **File actions** | Reveal in Finder, copy files, copy paths, duplicate, ZIP, rename, copy text, SHA-256. Folders too. |
+| <kbd>⌃ Control</kbd> | **File actions** | Reveal in Finder, copy files, copy paths, duplicate, ZIP and unzip, rename, copy text, read QR codes, SHA-256. Folders too. |
 
 **Scroll to switch wheels.** Whichever key opened it, scroll over the wheel (mouse wheel or trackpad, even mid-drag) to move from **Convert** to **Tools** to **File actions** and round again. The dots under the title show where you are. In the picker, <kbd>Tab</kbd> and <kbd>⇧ Tab</kbd> do the same.
 
@@ -153,18 +153,20 @@ The catalogue describes potential routes. Codec availability depends on your FFm
 
 ## Tools
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/tools-dark.svg"><img src="docs/readme/tools-light.svg" alt="28 tools and 8 file actions: images, video, audio, PDF and any file" width="100%"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/tools-dark.svg"><img src="docs/readme/tools-light.svg" alt="34 tools and 10 file actions: images, video, audio, PDF and any file" width="100%"></picture></p>
 
 Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a live preview. Originals are never modified; every tool writes a new copy.
 
 <details open>
-<summary><b>Images</b> · 10 tools</summary>
+<summary><b>Images</b> · 12 tools</summary>
 
 | Tool | Takes | What it does |
 | --- | --- | --- |
 | **Edit photo** | 1 image | Light, color and detail: exposure, brightness, contrast, highlights, shadows, saturation, vibrance, temperature, tint, monochrome, sepia. Hold to compare. |
 | **Add a background** | 1 image | Places the image on a color, gradient or image background at a chosen aspect ratio. |
-| **Remove background** | 1 or more | Keeps the people, animals and objects in front and makes the rest transparent: a PNG next to each original. Refine one image by hand with a **magic wand** (click a patch of similar color) or a **brush**, to remove more or bring parts back, with undo. Zoom in (pinch, ⌘+) to work on the edges. Edge softness, crop to subject, before/after. Apple Vision, on-device. |
+| **Remove background** | 1 or more | Keeps the people, animals and objects in front and makes the rest transparent: a PNG next to each original. Refine one image by hand with a **magic wand** (click a patch of similar color) or a **brush**, to remove more or bring parts back, with undo. Zoom in with <kbd>⌃</kbd> and the scroll wheel, a pinch or ⌘+ to work on the edges; moving *Tolerance* or *Brush size* redoes your last click or stroke with the new value. Edge softness, crop to subject, before/after. Apple Vision, on-device. |
+| **Upscale image** | 1 or more | ×2 or ×4. *Enlarge* resamples smoothly; *Enhance details* rebuilds edges and texture with the Mac's machine-learning super resolution, tile by tile. A before/after of a detail at the new size. |
+| **Hide faces** | 1 or more | Finds every face with Apple Vision and blurs, pixelates or boxes it, with an adjustable margin. |
 | **Add a watermark** | 1 or more | Text or a logo, in a corner, the middle or repeated across the picture; size and opacity follow each image's size. |
 | **Crop image** | 1 image | Free or fixed ratio, exact pixel size, saved at full resolution. |
 | **Redact photo** | 1 image | Covers areas with a solid box, blur or pixelation. Move and resize each area. |
@@ -176,7 +178,7 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 </details>
 
 <details>
-<summary><b>Video</b> · 7 tools</summary>
+<summary><b>Video</b> · 9 tools</summary>
 
 | Tool | Takes | What it does |
 | --- | --- | --- |
@@ -187,11 +189,13 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | **Save video frames** | 1 video | Pick exact frames, or one every N seconds, at full resolution as PNG, JPEG or HEIC. |
 | **Split video** | 1 video | At chosen points or into equal parts, numbered in one folder. Lossless when possible. |
 | **Redact video** | 1 video | Cover areas, each with its own time range. |
+| **Hide faces** | 1 video | Every frame is searched, so faces that move or appear later stay hidden. MP4 and MOV. |
+| **Subtitles from speech** | 1 or more | Transcribes what is said into SRT, WebVTT or text, timed word by word, with Apple's on-device speech recognition. |
 
 </details>
 
 <details>
-<summary><b>Audio</b> · 5 tools</summary>
+<summary><b>Audio</b> · 6 tools</summary>
 
 | Tool | Takes | What it does |
 | --- | --- | --- |
@@ -200,27 +204,31 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | **Trim audio** | 1 file | Start and end at the playhead; removes leading and trailing silence in one click. |
 | **Audio channels** | 1 file | Stereo, mono mix-down, left or right to both, or swap. Needs FFmpeg. |
 | **Bleep audio** | 1 file | Adds bleeps at the playhead, nudged to the tenth of a second. |
+| **Subtitles from speech** | 1 or more | A recording or a voice memo to SRT, WebVTT or text, on this Mac. |
 
 </details>
 
 <details>
-<summary><b>PDF</b> · 3 tools</summary>
+<summary><b>PDF</b> · 5 tools</summary>
 
 | Tool | Takes | What it does |
 | --- | --- | --- |
 | **Merge PDFs** | 2 or more | Combined in list order, starting from the Finder selection. Password-protected PDFs are skipped with an error. |
 | **Organize PDF pages** | 1 PDF | Reorder, rotate, duplicate, remove or reverse pages. |
 | **Split PDF** | 1 PDF | One file per page, every N pages, or custom ranges like `1-3, 5`. |
+| **Add a password** | 1 or more | A copy that asks for a password to open, with an optional owner password. |
+| **Remove the password** | 1 or more | A copy that opens freely, for PDFs whose password you know. |
 
 </details>
 
 <details>
-<summary><b>Any file</b> · 2 tools, and 8 file actions</summary>
+<summary><b>Any file</b> · 3 tools, and 10 file actions</summary>
 
 | Tool | Takes | What it does |
 | --- | --- | --- |
 | **Compress** | images, video, audio, PDF | *Balanced* or *Strong*, image long edge (2560, 1920, 1280 px), or a **target file size** per file. Videos: **H.264 or HEVC**, resolution (4K to 480p) and frame rate (60, 30, 24). Transparent PNGs stay PNG. |
 | **Edit metadata** | any media | Edit fields, remove all metadata, or only camera, GPS and processing data. Writes a copy. |
+| **Translate** | subtitles, text, PDFs, pictures | Apple's on-device translation. Subtitles keep every timing and are saved as `name.fr.srt`, which players pick up; pictures and PDFs give their recognised text. |
 
 | File action (<kbd>⌃</kbd>) | What it does |
 | --- | --- |
@@ -230,7 +238,9 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | **Duplicate** | Makes `name copy.ext` next to each file or folder. |
 | **ZIP** | One item becomes `name.zip`, several become `Archive.zip`, folders included, never overwriting. |
 | **Rename** | Renames files and folders in place from a pattern (`{name}`, `{n}`, `{date}`), with find and replace, case and a live preview. Clashes are caught first, and if one rename fails every file keeps its name. |
+| **Unzip** | Unpacks a ZIP next to it, after checking every entry: no paths outside the folder, no links, at most 20 GB and nothing that inflates a thousand times. |
 | **Copy Text** | Reads the text in images and PDFs (scanned pages too) with Apple Vision and puts it on the clipboard. |
+| **Read Codes** | Finds QR codes and barcodes in images and PDFs. Hover one on the picture to see what it holds; click a link to open it, or copy it. |
 | **SHA-256** | Streams each file and copies `checksum  name` lines to the clipboard. |
 
 </details>
@@ -241,7 +251,7 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/notch-dark.svg"><img src="docs/readme/notch-light.svg" alt="Progress grows out of the MacBook notch: a citrus companion, the file, a progress bar, then Open and Show in Finder" width="100%"></picture></p>
 
-Work shows where your eyes already are. The panel grows out of the physical notch (or the top of the screen on Macs without one) and folds back into it when done:
+Work shows where your eyes already are. The panel grows out of the physical notch and folds back into it when done; on a display without a notch it sits at the top and follows light or dark. While the wheel is open it says what the choice under the pointer does (“Rotate & flip: turns pictures a quarter at a time, or mirrors them”), and it leaves when the wheel closes:
 
 - an original **citrus companion** that watches the wheel, gets busy, delivers and smiles, or frowns when a file fails;
 - one row per file with its own progress, up to three visible, the rest scroll; **cancel** at any time;
@@ -285,6 +295,14 @@ Real windows from the current build, light and dark follow your GitHub theme. Th
 <tr>
 <td align="center"><b>Crop image</b><br><sub>free or fixed ratio, exact pixels, full resolution</sub></td>
 <td align="center"><b>Edit photo</b><br><sub>light, color and detail, hold to compare</sub></td>
+</tr>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-upscaleImage-dark.webp"><img src="docs/readme/screens/tool-upscaleImage-light.webp" alt="Upscale image window: a detail at the new size, Enlarge or Enhance details, ×2 or ×4"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-watermarkImage-dark.webp"><img src="docs/readme/screens/tool-watermarkImage-light.webp" alt="Add a watermark window: the photo with a text mark, placement grid, size and opacity"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Upscale image</b><br><sub>smooth enlargement or super resolution, ×2 or ×4</sub></td>
+<td align="center"><b>Add a watermark</b><br><sub>text or logo, in a corner or repeated</sub></td>
 </tr>
 <tr>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-createCollage-dark.webp"><img src="docs/readme/screens/tool-createCollage-light.webp" alt="Create a collage window: three images in a grid with layout, size and style controls"></picture></td>
@@ -339,12 +357,20 @@ What this fork adds on top of upstream, shipped in 0.2.0, and what could come ne
 | **Text from images** | Images and scanned PDFs to `.txt`, or *Copy Text* to the clipboard, with Apple Vision. | 🟢&nbsp;shipped |
 | **Watch folders** | Pick folders and a format in Settings; files that arrive are converted. | 🟢&nbsp;shipped |
 | **Batch rename & watermark** | Rename from a pattern with a preview and rollback; text or logo watermarks. | 🟢&nbsp;shipped |
-| **Unzip safely** | Extract archives after checking every path and the total size. | 🟠&nbsp;proposed |
-| **Subtitles from speech** | Transcribe a video or a voice memo to SRT with Apple's on-device speech recognition. | 🟠&nbsp;proposed |
-| **Upscale images** | ×2 and ×4 enlargement on this Mac. | 🟠&nbsp;proposed |
-| **Blur faces** | Find faces in photos and videos and blur them in one drop. | ⚪&nbsp;idea |
-| **Translate text** | Subtitles and recognised text, with Apple's on-device translation. | ⚪&nbsp;idea |
-| **Finder Quick Actions** | Right-click → Open Tangerine, for people who never drag. | ⚪&nbsp;idea |
+| **Upscale images** | ×2 and ×4: smooth enlargement, or machine-learning super resolution. | 🟢&nbsp;shipped |
+| **Hide faces** | Blur, pixelate or box every face in photos and videos. | 🟢&nbsp;shipped |
+| **Translate** | Subtitles, text, PDFs and pictures, with Apple's on-device translation. | 🟢&nbsp;shipped |
+| **Unzip safely** | Extract ZIPs after checking paths, links, size and inflation. | 🟢&nbsp;shipped |
+| **Subtitles from speech** | Videos and recordings to SRT, WebVTT or text, on-device. | 🟢&nbsp;shipped |
+| **PDF passwords** | Add one, or remove one you know. | 🟢&nbsp;shipped |
+| **Finder Quick Actions** | Right-click → Services → Open Tangerine. | 🟢&nbsp;shipped |
+| **Read QR codes** | Links and text from QR codes and barcodes, hover to see, click to open. | 🟢&nbsp;shipped |
+| **Scan documents** | A photo of a page, straightened and cropped into a clean PDF. | 🟠&nbsp;proposed |
+| **Searchable PDFs** | Add a hidden text layer to scanned PDFs so they can be searched and copied. | 🟠&nbsp;proposed |
+| **Smooth slow motion** | New frames between frames for slow, fluid video. | 🟠&nbsp;proposed |
+| **Upscale & denoise video** | VideoToolbox super resolution and noise filtering for clips. | ⚪&nbsp;idea |
+| **Colour palette** | The main colours of a picture, ready to copy. | ⚪&nbsp;idea |
+| **Undo history** | Take back any conversion or rename. | ⚪&nbsp;idea |
 
 Ideas and requests are welcome in [issues](https://github.com/M-U-C-K-A/Open-Tangerine/issues). Upstream's longer-term direction lives in [docs/PRD.md](docs/PRD.md); roadmap items are not current capabilities.
 
@@ -392,7 +418,7 @@ Open Tangerine finds FFmpeg in Homebrew, MacPorts or `/usr/local/bin`, or at a p
 
 - **Files never leave your Mac.** Every conversion and tool runs locally with Apple frameworks, or with your own FFmpeg.
 - **Finder's selection is read only when you ask:** with *Shift alone* on, holding Shift asks Finder which files are selected, through Apple Events you allow once. You can turn it off in *Settings → General*.
-- **One network request:** the update check reads the latest public GitHub release, at most once a day. It sends no file names, content or account.
+- **Network, rarely:** the update check reads the latest public GitHub release, at most once a day, sending no file names, content or account. The first time you translate to a language or transcribe one, macOS downloads Apple's model for it; your files are never sent.
 - **No account, no analytics in the app, no AI service**, so no API key and no usage charge. Any future AI feature must be opt-in and bring-your-own-key.
 - Metadata removal and visible redaction are helpful, not certified: review exported files before sharing sensitive documents.
 
@@ -402,8 +428,8 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Limitations
 
-- **Not full Tangerine parity yet:** no translation, universal Office conversion, undo history or plugin installer. Some are on the [roadmap](#roadmap).
-- Archives can be created (ZIP) but not extracted yet.
+- **Not full Tangerine parity yet:** no universal Office conversion, undo history or plugin installer. Some are on the [roadmap](#roadmap).
+- ZIP archives can be created and unpacked; TAR, GZ and RAR are not handled yet.
 - Watch folders only see files added while the app runs; files already in a folder are left alone.
 - *Add a background* adds a background; it does not remove the existing one. Run *Remove background* first for that.
 - *Remove background* keeps every foreground subject Apple Vision finds, as one cut-out. It needs a subject that stands out from the background. Refining by hand (wand and brush) works on one image at a time, not on a batch.
@@ -458,7 +484,7 @@ Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Notes: [desig
 <details>
 <summary><b>Changelog</b> · 0.1.1 → 0.2.0</summary>
 
-- **0.2.0** (this fork) — **Remove background** turns photos into transparent PNGs with Apple Vision, on-device, refined with a magic wand or a brush. **Scroll over the wheel** to move between Convert, Tools and File actions; dropping anywhere but on a choice keeps the wheel open. **Shift alone** opens the wheel for Finder's selection, no drag needed. **Compression 2.0** (H.264 or HEVC, resolution, frame rate), **ZIP**, **Rename** and **Copy Text** file actions (folders accepted), **text from images** and scanned PDFs, **watermarks** and **watch folders**. Check for Updates follows this fork's releases.
+- **0.2.0** (this fork) — **Remove background** turns photos into transparent PNGs with Apple Vision, on-device, refined with a magic wand or a brush. **Scroll over the wheel** to move between Convert, Tools and File actions; dropping anywhere but on a choice keeps the wheel open. **Shift alone** opens the wheel for Finder's selection, no drag needed. **Upscale** (smooth or super resolution), **Hide faces** in photos and videos, **Translate**, **Subtitles from speech**, **PDF passwords**, **Unzip** and **Read Codes**, Finder **Quick Actions**, a notch that explains each choice and follows light or dark, and <kbd>⌃</kbd>-scroll zoom with retunable wand and brush in Remove background. **Compression 2.0** (H.264 or HEVC, resolution, frame rate), **ZIP**, **Rename** and **Copy Text** file actions (folders accepted), **text from images** and scanned PDFs, **watermarks** and **watch folders**. Check for Updates follows this fork's releases.
 - **0.1.8** — *Pure black* (default) or *Glass* notch surface, with a black fallback under Reduce Transparency. The wheel springs in and lifts the highlighted segment. Results get **Open** and **Show in Finder**, stay eight seconds and remain while hovered. Settings show the installed version. Website analytics moved to a dedicated GoatCounter project.
 - **0.1.7** — The notch panel has a solid sRGB black backing, expands from the physical notch and retracts into it. Reopening interrupts dismissal safely.
 - **0.1.6** — Built-in lossless WebP fallback; AVIF and Ogg pick available encoders; batches reserve distinct names and report unsupported inputs per file; fixes for PDF/DOCX page order, precise trims, silent video, audio channels and bleeps, PNG compression, rotation, framing and metadata.

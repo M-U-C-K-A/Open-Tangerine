@@ -74,6 +74,8 @@ enum Shots {
 
         let tools: [(ToolID, [URL])] = [
             (.removeBackground, [fruit]),
+            (.upscaleImage, [photo]),
+            (.watermarkImage, [photo]),
             (.cropImage, [photo]),
             (.editImage, [photo]),
             (.compress, [photo, pdf, video]),
