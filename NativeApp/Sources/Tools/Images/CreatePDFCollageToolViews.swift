@@ -179,7 +179,9 @@ struct CollageToolView: View {
                 ZStack {
                     CheckerboardBackground()
                     if let preview {
-                        Image(nsImage: preview).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(16)
+                        ZoomableView {
+                            Image(nsImage: preview).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(16)
+                        }
                     } else {
                         ProgressView()
                     }

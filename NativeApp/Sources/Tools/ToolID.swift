@@ -335,5 +335,34 @@ enum ToolID: String, CaseIterable, Identifiable {
     }
 
     static var total: Int { allCases.count }
+
+    /// The tools that share one window as tabs, for a single video or picture.
+    static let videoTabs: [ToolID] = [.trimVideo, .cropVideo, .changeVideoSpeed, .splitVideo, .videoSnapshots, .redactVideo, .enhanceVideo, .socialVideo]
+    static let imageTabs: [ToolID] = [.editImage, .cropImage, .rotateImage, .removeBackground, .redactImage, .watermarkImage, .frameImage, .resizeImage, .colorPalette, .scanDocument]
+
+    static func tabs(for session: ToolSession) -> [ToolID]? {
+        guard session.files.count == 1 else { return nil }
+        for group in [videoTabs, imageTabs] where group.contains(session.tool) {
+            let usable = group.filter { $0.applies(to: session.formats) }
+            return usable.count > 1 ? usable : nil
+        }
+        return nil
+    }
+
+    /// One word for a tab.
+    var tabLabel: String {
+        switch self {
+        case .changeVideoSpeed: return "Speed"
+        case .videoSnapshots: return "Frames"
+        case .redactVideo, .redactImage: return "Blur"
+        case .removeBackground: return "Cutout"
+        case .frameImage: return "Backdrop"
+        case .colorPalette: return "Colors"
+        case .scanDocument: return "Scan"
+        case .watermarkImage: return "Mark"
+        case .resizeImage: return "Size"
+        default: return radialLabel.capitalized
+        }
+    }
 }
 

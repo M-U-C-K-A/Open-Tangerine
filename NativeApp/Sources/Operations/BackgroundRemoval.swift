@@ -12,8 +12,24 @@ enum BackgroundRemoval {
         var cropToSubject = false
     }
 
+    static let noSubjectMessage = "No subject found. Background removal needs a person, animal or object that stands out from the background."
+
     /// Soft mask of all foreground instances at the image's own size: 1 keeps the pixel, 0 clears it.
-    static func mask(for image: CGImage) throws -> CIImage {
+    /// With `wholeIfNoSubject`, a picture without a clear subject is kept whole, for the wand and
+    /// brush to clear by hand, instead of failing.
+    static func mask(for image: CGImage, wholeIfNoSubject: Bool = false) throws -> CIImage {
+        if let found = try foregroundMask(for: image) { return found }
+        guard wholeIfNoSubject else { throw OpenTangerineError.invalidInput(noSubjectMessage) }
+        return wholeMask(width: image.width, height: image.height)
+    }
+
+    /// A mask that keeps every pixel.
+    static func wholeMask(width: Int, height: Int) -> CIImage {
+        CIImage(color: CIColor(red: 1, green: 1, blue: 1)).cropped(to: CGRect(x: 0, y: 0, width: width, height: height))
+    }
+
+    /// Nil when Vision sees nothing that stands out.
+    static func foregroundMask(for image: CGImage) throws -> CIImage? {
         try ImageIOBridge.validateDimensions(width: image.width, height: image.height)
         let request = VNGenerateForegroundInstanceMaskRequest()
         let handler = VNImageRequestHandler(cgImage: image, options: [:])
@@ -22,9 +38,7 @@ enum BackgroundRemoval {
         } catch {
             throw OpenTangerineError.toolFailed("Background removal", error.localizedDescription)
         }
-        guard let observation = request.results?.first, !observation.allInstances.isEmpty else {
-            throw OpenTangerineError.invalidInput("No subject found. Background removal needs a person, animal or object that stands out from the background.")
-        }
+        guard let observation = request.results?.first, !observation.allInstances.isEmpty else { return nil }
         let buffer: CVPixelBuffer
         do {
             buffer = try observation.generateScaledMaskForImage(forInstances: observation.allInstances, from: handler)
@@ -53,8 +67,8 @@ enum BackgroundRemoval {
         return (blend.outputImage ?? image).cropped(to: image.extent)
     }
 
-    static func remove(_ image: CGImage, options: Options = Options(), refinements: [Refinement] = []) throws -> CGImage {
-        var mask = try mask(for: image)
+    static func remove(_ image: CGImage, options: Options = Options(), refinements: [Refinement] = [], wholeIfNoSubject: Bool = false) throws -> CGImage {
+        var mask = try mask(for: image, wholeIfNoSubject: wholeIfNoSubject)
         if !refinements.isEmpty, let pixels = Pixels(image), var buffer = MaskBuffer(mask, width: image.width, height: image.height) {
             refine(&buffer, with: refinements, pixels: pixels)
             mask = buffer.ciImage()

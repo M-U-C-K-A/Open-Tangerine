@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/M-U-C-K-A/Open-Tangerine/releases"><img alt="Version 0.3.0" src="https://img.shields.io/badge/version-0.3.0-e04f00?style=flat-square"></a>
+  <a href="https://github.com/M-U-C-K-A/Open-Tangerine/releases"><img alt="Version 0.3.1" src="https://img.shields.io/badge/version-0.3.1-e04f00?style=flat-square"></a>
   <img alt="macOS 26 or later" src="https://img.shields.io/badge/macOS-26%2B-24251e?style=flat-square&logo=apple&logoColor=white">
   <img alt="Swift, SwiftUI and AppKit" src="https://img.shields.io/badge/Swift-SwiftUI%20%2B%20AppKit-f05138?style=flat-square&logo=swift&logoColor=white">
   <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-7fae3a?style=flat-square">
@@ -160,6 +160,8 @@ The catalogue describes potential routes. Codec availability depends on your FFm
 
 Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a live preview. Originals are never modified; every tool writes a new copy.
 
+Opened on **one video** or **one picture**, a window gathers every tool for it as **tabs** at the top of its sidebar (Trim, Crop, Speed, Split, Frames, Blur, Enhance, Social for a video; Edit, Crop, Rotate, Cutout, Blur, Mark, Backdrop, Size, Colors, Scan for a picture): pick one and the window switches to it, on the same file. Every picture editor **zooms and moves around**: <kbd>⌃</kbd> with the scroll wheel or a pinch zooms where the pointer is, scrolling moves around once zoomed in, <kbd>⌘</kbd><kbd>+</kbd> <kbd>⌘</kbd><kbd>−</kbd> and <kbd>⌘</kbd><kbd>0</kbd> from the keyboard.
+
 <details open>
 <summary><b>Images</b> · 12 tools</summary>
 
@@ -167,7 +169,7 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | --- | --- | --- |
 | **Edit photo** | 1 image | Light, color and detail: exposure, brightness, contrast, highlights, shadows, saturation, vibrance, temperature, tint, monochrome, sepia. Hold to compare. |
 | **Add a background** | 1 image | Places the image on a color, gradient or image background at a chosen aspect ratio. |
-| **Remove background** | 1 or more | Keeps the people, animals and objects in front and makes the rest transparent: a PNG next to each original. Refine one image by hand with a **magic wand** (click a patch of similar color) or a **brush**, to remove more or bring parts back, with undo. Zoom in with <kbd>⌃</kbd> and the scroll wheel, a pinch or ⌘+ to work on the edges; moving *Tolerance* or *Brush size* redoes your last click or stroke with the new value. Edge softness, crop to subject, before/after. Apple Vision, on-device. |
+| **Remove background** | 1 or more | Keeps the people, animals and objects in front and makes the rest transparent: a PNG next to each original. Refine one image by hand with a **magic wand** (click a patch of similar color) or a **brush**, to remove more or bring parts back, with undo. When Vision finds no subject, a note says so and the picture stays whole, to clear its background by hand. Zoom in with <kbd>⌃</kbd> and the scroll wheel, a pinch or ⌘+ to work on the edges; moving *Tolerance* or *Brush size* redoes your last click or stroke with the new value. Edge softness, crop to subject, before/after. Apple Vision, on-device. |
 | **Add a watermark** | 1 or more | Text or a logo, in a corner, the middle or repeated across the picture; size and opacity follow each image's size. |
 | **Crop image** | 1 image | Free or fixed ratio, exact pixel size, saved at full resolution. |
 | **Blur & redact** | 1 or more | Faces are found with Apple Vision and blurred as soon as the photo opens, each as an area you can **move, resize, restyle or delete**; drag on the photo to cover anything else (a plate, a screen, a name). Blur, pixelate or a box, with a **strength** slider for the blur or the size of the pixels, for all areas or one, and an adjustable margin around faces. What you see is what is saved. Several photos: each gets its own faces found, and your areas land at the same place on all. |
@@ -187,7 +189,7 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | --- | --- | --- |
 | **Trim video** | 1 video | Start and end with frame stepping (<kbd>←</kbd> <kbd>→</kbd>). Copied without re-encoding when the format allows. |
 | **Crop video** | 1 video | Draw the area; output is MP4 (H.264), audio kept as is. |
-| **Change video speed** | 1 video | Faster or slower, with optional pitch preservation. |
+| **Change video speed** | 1 video | A tall **pitch fader**, logarithmic, from **0.1×** at the bottom to **25×** at the top, with a notch at normal speed. **Keyframes** change the speed along the video (normal for two seconds, fast to ten, slow to fourteen…): add one at the playhead with <kbd>K</kbd>, drag a part of the timeline up or down to set its speed, a keyframe sideways to move it. Preview plays with the speeds; voices keep their pitch unless you'd rather hear tape. |
 | **Join videos** | 2 or more | One MP4; other clips are scaled and letterboxed to the first clip's size. |
 | **Save video frames** | 1 video | Pick exact frames, or one every N seconds, at full resolution as PNG, JPEG or HEIC. |
 | **Split video** | 1 video | At chosen points or into equal parts, numbered in one folder. Lossless when possible. |
@@ -278,6 +280,9 @@ Prefer a floating card in the top-right corner? *Settings → Appearance → Pro
 | | Open the wheel with Shift alone, for Finder's selection | on |
 | | Excluded apps: drags that start in them never open the wheel (design tools) | none |
 | **Appearance** | Theme: System, Light or Dark | System |
+| | Accent color: orange, red, pink, purple, indigo, blue, cyan, teal, green, yellow or graphite | orange |
+| | Corners: from square to 24 pt rounding | 12 pt |
+| | Liquid Glass windows: the desktop blurred through, glass panels, and how opaque the background stays | off · 55 % |
 | | Progress: Card or Notch pill · Notch surface: Pure black or Glass | Notch pill · Pure black |
 | **Formats** | JPEG / HEIC / WebP quality (30–100 %) | 90 % |
 | | Compression preset: Balanced or Strong | Balanced |
@@ -320,43 +325,51 @@ Real windows from the current build, light and dark follow your GitHub theme. Th
 </tr>
 <tr>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-enhanceVideo-dark.webp"><img src="docs/readme/screens/tool-enhanceVideo-light.webp" alt="Enhance video window: a frame before and after, noise, sharpening, light and color, double resolution"></picture></td>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-editMetadata-dark.webp"><img src="docs/readme/screens/tool-editMetadata-light.webp" alt="Edit metadata window: title, description, author, keywords, copyright, date and comment, and everything else in the file"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-changeVideoSpeed-dark.webp"><img src="docs/readme/screens/tool-changeVideoSpeed-light.webp" alt="Change video speed window: the pitch fader from 0.1× to 25×, the keyframe timeline and the video tools as tabs"></picture></td>
 </tr>
 <tr>
 <td align="center"><b>Enhance video</b><br><sub>denoise, sharpen, fix light, ×2 super resolution</sub></td>
-<td align="center"><b>Edit metadata</b><br><sub>common fields always editable, only changes written</sub></td>
+<td align="center"><b>Change video speed</b><br><sub>pitch fader, 0.1× to 25×, keyframes on a timeline</sub></td>
 </tr>
 <tr>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-watermarkImage-dark.webp"><img src="docs/readme/screens/tool-watermarkImage-light.webp" alt="Add a watermark window: the photo with a text mark, placement grid, size and opacity"></picture></td>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-createCollage-dark.webp"><img src="docs/readme/screens/tool-createCollage-light.webp" alt="Create a collage window: three images in a grid with layout, size and style controls"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-editMetadata-dark.webp"><img src="docs/readme/screens/tool-editMetadata-light.webp" alt="Edit metadata window: title, description, author, keywords, copyright, date and comment, and everything else in the file"></picture></td>
 </tr>
 <tr>
 <td align="center"><b>Add a watermark</b><br><sub>text or logo, in a corner or repeated</sub></td>
-<td align="center"><b>Create a collage</b><br><sub>grid, row, column or featured</sub></td>
+<td align="center"><b>Edit metadata</b><br><sub>common fields always editable, only changes written</sub></td>
 </tr>
 <tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-createCollage-dark.webp"><img src="docs/readme/screens/tool-createCollage-light.webp" alt="Create a collage window: three images in a grid with layout, size and style controls"></picture></td>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-compress-dark.webp"><img src="docs/readme/screens/tool-compress-light.webp" alt="Compress window: a PDF and a video with presets, codec and a target file size"></picture></td>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-normalizeAudio-dark.webp"><img src="docs/readme/screens/tool-normalizeAudio-light.webp" alt="Normalize volume window: waveform, loudness targets and presets, input and output measurements"></picture></td>
 </tr>
 <tr>
+<td align="center"><b>Create a collage</b><br><sub>grid, row, column or featured</sub></td>
 <td align="center"><b>Compress</b><br><sub>video, audio and PDF in one batch</sub></td>
-<td align="center"><b>Normalize volume</b><br><sub>EBU R128 loudness, measured before and after</sub></td>
 </tr>
 <tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-normalizeAudio-dark.webp"><img src="docs/readme/screens/tool-normalizeAudio-light.webp" alt="Normalize volume window: waveform, loudness targets and presets, input and output measurements"></picture></td>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-organizePDF-dark.webp"><img src="docs/readme/screens/tool-organizePDF-light.webp" alt="Organize PDF pages window: page thumbnails with rotate, duplicate, remove and reverse"></picture></td>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-mergePDF-dark.webp"><img src="docs/readme/screens/tool-mergePDF-light.webp" alt="Merge PDFs window: two documents in order, with their pages"></picture></td>
 </tr>
 <tr>
+<td align="center"><b>Normalize volume</b><br><sub>EBU R128 loudness, measured before and after</sub></td>
 <td align="center"><b>Organize PDF pages</b><br><sub>reorder, rotate, duplicate, remove</sub></td>
-<td align="center"><b>Merge PDFs</b><br><sub>in list order, from the Finder selection</sub></td>
 </tr>
 <tr>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/settings-general-dark.webp"><img src="docs/readme/screens/settings-general-light.webp" alt="Settings, General: output location, login item and the drag modifiers"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-mergePDF-dark.webp"><img src="docs/readme/screens/tool-mergePDF-light.webp" alt="Merge PDFs window: two documents in order, with their pages"></picture></td>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/settings-conversion-dark.webp"><img src="docs/readme/screens/settings-conversion-light.webp" alt="Settings, Formats: image quality, compression preset and the FFmpeg path"></picture></td>
 </tr>
 <tr>
-<td align="center"><b>Settings · General</b><br><sub>where results go, login, drag modifiers</sub></td>
+<td align="center"><b>Merge PDFs</b><br><sub>in list order, from the Finder selection</sub></td>
 <td align="center"><b>Settings · Formats</b><br><sub>quality, compression, FFmpeg</sub></td>
+</tr>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/settings-general-dark.webp"><img src="docs/readme/screens/settings-general-light.webp" alt="Settings, General: output location, login item and the drag modifiers"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/settings-appearance-dark.webp"><img src="docs/readme/screens/settings-appearance-light.webp" alt="Settings, Appearance: theme, accent color, corners and Liquid Glass with a live preview"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Settings · General</b><br><sub>where results go, login, drag modifiers</sub></td>
+<td align="center"><b>Appearance</b><br><sub>accent color, corners, Liquid Glass</sub></td>
 </tr>
 </table>
 
@@ -518,9 +531,10 @@ Run `python3 -m http.server` at the repository root and open `/scripts/readme/pr
 Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Notes: [design](docs/DESIGN.md), [updates](docs/UPDATES.md), [analytics](ANALYTICS.md), [DragShift comparison](DRAGSHIFT_COMPARISON.md), [third-party notices](THIRD_PARTY_NOTICES.md).
 
 <details>
-<summary><b>Changelog</b> · 0.1.1 → 0.3.0</summary>
+<summary><b>Changelog</b> · 0.1.1 → 0.3.1</summary>
 
-- **0.3.0** (this fork) — **Color palette** with an eyedropper (and *Pick a Color on Screen…*), **Scan to PDF** and **Make searchable** for scanned PDFs, **Enhance video** (denoise, sharpen, light, ×2 super resolution), **social network formats** for pictures (Resize & compress) and **videos** (*Social video*: Reels, Shorts, TikTok, crop that follows the subject) with a live feed preview, and **Markdown ↔ HTML ↔ Word** conversions. Blur strength and pixel size; the video blur no longer loads the Mac (one preview frame at a time, faces searched on a small copy at most 15 times a second); the resize preview shows the real result and its weight; metadata fields can be added and only the changed ones are written. From upstream 0.1.9: drags without files and drags from excluded apps no longer open the wheel, immediate hover, menu icons and a quicker notch. GIF → WebM and silent video → MP3 fixed.
+- **0.3.1** (this fork) — Tool **tabs** for one video or picture, **zoom** in every picture editor, a **pitch fader with keyframes** for speed (0.1× to 25×), **accent colors, corners and Liquid Glass** in Settings, Remove background by hand when no subject is found, and **Reveal** that brings Finder forward.
+- **0.3.0** — **Color palette** with an eyedropper (and *Pick a Color on Screen…*), **Scan to PDF** and **Make searchable** for scanned PDFs, **Enhance video** (denoise, sharpen, light, ×2 super resolution), **social network formats** for pictures (Resize & compress) and **videos** (*Social video*: Reels, Shorts, TikTok, crop that follows the subject) with a live feed preview, and **Markdown ↔ HTML ↔ Word** conversions. Blur strength and pixel size; the video blur no longer loads the Mac (one preview frame at a time, faces searched on a small copy at most 15 times a second); the resize preview shows the real result and its weight; metadata fields can be added and only the changed ones are written. From upstream 0.1.9: drags without files and drags from excluded apps no longer open the wheel, immediate hover, menu icons and a quicker notch. GIF → WebM and silent video → MP3 fixed.
 - **0.2.0** — **Remove background** turns photos into transparent PNGs with Apple Vision, on-device, refined with a magic wand or a brush. **Scroll over the wheel** to move between Convert, Tools and File actions; dropping anywhere but on a choice keeps the wheel open. **Shift alone** opens the wheel for Finder's selection, no drag needed. **Resize & compress** (smaller, bigger with super resolution, or lighter, in one window), **Blur & redact** with faces found for you and areas you move, resize or add, in photos and videos, **Translate**, **Subtitles from speech**, **PDF passwords**, **Unzip** and **Read Codes**, Finder **Quick Actions**, a notch that explains each choice and follows light or dark, and <kbd>⌃</kbd>-scroll zoom with retunable wand and brush in Remove background. **Compression 2.0** (H.264 or HEVC, resolution, frame rate), **ZIP**, **Rename** and **Copy Text** file actions (folders accepted), **text from images** and scanned PDFs, **watermarks** and **watch folders**. Check for Updates follows this fork's releases.
 - **0.1.8** — *Pure black* (default) or *Glass* notch surface, with a black fallback under Reduce Transparency. The wheel springs in and lifts the highlighted segment. Results get **Open** and **Show in Finder**, stay eight seconds and remain while hovered. Settings show the installed version. Website analytics moved to a dedicated GoatCounter project.
 - **0.1.7** — The notch panel has a solid sRGB black backing, expands from the physical notch and retracts into it. Reopening interrupts dismissal safely.

@@ -60,3 +60,27 @@ enum FinderSelection {
         }
     }
 }
+
+/// Shows files selected in a Finder window brought to the front. Asked over Apple Events,
+/// as for the selection: since macOS 14 a menu-bar app can't bring Finder forward itself,
+/// so `activateFileViewerSelecting` alone selects the files out of sight.
+enum FinderReveal {
+    static func script(for urls: [URL]) -> String {
+        let items = urls.map { url -> String in
+            let path = url.path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            return "POSIX file \"\(path)\""
+        }.joined(separator: ", ")
+        return "tell application \"Finder\"\nreveal {\(items)}\nactivate\nend tell"
+    }
+
+    static func reveal(_ urls: [URL]) {
+        let files = urls.filter { FileManager.default.fileExists(atPath: $0.path) }
+        guard !files.isEmpty else { return }
+        Task {
+            let result = try? await Shell.run("/usr/bin/osascript", ["-e", script(for: files)])
+            if result?.succeeded != true {
+                await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting(files) }
+            }
+        }
+    }
+}

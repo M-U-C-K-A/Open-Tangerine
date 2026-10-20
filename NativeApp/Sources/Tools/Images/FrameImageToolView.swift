@@ -37,7 +37,9 @@ struct FrameImageToolView: View {
             ZStack {
                 CheckerboardBackground()
                 if let rendered {
-                    Image(nsImage: rendered).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(12)
+                    ZoomableView {
+                        Image(nsImage: rendered).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(12)
+                    }
                 } else {
                     LoadingOrError(error: document.error)
                 }

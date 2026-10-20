@@ -1,13 +1,20 @@
 import AppKit
 import SwiftUI
 
+/// Colors and shapes, as set in Settings → Appearance. Read from the stored settings, so any
+/// thread can ask; views that should follow changes live observe `AppSettings.shared`.
 enum Theme {
-    static let accentNS = NSColor(srgbRed: 1.0, green: 0.36, blue: 0.0, alpha: 1)
-    static let accent = Color(nsColor: accentNS)
+    static var accentNS: NSColor {
+        (AccentChoice(rawValue: UserDefaults.standard.string(forKey: "accentChoice") ?? "") ?? .orange).nsColor
+    }
+    static var accent: Color { Color(nsColor: accentNS) }
 
     static let ink = Color(nsColor: .labelColor)
     static let inkSecondary = Color(nsColor: .secondaryLabelColor)
-    static let cardCorner: CGFloat = 12
+    static var cardCorner: CGFloat { CGFloat(UserDefaults.standard.object(forKey: "cornerRadius") as? Double ?? 12) }
+    static var controlCorner: CGFloat { max(3, cardCorner * 0.6) }
+    static var liquidGlass: Bool { UserDefaults.standard.object(forKey: "liquidGlass") as? Bool ?? false }
+    static var glassOpacity: Double { UserDefaults.standard.object(forKey: "glassOpacity") as? Double ?? 0.55 }
 
     static func isDark(_ appearance: NSAppearance) -> Bool {
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
@@ -15,22 +22,60 @@ enum Theme {
 }
 
 struct CardSurface: ViewModifier {
-    var cornerRadius: CGFloat = Theme.cardCorner
+    var cornerRadius: CGFloat?
+    @ObservedObject private var settings = AppSettings.shared
+
+    init(cornerRadius: CGFloat? = nil) {
+        self.cornerRadius = cornerRadius
+    }
 
     func body(content: Content) -> some View {
-        content
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(.separator, lineWidth: 1)
-            }
+        let shape = RoundedRectangle(cornerRadius: cornerRadius ?? CGFloat(settings.cornerRadius), style: .continuous)
+        if settings.liquidGlass {
+            content
+                .glassEffect(.regular, in: shape)
+        } else {
+            content
+                .background(.quaternary.opacity(0.5), in: shape)
+                .overlay { shape.strokeBorder(.separator, lineWidth: 1) }
+        }
     }
 }
 
 extension View {
-    func card(cornerRadius: CGFloat = Theme.cardCorner) -> some View {
+    func card(cornerRadius: CGFloat? = nil) -> some View {
         modifier(CardSurface(cornerRadius: cornerRadius))
     }
+}
+
+/// Behind a window's content: its usual color, or with Liquid Glass the desktop blurred
+/// through, under as much of that color as the opacity setting asks.
+struct WindowBackdrop: View {
+    @ObservedObject private var settings = AppSettings.shared
+
+    var body: some View {
+        if settings.liquidGlass {
+            ZStack {
+                BehindWindowBlur()
+                Color(nsColor: .windowBackgroundColor).opacity(settings.glassOpacity)
+            }
+            .ignoresSafeArea()
+        } else {
+            Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
+        }
+    }
+}
+
+struct BehindWindowBlur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .underWindowBackground
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
 
 struct SegmentedPicker<T: Hashable>: View {

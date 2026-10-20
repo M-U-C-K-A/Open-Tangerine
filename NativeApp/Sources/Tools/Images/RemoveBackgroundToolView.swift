@@ -12,6 +12,9 @@ struct RemoveBackgroundToolView: View {
     @State private var subject: Subject?
     @State private var detectionError: String?
     @State private var detecting = false
+    /// Vision found nothing: the picture starts whole, to clear by hand.
+    @State private var noSubject = false
+    @State private var showNoSubjectNote = false
     @State private var rendered: NSImage?
     @State private var renderTask: Task<Void, Never>?
     /// The outline of the crop, normalised to the image, while "Crop to subject" is on.
@@ -109,6 +112,17 @@ struct RemoveBackgroundToolView: View {
                         Spacer()
                     }
                     .padding(12)
+                }
+                if showNoSubjectNote {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            noSubjectNote
+                        }
+                    }
+                    .padding(12)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
                 VStack {
                     Spacer()
@@ -233,6 +247,31 @@ struct RemoveBackgroundToolView: View {
     }
 
     /// Zoom out, fit, zoom in; pinch works too. ⌘+, ⌘− and ⌘0 from the keyboard.
+    /// Bottom right, when Vision found nothing to cut out: the picture stays whole for the wand.
+    private var noSubjectNote: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "wand.and.stars").font(.title3).foregroundStyle(Theme.accent)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Oops, no subject to cut out").font(.callout.weight(.semibold))
+                Text(refinable ? "Click the background with the magic wand to take it away, or paint it off with the brush." : "Open one image at a time to clear its background by hand.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Button { withAnimation { showNoSubjectNote = false } } label: { Image(systemName: "xmark") }
+                .buttonStyle(.borderless)
+                .help("Close")
+        }
+        .padding(12)
+        .frame(width: 300)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
+        .environment(\.colorScheme, .dark)
+        .task {
+            try? await Task.sleep(for: .seconds(8))
+            withAnimation { showNoSubjectNote = false }
+        }
+    }
+
     private var zoomControls: some View {
         HStack(spacing: 2) {
             Button { setZoom(zoom / 1.5); zoomAtGestureStart = zoom } label: { Image(systemName: "minus.magnifyingglass") }
@@ -413,14 +452,23 @@ struct RemoveBackgroundToolView: View {
         detectionError = nil
         Task.detached(priority: .userInitiated) {
             do {
-                let vision = try BackgroundRemoval.mask(for: cg)
+                let found = try BackgroundRemoval.foregroundMask(for: cg)
+                let vision = found ?? BackgroundRemoval.wholeMask(width: cg.width, height: cg.height)
                 guard let pixels = BackgroundRemoval.Pixels(cg),
                       let buffer = BackgroundRemoval.MaskBuffer(vision, width: cg.width, height: cg.height) else {
                     throw OpenTangerineError.encodeFailed("the subject mask")
                 }
-                let found = Subject(image: CIImage(cgImage: cg), mask: buffer, pixels: pixels)
+                let subjectFound = found != nil
+                let made = Subject(image: CIImage(cgImage: cg), mask: buffer, pixels: pixels)
                 await MainActor.run {
-                    subject = found
+                    subject = made
+                    noSubject = !subjectFound
+                    if !subjectFound {
+                        // Nothing to cut out by itself: hand over the wand, ready to take the background away.
+                        tool = .wand
+                        keep = false
+                        withAnimation { showNoSubjectNote = true }
+                    }
                     mask = buffer
                     refinements = []
                     detecting = false
@@ -457,13 +505,14 @@ struct RemoveBackgroundToolView: View {
     private func save() {
         let options = options
         let refinements = refinable ? refinements : []
+        let whole = refinable && noSubject
         let destinations = BackgroundRemoval.outputURLs(for: session.files) { AppSettings.shared.outputLocation.directory(for: $0) }
         ToolWindowManager.shared.close(session)
         for (source, destination) in zip(session.files, destinations) {
             JobRunner.shared.run(title: session.tool.progressTitle, detail: source.lastPathComponent, symbol: session.tool.symbol) { progress in
                 progress(0.1)
                 try await Task.detached(priority: .userInitiated) {
-                    let cutout = try BackgroundRemoval.remove(try ImageIOBridge.load(source), options: options, refinements: refinements)
+                    let cutout = try BackgroundRemoval.remove(try ImageIOBridge.load(source), options: options, refinements: refinements, wholeIfNoSubject: whole)
                     try ImageIOBridge.write(cutout, to: destination, format: .png)
                 }.value
                 return [destination]

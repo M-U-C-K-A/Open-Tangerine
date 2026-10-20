@@ -29,8 +29,10 @@ struct CropImageToolView: View {
             ZStack {
                 CheckerboardBackground()
                 if let preview = document.preview {
-                    RectangleEditorCanvas(image: preview, imageSize: document.size, rectangles: $rects, selected: $selected, allowMultiple: false, aspect: aspectRatio)
-                        .padding(12)
+                    ZoomableView {
+                        RectangleEditorCanvas(image: preview, imageSize: document.size, rectangles: $rects, selected: $selected, allowMultiple: false, aspect: aspectRatio)
+                            .padding(12)
+                    }
                 } else {
                     LoadingOrError(error: document.error)
                 }

@@ -25,7 +25,9 @@ struct WatermarkToolView: View {
             ZStack {
                 CheckerboardBackground()
                 if let image = preview ?? document.preview {
-                    Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(24)
+                    ZoomableView {
+                        Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(24)
+                    }
                 } else {
                     LoadingOrError(error: document.error)
                 }

@@ -85,8 +85,51 @@ enum NotchSurface: String, CaseIterable, Identifiable {
     var title: String { self == .black ? "Pure black" : "Glass" }
 }
 
+/// The color used for highlights, buttons and the wheel.
+enum AccentChoice: String, CaseIterable, Identifiable {
+    case orange, red, pink, purple, indigo, blue, cyan, teal, green, yellow, graphite
+
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+
+    var nsColor: NSColor {
+        switch self {
+        case .orange: return NSColor(srgbRed: 1.0, green: 0.36, blue: 0.0, alpha: 1)
+        case .red: return NSColor(srgbRed: 0.93, green: 0.2, blue: 0.24, alpha: 1)
+        case .pink: return NSColor(srgbRed: 0.96, green: 0.26, blue: 0.55, alpha: 1)
+        case .purple: return NSColor(srgbRed: 0.62, green: 0.3, blue: 0.92, alpha: 1)
+        case .indigo: return NSColor(srgbRed: 0.36, green: 0.36, blue: 0.94, alpha: 1)
+        case .blue: return NSColor(srgbRed: 0.0, green: 0.48, blue: 1.0, alpha: 1)
+        case .cyan: return NSColor(srgbRed: 0.0, green: 0.7, blue: 0.86, alpha: 1)
+        case .teal: return NSColor(srgbRed: 0.0, green: 0.62, blue: 0.58, alpha: 1)
+        case .green: return NSColor(srgbRed: 0.2, green: 0.7, blue: 0.3, alpha: 1)
+        case .yellow: return NSColor(srgbRed: 0.95, green: 0.68, blue: 0.0, alpha: 1)
+        case .graphite: return NSColor(srgbRed: 0.45, green: 0.47, blue: 0.5, alpha: 1)
+        }
+    }
+}
+
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
+
+    @Published var accentChoice: AccentChoice {
+        didSet { defaults.set(accentChoice.rawValue, forKey: "accentChoice") }
+    }
+
+    /// Rounding of cards and panels, in points.
+    @Published var cornerRadius: Double {
+        didSet { defaults.set(cornerRadius, forKey: "cornerRadius") }
+    }
+
+    /// Tool windows see through to the desktop, blurred, with cards of Liquid Glass.
+    @Published var liquidGlass: Bool {
+        didSet { defaults.set(liquidGlass, forKey: "liquidGlass") }
+    }
+
+    /// How much of the window's own color covers the glass: 0 shows the desktop, 1 hides it.
+    @Published var glassOpacity: Double {
+        didSet { defaults.set(glassOpacity, forKey: "glassOpacity") }
+    }
 
     private let defaults = UserDefaults.standard
 
@@ -149,6 +192,10 @@ final class AppSettings: ObservableObject {
 
     private init() {
         excludedApplications = defaults.dictionary(forKey: "excludedApplications") as? [String: String] ?? [:]
+        accentChoice = AccentChoice(rawValue: defaults.string(forKey: "accentChoice") ?? "") ?? .orange
+        cornerRadius = defaults.object(forKey: "cornerRadius") as? Double ?? 12
+        liquidGlass = defaults.object(forKey: "liquidGlass") as? Bool ?? false
+        glassOpacity = defaults.object(forKey: "glassOpacity") as? Double ?? 0.55
         compressionPreset = CompressionPreset(rawValue: defaults.string(forKey: "compressionPreset") ?? "") ?? .balanced
         outputLocation = OutputLocation(rawValue: defaults.string(forKey: "outputLocation") ?? "") ?? .besideOriginal
         revealInFinder = defaults.object(forKey: "revealInFinder") as? Bool ?? true

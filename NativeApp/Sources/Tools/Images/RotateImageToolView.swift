@@ -19,12 +19,14 @@ struct RotateImageToolView: View {
             ZStack {
                 CheckerboardBackground()
                 if let preview = document.preview {
-                    Image(nsImage: preview)
-                        .resizable().interpolation(.high).aspectRatio(contentMode: .fit)
-                        .rotationEffect(.degrees(Double(quarterTurns) * 90))
-                        .scaleEffect(x: flipH ? -1 : 1, y: flipV ? -1 : 1)
-                        .padding(40)
-                        .animation(.easeInOut(duration: 0.18), value: quarterTurns)
+                    ZoomableView {
+                        Image(nsImage: preview)
+                            .resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+                            .rotationEffect(.degrees(Double(quarterTurns) * 90))
+                            .scaleEffect(x: flipH ? -1 : 1, y: flipV ? -1 : 1)
+                            .padding(40)
+                            .animation(.easeInOut(duration: 0.18), value: quarterTurns)
+                    }
                 } else {
                     LoadingOrError(error: document.error)
                 }

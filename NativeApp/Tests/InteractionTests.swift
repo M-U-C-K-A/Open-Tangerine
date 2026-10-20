@@ -22,6 +22,8 @@ final class UpdateResponse: URLProtocol {
         let excluded = ["test.design.app": "Design app"]
         precondition(DragMonitor.isExcluded("test.design.app", applications: excluded) && !DragMonitor.isExcluded("com.apple.finder", applications: excluded) && !DragMonitor.isExcluded(nil, applications: excluded))
         print("PASS drags without files and excluded apps leave the wheel closed")
+        precondition(FinderReveal.script(for: [URL(fileURLWithPath: "/tmp/a \"b\".txt")]) == "tell application \"Finder\"\nreveal {POSIX file \"/tmp/a \\\"b\\\".txt\"}\nactivate\nend tell", "Reveal asks Finder to show the files, quotes escaped")
+        print("PASS Reveal asks Finder, names quoted")
         precondition(AppVersion("0.1.10")! > AppVersion("0.1.9")!)
         precondition(AppVersion("v1.0.0")! == AppVersion("1.0.0")!)
         precondition(AppVersion("1.2.3-beta") == nil)

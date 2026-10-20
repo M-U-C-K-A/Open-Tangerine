@@ -277,6 +277,43 @@ struct SettingsView: View {
                 ForEach(AppearanceMode.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
+            LabeledContent("Accent color") {
+                HStack(spacing: 6) {
+                    ForEach(AccentChoice.allCases) { choice in
+                        Button { settings.accentChoice = choice } label: {
+                            Circle()
+                                .fill(Color(nsColor: choice.nsColor))
+                                .frame(width: 18, height: 18)
+                                .overlay(Circle().strokeBorder(.white.opacity(settings.accentChoice == choice ? 0.95 : 0), lineWidth: 2))
+                                .overlay(Circle().strokeBorder(Color(nsColor: choice.nsColor), lineWidth: settings.accentChoice == choice ? 1.5 : 0).padding(-3))
+                        }
+                        .buttonStyle(.plain)
+                        .help(choice.title)
+                    }
+                }
+            }
+            HStack {
+                Text("Corners")
+                Slider(value: $settings.cornerRadius, in: 0...24, step: 1)
+                Text("\(Int(settings.cornerRadius)) pt").monospacedDigit().frame(width: 44, alignment: .trailing)
+            }
+        }
+        Section {
+            Toggle("Liquid Glass windows", isOn: $settings.liquidGlass)
+            if settings.liquidGlass {
+                HStack {
+                    Text("Background opacity")
+                    Slider(value: $settings.glassOpacity, in: 0...1)
+                    Text("\(Int(settings.glassOpacity * 100))%").monospacedDigit().frame(width: 44, alignment: .trailing)
+                }
+            }
+            appearancePreview
+        } header: {
+            Text("Look")
+        } footer: {
+            Text(settings.liquidGlass
+                 ? "Tool windows let the desktop show through, blurred, and their panels turn to glass. Lower the opacity for more glass, raise it for a calmer background. Changes apply as you make them."
+                 : "Accent color and corners apply to tool windows, the wheel and the notch.")
         }
         Section {
             Picker("Progress", selection: $settings.progressStyle) {
@@ -295,6 +332,35 @@ struct SettingsView: View {
                  ? "A floating card in the top right corner with the file name and percentage."
                  : "An animated citrus companion below the notch, with file progress and results.")
         }
+    }
+
+    /// A small tool window, drawn with the current color, corners and glass.
+    private var appearancePreview: some View {
+        let accent = Color(nsColor: settings.accentChoice.nsColor)
+        let radius = CGFloat(settings.cornerRadius)
+        return ZStack {
+            LinearGradient(colors: [accent.opacity(0.55), .purple.opacity(0.35), .blue.opacity(0.35)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color(nsColor: .textBackgroundColor).opacity(0.85))
+                    .overlay(Image(systemName: "photo").font(.title2).foregroundStyle(.secondary))
+                    .frame(width: 150)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Style").font(.caption.weight(.semibold))
+                    Capsule().fill(accent).frame(width: 70, height: 18)
+                    Capsule().fill(Color.primary.opacity(0.15)).frame(height: 4)
+                    Capsule().fill(Color.primary.opacity(0.15)).frame(width: 60, height: 4)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .card()
+            }
+            .padding(12)
+            .background(settings.liquidGlass ? AnyShapeStyle(Color(nsColor: .windowBackgroundColor).opacity(settings.glassOpacity)) : AnyShapeStyle(Color(nsColor: .windowBackgroundColor)), in: RoundedRectangle(cornerRadius: radius + 4, style: .continuous))
+            .padding(14)
+        }
+        .frame(height: 150)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     @ViewBuilder private var conversion: some View {

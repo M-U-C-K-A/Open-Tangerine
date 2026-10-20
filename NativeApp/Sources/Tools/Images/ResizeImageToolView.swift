@@ -238,12 +238,14 @@ struct ResizeImageToolView: View {
                         .opacity(current == nil ? 0.55 : 1)
                 }
             } else if let shown = render.output {
-                Image(nsImage: ImageOps.nsImage(showOriginal ? shown.before : shown.after))
-                    .resizable()
-                    .interpolation(zoom == .detail ? .none : .high)
-                    .aspectRatio(contentMode: .fit)
-                    .padding(zoom == .detail ? 24 : 16)
-                    .opacity(current == nil ? 0.55 : 1)
+                ZoomableView(showsControls: false) {
+                    Image(nsImage: ImageOps.nsImage(showOriginal ? shown.before : shown.after))
+                        .resizable()
+                        .interpolation(zoom == .detail ? .none : .high)
+                        .aspectRatio(contentMode: .fit)
+                        .padding(zoom == .detail ? 24 : 16)
+                        .opacity(current == nil ? 0.55 : 1)
+                }
                 if let error = shown.error {
                     Text(error).font(.callout).foregroundStyle(.white)
                         .padding(10).background(.red.opacity(0.8), in: RoundedRectangle(cornerRadius: 8))

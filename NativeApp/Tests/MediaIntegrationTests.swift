@@ -188,6 +188,25 @@ import AVFoundation
             try check(srcBottom.0 > srcBottom.1 ? outBottom.0 > outBottom.1 : outBottom.1 > outBottom.0, "Bottom colour kept: source \(srcBottom), result \(outBottom)")
             try check((srcTop.0 > srcTop.1) != (srcBottom.0 > srcBottom.1), "The rotated fixture is upright red over blue or blue over red")
         }
+        await test("speed fader and keyframes") {
+            try check(abs(SpeedRamp.speed(atPosition: 0) - 0.1) < 0.0001 && abs(SpeedRamp.speed(atPosition: 1) - 25) < 0.0001 && abs(SpeedRamp.position(for: 1) - 0.4167) < 0.001, "The fader runs from 0.1× to 25×, logarithmic")
+            var ramp = SpeedRamp(speed: 1)
+            let fast = ramp.addKey(at: 0.5), slow = ramp.addKey(at: 1.5)
+            ramp.setSpeed(4, for: fast); ramp.setSpeed(0.5, for: slow)
+            try check(abs(ramp.outputDuration(2) - 1.75) < 0.0001 && ramp.speed(at: 1) == 4 && ramp.speed(at: 1.6) == 0.5 && ramp.segments(duration: 2).count == 3, "Normal, then 4×, then 0.5×: 0.5 + 0.25 + 1 seconds")
+            ramp.move(slow, to: 0.2, duration: 2)
+            try check(abs((ramp.keys.last?.time ?? 0) - 0.55) < 0.0001, "A keyframe can't pass the one before it")
+            ramp.setSpeed(400, for: fast)
+            try check(ramp.speed(at: 0.52) == 25, "Speeds stop at 25×")
+        }
+        for (name, source, hasSound) in [("MP4", mp4, true), ("MKV through FFmpeg", silent, false)] {
+            await test("speed ramp \(name): normal, fast, slow") {
+                let dest = out("ramp-\(name.prefix(3)).mp4")
+                let ramp = SpeedRamp(keys: [(0, 1), (0.5, 4), (1.5, 0.5)])
+                try await VideoOps.changeSpeed(source, ramp: ramp, preservePitch: true, to: dest, progress: { _ in })
+                try await inspect(dest, audio: hasSound, video: true, duration: 1.75)
+            }
+        }
         await test("video redact with faces") { let dest = out("redact-faces.mp4"); try await VideoOps.redact(mp4, redactions: [Redaction(rect: CGRect(x: 10, y: 10, width: 30, height: 30), style: .blur)], displaySize: CGSize(width: 80, height: 60), faces: FaceBlur.Options(), to: dest, progress: {_ in}); try await inspect(dest, video: true, duration: 2, width: 160) }
         let frame = out("frame.png")
         try await FFmpeg.run(["-i", mp4.path, "-frames:v", "1", frame.path], purpose: "Visualizer fixture")

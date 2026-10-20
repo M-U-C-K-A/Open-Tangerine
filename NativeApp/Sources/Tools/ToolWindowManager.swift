@@ -2,9 +2,20 @@ import AppKit
 import SwiftUI
 
 struct ToolSession: Identifiable {
-    let id = UUID()
+    let id: UUID
     let tool: ToolID
     let files: [URL]
+
+    init(tool: ToolID, files: [URL], id: UUID = UUID()) {
+        self.tool = tool
+        self.files = files
+        self.id = id
+    }
+
+    /// The same window and files, another tool: what a tab switches to.
+    func switched(to tool: ToolID) -> ToolSession {
+        ToolSession(tool: tool, files: files, id: id)
+    }
 
     var formats: [FileFormat] { files.compactMap(FileFormat.detect) }
     var primary: URL { files[0] }
@@ -43,6 +54,9 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
         window.toolbarStyle = .unified
         window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
+        // The SwiftUI backdrop paints the window, so Liquid Glass can show the desktop through.
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.setContentSize(Self.preferredSize(for: tool))
         window.minSize = Self.minimumSize(for: tool)
         window.center()
@@ -56,6 +70,11 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
     func close(_ session: ToolSession) {
         windows[session.id]?.close()
         windows.removeValue(forKey: session.id)
+    }
+
+    /// A tab changed the tool shown in this window.
+    func retitle(_ session: ToolSession, to tool: ToolID) {
+        windows[session.id]?.title = tool.title
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -123,6 +142,22 @@ struct ToolRootView: View {
 
     var body: some View {
         Group {
+            if let tabs = ToolID.tabs(for: session) {
+                ToolTabsContainer(session: session, tabs: tabs)
+            } else {
+                ToolContent(session: session)
+            }
+        }
+        .frame(minWidth: 560, minHeight: 360)
+    }
+}
+
+/// One tool's window content.
+struct ToolContent: View {
+    let session: ToolSession
+
+    var body: some View {
+        Group {
             switch session.tool {
             case .compress: CompressToolView(session: session)
             case .editMetadata: MetadataToolView(session: session)
@@ -162,7 +197,71 @@ struct ToolRootView: View {
             case .splitPDF: SplitPDFToolView(session: session)
             }
         }
-        .frame(minWidth: 560, minHeight: 360)
+    }
+}
+
+/// The tools for one video (or one picture), as tabs at the top of the sidebar: picking one
+/// switches the window to it, on the same file.
+struct ToolTabsContainer: View {
+    let session: ToolSession
+    let tabs: [ToolID]
+    @State private var current: ToolID
+
+    init(session: ToolSession, tabs: [ToolID]) {
+        self.session = session
+        self.tabs = tabs
+        _current = State(initialValue: session.tool)
+    }
+
+    var body: some View {
+        ToolContent(session: session.switched(to: current))
+            .id(current)
+            .environment(\.toolTabs, ToolTabs(tabs: tabs, selection: $current))
+            .onChange(of: current) { ToolWindowManager.shared.retitle(session, to: current) }
+    }
+}
+
+struct ToolTabs {
+    let tabs: [ToolID]
+    let selection: Binding<ToolID>
+}
+
+private struct ToolTabsKey: EnvironmentKey {
+    static let defaultValue: ToolTabs? = nil
+}
+
+extension EnvironmentValues {
+    var toolTabs: ToolTabs? {
+        get { self[ToolTabsKey.self] }
+        set { self[ToolTabsKey.self] = newValue }
+    }
+}
+
+/// The tab strip: an icon and a word per tool, four to a row.
+struct ToolTabStrip: View {
+    let tabs: ToolTabs
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 4), spacing: 4) {
+            ForEach(tabs.tabs) { tool in
+                let selected = tabs.selection.wrappedValue == tool
+                Button { tabs.selection.wrappedValue = tool } label: {
+                    VStack(spacing: 3) {
+                        Image(systemName: tool.symbol).font(.system(size: 14, weight: .medium)).frame(height: 18)
+                        Text(tool.tabLabel).font(.system(size: 10, weight: .medium)).lineLimit(1).minimumScaleFactor(0.8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .foregroundStyle(selected ? Color.white : Color.primary)
+                    .background(selected ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.primary.opacity(0.06)), in: RoundedRectangle(cornerRadius: Theme.controlCorner, style: .continuous))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(tool.title)
+            }
+        }
+        .padding(6)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous))
     }
 }
 
@@ -172,6 +271,7 @@ struct WindowChrome<Content: View>: View {
     var saveEnabled: Bool
     var onSave: () -> Void
     @ViewBuilder var content: () -> Content
+    @ObservedObject private var settings = AppSettings.shared
 
     private var fileLabel: String {
         session.files.count == 1 ? session.primary.lastPathComponent : "\(session.files.count) files"
@@ -204,9 +304,10 @@ struct WindowChrome<Content: View>: View {
             .controlSize(.large)
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
-            .background(.bar)
+            .background(settings.liquidGlass ? AnyShapeStyle(.clear) : AnyShapeStyle(.bar))
         }
-        .tint(Theme.accent)
+        .background(WindowBackdrop())
+        .tint(Color(nsColor: settings.accentChoice.nsColor))
     }
 }
 
@@ -217,6 +318,8 @@ struct ToolShell<Content: View, Sidebar: View>: View {
     var onSave: () -> Void
     @ViewBuilder var content: () -> Content
     @ViewBuilder var sidebar: () -> Sidebar
+    @Environment(\.toolTabs) private var toolTabs
+    @ObservedObject private var settings = AppSettings.shared
 
     private var windowClass: ToolWindowManager.WindowClass { ToolWindowManager.windowClass(for: session.tool) }
 
@@ -226,14 +329,19 @@ struct ToolShell<Content: View, Sidebar: View>: View {
             HStack(spacing: compact ? 12 : 16) {
                 content()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: CGFloat(settings.cornerRadius), style: .continuous))
                     .card()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: compact ? 10 : 12) {
-                        sidebar()
+                VStack(spacing: compact ? 10 : 12) {
+                    if let toolTabs {
+                        ToolTabStrip(tabs: toolTabs)
                     }
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: compact ? 10 : 12) {
+                            sidebar()
+                        }
+                    }
+                    .scrollIndicators(.automatic)
                 }
-                .scrollIndicators(.automatic)
                 .frame(width: windowClass.sidebarWidth)
             }
             .padding(compact ? 14 : 20)

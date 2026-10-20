@@ -110,7 +110,7 @@ final class JobRunner: ObservableObject {
                 job.status = .done
                 DiagnosticLog.log("job done: \(job.detail) -> \(outputs.map(\.lastPathComponent))")
                 if AppSettings.shared.revealInFinder, !outputs.isEmpty {
-                    NSWorkspace.shared.activateFileViewerSelecting(outputs)
+                    FinderReveal.reveal(outputs)
                 }
             } catch is CancellationError {
                 DiagnosticLog.log("job cancelled: \(job.detail)")
@@ -647,7 +647,7 @@ struct JobOutputActions: View {
                 if let output = job.outputs.first { NSWorkspace.shared.open(output) }
             }.help(job.outputs.count > 1 ? "Open the first output" : "Open the output")
             Button("Show", systemImage: "folder") {
-                NSWorkspace.shared.activateFileViewerSelecting(job.outputs)
+                FinderReveal.reveal(job.outputs)
             }.help("Show all outputs in Finder")
         }
         .buttonStyle(.plain)

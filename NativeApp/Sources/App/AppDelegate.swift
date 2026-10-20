@@ -138,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showLogs() {
         DiagnosticLog.flush()
-        NSWorkspace.shared.activateFileViewerSelecting([DiagnosticLog.logFile])
+        FinderReveal.reveal([DiagnosticLog.logFile])
     }
 
     @MainActor

@@ -106,6 +106,7 @@ enum Shots {
             (.scanDocument, [sheet]),
             (.enhanceVideo, [video]),
             (.socialVideo, [video]),
+            (.changeVideoSpeed, [video]),
             (.editMetadata, [photo]),
             (.watermarkImage, [photo]),
             (.cropImage, [photo]),
@@ -133,7 +134,7 @@ enum Shots {
                 try await capture(window, to: out.appendingPathComponent("tool-\(tool.rawValue)-\(theme).png"))
             }
             if only == nil || only == "settings" {
-                for tab in [SettingsTab.general, .conversion] {
+                for tab in [SettingsTab.general, .conversion, .appearance] {
                     let model = SettingsTabModel()
                     model.tab = tab
                     let view = SettingsView(model: model).environmentObject(AppSettings.shared)

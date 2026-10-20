@@ -191,6 +191,19 @@ import PDFKit
         } catch OpenTangerineError.toolFailed(_, let reason) {
             print("BLOCKED Vision foreground masks unavailable in this process: \(reason)")
         }
+        // No subject: a flat picture is kept whole for the wand instead of failing, and a click clears it.
+        let plainBackdrop = CGContext(data: nil, width: 200, height: 150, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        plainBackdrop.setFillColor(CGColor(red: 0.8, green: 0.82, blue: 0.85, alpha: 1)); plainBackdrop.fill(CGRect(x: 0, y: 0, width: 200, height: 150))
+        let flatImage = plainBackdrop.makeImage()!
+        if (try? BackgroundRemoval.foregroundMask(for: flatImage)) == nil {
+            let kept = pixels(try BackgroundRemoval.remove(flatImage, wholeIfNoSubject: true))
+            check(kept[3] > 250 && kept[(75 * 200 + 100) * 4 + 3] > 250, "without a subject the picture starts whole")
+            let cleared = pixels(try BackgroundRemoval.remove(flatImage, refinements: [.wand(point: CGPoint(x: 0.02, y: 0.02), tolerance: 0.1, keep: false)], wholeIfNoSubject: true))
+            check(cleared[3] < 5 && cleared[(75 * 200 + 100) * 4 + 3] < 5, "a wand click takes the background away by hand")
+            do { _ = try BackgroundRemoval.remove(flatImage); check(false, "a batch still reports a picture without a subject") } catch { check(true, "a batch still reports a picture without a subject") }
+        } else {
+            print("SKIP Vision found a subject in the flat fixture")
+        }
         // Text recognition: reading order, a picture of text, a scanned PDF.
         let ordered = TextRecognition.lines(from: [
             .init(box: CGRect(x: 0.5, y: 0.78, width: 0.2, height: 0.05), text: "world"),

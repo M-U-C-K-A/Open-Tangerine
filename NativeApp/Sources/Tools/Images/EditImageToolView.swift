@@ -20,7 +20,9 @@ struct EditImageToolView: View {
             ZStack {
                 CheckerboardBackground()
                 if let image = (showOriginal ? document.preview : rendered) ?? document.preview {
-                    Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(12)
+                    ZoomableView {
+                        Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(12)
+                    }
                 } else {
                     LoadingOrError(error: document.error)
                 }

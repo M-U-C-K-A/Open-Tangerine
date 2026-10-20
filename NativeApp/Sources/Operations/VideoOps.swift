@@ -72,42 +72,7 @@ enum VideoOps {
 
     static func changeSpeed(_ url: URL, factor: Double, preservePitch: Bool, to destination: URL, progress: @escaping (Double) -> Void) async throws {
         guard factor.isFinite, factor > 0 else { throw OpenTangerineError.invalidInput("Speed must be greater than zero.") }
-        let asset = AVURLAsset(url: url)
-        guard !FFmpeg.isAvailable, await MediaInfo.isNativelyReadable(url) else {
-            let info = try await streamInfo(url)
-            let videoFilter = "setpts=\(1 / factor)*PTS"
-            let audioFilter = preservePitch ? atempoChain(factor) : "asetrate=\(info.sampleRate)*\(factor),aresample=\(info.sampleRate)"
-            let duration = (await FFmpeg.probeDuration(url) ?? 0) / factor
-            var args = ["-i", url.path, "-vf", videoFilter]
-            if info.hasAudio { args += ["-af", audioFilter] }
-            args += VideoEngine.codecArguments(for: .mp4) + [destination.path]
-            try await FFmpeg.run(args, purpose: "Changing speed", duration: duration, progress: progress)
-            return
-        }
-        let composition = AVMutableComposition()
-        let duration = try await asset.load(.duration)
-        let fullRange = CMTimeRange(start: .zero, duration: duration)
-        let scaled = CMTimeMultiplyByFloat64(duration, multiplier: 1 / factor)
-        let videoTracks = try await asset.loadTracks(withMediaType: .video)
-        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
-        var audioMixParams: [AVMutableAudioMixInputParameters] = []
-        for source in videoTracks {
-            guard let track = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
-            try track.insertTimeRange(fullRange, of: source, at: .zero)
-            track.scaleTimeRange(fullRange, toDuration: scaled)
-            track.preferredTransform = try await source.load(.preferredTransform)
-        }
-        for source in audioTracks {
-            guard let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
-            try track.insertTimeRange(fullRange, of: source, at: .zero)
-            track.scaleTimeRange(fullRange, toDuration: scaled)
-            let params = AVMutableAudioMixInputParameters(track: track)
-            params.audioTimePitchAlgorithm = preservePitch ? .spectral : .varispeed
-            audioMixParams.append(params)
-        }
-        let mix = AVMutableAudioMix()
-        mix.inputParameters = audioMixParams
-        try await AVExporter.export(asset: composition, to: destination, format: .mp4, preset: AVAssetExportPresetHighestQuality, audioMix: audioMixParams.isEmpty ? nil : mix, progress: progress)
+        try await changeSpeed(url, ramp: SpeedRamp(speed: factor), preservePitch: preservePitch, to: destination, progress: progress)
     }
 
     static func atempoChain(_ factor: Double) -> String {

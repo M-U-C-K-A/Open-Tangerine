@@ -43,8 +43,10 @@ struct RedactImageToolView: View {
             ZStack {
                 CheckerboardBackground()
                 if let preview = document.preview {
-                    RectangleEditorCanvas(image: render.output.map(ImageOps.nsImage) ?? preview, imageSize: document.size, rectangles: $rects, selected: $selected, allowMultiple: true, outlinesOnly: true)
-                        .padding(12)
+                    ZoomableView {
+                        RectangleEditorCanvas(image: render.output.map(ImageOps.nsImage) ?? preview, imageSize: document.size, rectangles: $rects, selected: $selected, allowMultiple: true, outlinesOnly: true)
+                            .padding(12)
+                    }
                 } else {
                     LoadingOrError(error: document.error)
                 }

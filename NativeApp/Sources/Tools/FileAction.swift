@@ -120,7 +120,7 @@ enum FileAction: String, CaseIterable, Hashable {
     }
     @MainActor func run(_ urls: [URL]) {
         switch self {
-        case .reveal: NSWorkspace.shared.activateFileViewerSelecting(urls)
+        case .reveal: FinderReveal.reveal(urls)
         case .copy:
             NSPasteboard.general.clearContents()
             NSPasteboard.general.writeObjects(urls as [NSURL])

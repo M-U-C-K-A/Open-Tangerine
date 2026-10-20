@@ -24,8 +24,10 @@ struct ScanDocumentToolView: View {
                 if showResult, let page = result.output {
                     Image(nsImage: ImageOps.nsImage(page)).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(20)
                 } else if let image = images[url] {
-                    QuadEditor(image: ImageOps.nsImage(image), quad: Binding(get: { quads[url] ?? .whole }, set: { quads[url] = $0 }))
-                        .padding(20)
+                    ZoomableView {
+                        QuadEditor(image: ImageOps.nsImage(image), quad: Binding(get: { quads[url] ?? .whole }, set: { quads[url] = $0 }))
+                            .padding(20)
+                    }
                 } else {
                     LoadingOrError(error: nil)
                 }
