@@ -63,7 +63,7 @@ struct SplitPDFToolView: View {
     }
 
     var body: some View {
-        ToolShell(session: session, saveTitle: "Split into \(outputCount) files", saveEnabled: outputCount > 0, onSave: save) {
+        ToolShell(session: session, saveTitle: outputCount == 1 ? "Save 1 file" : "Split into \(outputCount) files", saveEnabled: outputCount > 0, onSave: save) {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 12)], spacing: 12) {
                     ForEach(Array(thumbnails.enumerated()), id: \.offset) { index, image in

@@ -51,6 +51,11 @@ final class RadialController: DragMonitorDelegate {
 
     func dragMonitor(_ monitor: DragMonitor, didChangeModifiers shift: Bool, option: Bool, at point: NSPoint) {
         guard !pickerMode else { return }
+        // AppKit can hold back drag updates while another app owns the drag; the monitor
+        // polls at 60 Hz, so its position gives an immediate hover.
+        if let panel, visible {
+            panel.radialView.updateHighlight(forWindowPoint: panel.convertPoint(fromScreen: point))
+        }
         if !shift { return }
         let wanted = RadialMode.forModifiers(command: false, option: option, control: NSEvent.modifierFlags.contains(.control))
         if !visible {

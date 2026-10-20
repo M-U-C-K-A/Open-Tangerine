@@ -56,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Convert Files…", action: #selector(convertFiles), keyEquivalent: "o").target = self
         menu.addItem(withTitle: "Open Tool for Files…", action: #selector(openTool), keyEquivalent: "t").target = self
         menu.addItem(withTitle: "File Actions…", action: #selector(fileActions), keyEquivalent: "a").target = self
+        menu.addItem(withTitle: "Pick a Color on Screen…", action: #selector(pickColor), keyEquivalent: "p").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: "About Open Tangerine", action: #selector(about), keyEquivalent: "").target = self
@@ -66,6 +67,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Show Logs", action: #selector(showLogs), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Open Tangerine", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let symbols = ["Convert Files…": "arrow.triangle.2.circlepath", "Open Tool for Files…": "wrench.and.screwdriver",
+                       "File Actions…": "doc.on.doc", "Pick a Color on Screen…": "eyedropper.halffull", "Settings…": "gearshape", "About Open Tangerine": "info.circle",
+                       "Show Logs": "doc.text.magnifyingglass", "Quit Open Tangerine": "power"]
+        for entry in menu.items {
+            if let symbol = symbols[entry.title] {
+                entry.image = NSImage(systemSymbolName: symbol, accessibilityDescription: entry.title)
+            }
+        }
         item.menu = menu
         statusItem = item
     }
@@ -75,6 +84,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func convertFiles() {
         pickFiles { [weak self] urls in self?.radial.presentPicker(for: urls, advanced: false) }
+    }
+
+    @objc private func pickColor() {
+        MainActor.assumeIsolated { ScreenColorPicker.pickAndCopy() }
     }
 
     @objc private func fileActions() {

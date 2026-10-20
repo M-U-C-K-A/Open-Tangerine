@@ -142,22 +142,72 @@ enum MetadataOps {
         return "\(value)"
     }
 
-    static func write(_ url: URL, edits: [MetadataField], removeAll: Bool, removeSensitive: Bool, to destination: URL, progress: @escaping (Double) -> Void) async throws {
+    /// A copy with these common fields changed ("" removes one), after the removals asked for.
+    static func write(_ url: URL, tags: [MetadataTag: String], removeAll: Bool, removeSensitive: Bool, to destination: URL, progress: @escaping (Double) -> Void) async throws {
         guard let format = FileFormat.detect(url) else { throw OpenTangerineError.unreadable(url) }
+        let tags = removeAll ? [:] : tags.filter { MetadataTag.tags(for: format).contains($0.key) }
         switch format.category {
         case .image:
-            try writeImage(url, edits: edits, removeAll: removeAll, removeSensitive: removeSensitive, to: destination)
+            try writeImage(url, tags: tags, removeAll: removeAll, removeSensitive: removeSensitive, to: destination)
         case .audio, .video:
-            try await writeAV(url, format: format, edits: edits, removeAll: removeAll || removeSensitive, to: destination, progress: progress)
+            try await writeAV(url, format: format, tags: tags, removeAll: removeAll || removeSensitive, to: destination, progress: progress)
         case .document where format == .pdf:
-            try writePDF(url, edits: edits, removeAll: removeAll, removeSensitive: removeSensitive, to: destination)
+            try writePDF(url, tags: tags, removeAll: removeAll, removeSensitive: removeSensitive, to: destination)
         default:
             throw OpenTangerineError.invalidInput("Metadata editing is not supported for \(format.displayName).")
         }
         progress(1)
     }
 
-    private static func writeImage(_ url: URL, edits: [MetadataField], removeAll: Bool, removeSensitive: Bool, to destination: URL) throws {
+    private static func writeImage(_ url: URL, tags: [MetadataTag: String], removeAll: Bool, removeSensitive: Bool, to destination: URL) throws {
+        guard removeAll || removeSensitive else {
+            try writeImageTags(url, tags: tags, to: destination)
+            return
+        }
+        guard !tags.isEmpty else {
+            try stripImage(url, removeAll: removeAll, to: destination)
+            return
+        }
+        let stripped = FileManager.default.temporaryDirectory.appendingPathComponent("opentangerine-meta-\(UUID().uuidString).\(destination.pathExtension)")
+        defer { try? FileManager.default.removeItem(at: stripped) }
+        try stripImage(url, removeAll: removeAll, to: stripped)
+        try writeImageTags(stripped, tags: tags, to: destination)
+    }
+
+    /// The fields people edit, written as XMP: copied without re-encoding where the format
+    /// allows it (JPEG, HEIC, TIFF), otherwise with the picture written again.
+    private static func writeImageTags(_ url: URL, tags: [MetadataTag: String], to destination: URL) throws {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let type = CGImageSourceGetType(source) else { throw OpenTangerineError.unreadable(url) }
+        let outputType: CFString = ImageIOBridge.nativeEncoders.contains(type as String) ? type : (UTType.png.identifier as CFString)
+        let metadata = CGImageSourceCopyMetadataAtIndex(source, 0, nil).flatMap { CGImageMetadataCreateMutableCopy($0) } ?? CGImageMetadataCreateMutable()
+        for (tag, value) in tags {
+            guard let (dictionary, key) = tag.imageProperty else { continue }
+            for path in tag.xmpPaths { CGImageMetadataRemoveTagWithPath(metadata, nil, path as CFString) }
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let written: CFTypeRef = tag == .keywords ? MetadataTag.list(trimmed) as CFArray : trimmed as CFString
+            CGImageMetadataSetValueMatchingImageProperty(metadata, dictionary, key, written)
+        }
+        let copyable: Set<String> = [UTType.jpeg.identifier, UTType.heic.identifier, UTType.tiff.identifier]
+        let count = CGImageSourceGetCount(source)
+        if count == 1, copyable.contains(outputType as String), outputType == type,
+           let dest = CGImageDestinationCreateWithURL(destination as CFURL, outputType, 1, nil),
+           CGImageDestinationCopyImageSource(dest, source, [kCGImageDestinationMetadata: metadata, kCGImageDestinationMergeMetadata: false] as CFDictionary, nil) {
+            return
+        }
+        guard let dest = CGImageDestinationCreateWithURL(destination as CFURL, outputType, count, nil) else { throw OpenTangerineError.encodeFailed(destination.lastPathComponent) }
+        for index in 0..<count {
+            guard let image = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
+            var options: [CFString: Any] = [:]
+            if let orientation = properties?[kCGImagePropertyOrientation] { options[kCGImagePropertyOrientation] = orientation }
+            CGImageDestinationAddImageAndMetadata(dest, image, index == 0 ? metadata : CGImageMetadataCreateMutable(), options as CFDictionary)
+        }
+        guard CGImageDestinationFinalize(dest) else { throw OpenTangerineError.encodeFailed(destination.lastPathComponent) }
+    }
+
+    private static func stripImage(_ url: URL, removeAll: Bool, to destination: URL) throws {
+        let removeSensitive = !removeAll
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let type = CGImageSourceGetType(source) else { throw OpenTangerineError.unreadable(url) }
         let count = CGImageSourceGetCount(source)
         let outputType: CFString = ImageIOBridge.nativeEncoders.contains(type as String) ? type : (UTType.png.identifier as CFString)
@@ -192,17 +242,6 @@ enum MetadataOps {
                         props[kCGImagePropertyTIFFDictionary] = tiff
                     }
                 }
-                for edit in edits where edit.editable && !(removeSensitive && edit.sensitive) {
-                    let groupKey = groupDictionaryKey(edit.group)
-                    guard let groupKey else { continue }
-                    var dict = (props[groupKey] as? [CFString: Any]) ?? [:]
-                    if edit.value.isEmpty {
-                        dict[edit.key as CFString] = kCFNull
-                    } else {
-                        dict[edit.key as CFString] = edit.value
-                    }
-                    props[groupKey] = dict
-                }
             }
             var options = props
             options[kCGImageDestinationMetadata] = kCFNull
@@ -212,49 +251,44 @@ enum MetadataOps {
         guard CGImageDestinationFinalize(dest) else { throw OpenTangerineError.encodeFailed(destination.lastPathComponent) }
     }
 
-    private static func groupDictionaryKey(_ group: String) -> CFString? {
-        switch group {
-        case "Exif": return kCGImagePropertyExifDictionary
-        case "TIFF": return kCGImagePropertyTIFFDictionary
-        case "IPTC": return kCGImagePropertyIPTCDictionary
-        case "GPS": return kCGImagePropertyGPSDictionary
-        case "PNG": return kCGImagePropertyPNGDictionary
-        default: return nil
-        }
-    }
-
-    private static func writeAV(_ url: URL, format: FileFormat, edits: [MetadataField], removeAll: Bool, to destination: URL, progress: @escaping (Double) -> Void) async throws {
-        let nativeTarget = VideoEngine.nativeTargets.contains(format) || format == .m4a
-        if nativeTarget, await MediaInfo.isNativelyReadable(url) {
-            var items: [AVMetadataItem] = []
-            if !removeAll {
-                for edit in edits where edit.editable && edit.id.hasPrefix("av.") {
-                    let key = edit.id.components(separatedBy: ".").last ?? ""
-                    let commonKey = AVMetadataKey(rawValue: key)
-                    let item = AVMutableMetadataItem()
-                    item.keySpace = .common
-                    item.key = commonKey.rawValue as NSString
-                    item.value = edit.value as NSString
-                    items.append(item)
+    private static func writeAV(_ url: URL, format: FileFormat, tags: [MetadataTag: String], removeAll: Bool, to destination: URL, progress: @escaping (Double) -> Void) async throws {
+        // FFmpeg copies the streams untouched and names each tag the way the container expects.
+        if FFmpeg.isAvailable {
+            var args = ["-i", url.path, "-map", "0", "-c", "copy"]
+            if removeAll {
+                args += ["-map_metadata", "-1", "-map_chapters", "-1"]
+            } else {
+                args += ["-map_metadata", "0"]
+                for (tag, value) in tags.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+                    args += ["-metadata", "\(tag.ffmpegKey)=\(value.trimmingCharacters(in: .whitespacesAndNewlines))"]
                 }
             }
-            try await AVExporter.export(asset: AVURLAsset(url: url), to: destination, format: format, preset: AVAssetExportPresetPassthrough, metadata: items, progress: progress)
+            args.append(destination.path)
+            try await FFmpeg.run(args, purpose: "Writing metadata")
             return
         }
-        var args = ["-i", url.path, "-map", "0", "-c", "copy"]
-        if removeAll {
-            args += ["-map_metadata", "-1", "-map_chapters", "-1"]
-        } else {
-            args += ["-map_metadata", "0"]
-            for edit in edits where edit.editable {
-                args += ["-metadata", "\(edit.key)=\(edit.value)"]
+        guard VideoEngine.nativeTargets.contains(format) || format == .m4a, await MediaInfo.isNativelyReadable(url) else {
+            throw OpenTangerineError.ffmpegMissing("Editing \(format.displayName) tags")
+        }
+        let asset = AVURLAsset(url: url)
+        var items: [AVMetadataItem] = []
+        if !removeAll {
+            let existing = (try? await asset.load(.metadata)) ?? []
+            items = existing.filter { item in !tags.keys.contains { $0.matches(item) } }
+            for (tag, value) in tags {
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty, let identifier = tag.avIdentifier(for: format) else { continue }
+                let item = AVMutableMetadataItem()
+                item.identifier = identifier
+                item.value = trimmed as NSString
+                item.extendedLanguageTag = "und"
+                items.append(item)
             }
         }
-        args.append(destination.path)
-        try await FFmpeg.run(args, purpose: "Writing metadata")
+        try await AVExporter.export(asset: asset, to: destination, format: format, preset: AVAssetExportPresetPassthrough, metadata: items, progress: progress)
     }
 
-    private static func writePDF(_ url: URL, edits: [MetadataField], removeAll: Bool, removeSensitive: Bool, to destination: URL) throws {
+    private static func writePDF(_ url: URL, tags: [MetadataTag: String], removeAll: Bool, removeSensitive: Bool, to destination: URL) throws {
         let document = try PDFOps.document(url)
         if removeAll {
             document.documentAttributes = [:]
@@ -263,18 +297,196 @@ enum MetadataOps {
             if removeSensitive {
                 for key in [PDFDocumentAttribute.authorAttribute, .creatorAttribute, .producerAttribute] { attrs.removeValue(forKey: key) }
             }
-            for edit in edits where edit.editable && edit.id.hasPrefix("pdf.") && !(removeSensitive && edit.sensitive) {
-                let name = String(edit.id.dropFirst(4))
-                let key = AnyHashable(PDFDocumentAttribute(rawValue: name))
-                if edit.value.isEmpty {
-                    attrs.removeValue(forKey: key)
+            for (tag, value) in tags {
+                guard let attribute = tag.pdfAttribute else { continue }
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty {
+                    attrs.removeValue(forKey: attribute)
                 } else {
-                    attrs[key] = edit.value
+                    attrs[attribute] = tag == .keywords ? MetadataTag.list(trimmed) as Any : trimmed as Any
                 }
             }
             document.documentAttributes = attrs
         }
         guard document.write(to: destination) else { throw OpenTangerineError.encodeFailed(destination.lastPathComponent) }
     }
+
+    /// The common fields as they are in the file now.
+    static func readTags(_ url: URL) async -> [MetadataTag: String] {
+        guard let format = FileFormat.detect(url) else { return [:] }
+        var values: [MetadataTag: String] = [:]
+        switch format.category {
+        case .image:
+            let props = ImageIOBridge.properties(url)
+            let xmp = CGImageSourceCreateWithURL(url as CFURL, nil).flatMap { CGImageSourceCopyMetadataAtIndex($0, 0, nil) }
+            for tag in MetadataTag.tags(for: format) {
+                if let (dictionary, key) = tag.imageProperty, let value = (props[dictionary] as? [CFString: Any])?[key] {
+                    values[tag] = tag == .keywords ? ((value as? [Any])?.map(describe).joined(separator: ", ") ?? describe(value)) : describe(value)
+                } else if let xmp, let value = tag.xmpPaths.lazy.compactMap({ xmpString(xmp, $0) }).first {
+                    values[tag] = value
+                }
+            }
+        case .audio, .video:
+            let asset = AVURLAsset(url: url)
+            let items = ((try? await asset.load(.metadata)) ?? []) + ((try? await asset.load(.commonMetadata)) ?? [])
+            for tag in MetadataTag.tags(for: format) {
+                for item in items where tag.matches(item) {
+                    if let value = try? await item.load(.stringValue), !value.isEmpty { values[tag] = value; break }
+                }
+            }
+            if let probe = FFmpeg.probePath, let result = try? await Shell.run(probe, ["-v", "error", "-show_entries", "format_tags", "-of", "json", url.path]),
+               let data = result.stdout.data(using: .utf8),
+               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let tagsObject = (object["format"] as? [String: Any])?["tags"] as? [String: Any] {
+                let lowered = Dictionary(tagsObject.map { ($0.key.lowercased(), describe($0.value)) }, uniquingKeysWith: { a, _ in a })
+                for tag in MetadataTag.tags(for: format) where values[tag] == nil {
+                    if let value = lowered[tag.ffmpegKey], !value.isEmpty { values[tag] = value }
+                }
+            }
+        case .document where format == .pdf:
+            let attributes = PDFDocument(url: url)?.documentAttributes ?? [:]
+            for tag in MetadataTag.tags(for: format) {
+                guard let attribute = tag.pdfAttribute, let value = attributes[attribute] else { continue }
+                values[tag] = tag == .keywords ? ((value as? [Any])?.map(describe).joined(separator: ", ") ?? describe(value)) : describe(value)
+            }
+        default:
+            break
+        }
+        return values
+    }
+
+    private static func xmpString(_ metadata: CGImageMetadata, _ path: String) -> String? {
+        guard let tag = CGImageMetadataCopyTagWithPath(metadata, nil, path as CFString), let value = CGImageMetadataTagCopyValue(tag) else { return nil }
+        if let string = value as? String { return string }
+        if let array = value as? [CGImageMetadataTag] {
+            let parts = array.compactMap { CGImageMetadataTagCopyValue($0) as? String }
+            return parts.isEmpty ? nil : parts.joined(separator: ", ")
+        }
+        return nil
+    }
 }
 
+/// The fields people actually edit, with the same names for every kind of file.
+enum MetadataTag: String, CaseIterable, Identifiable {
+    case title, artist, album, genre, date, description, comment, keywords, copyright
+
+    var id: String { rawValue }
+
+    static func tags(for format: FileFormat) -> [MetadataTag] {
+        switch format.category {
+        case .image: return [.title, .description, .artist, .keywords, .copyright, .date, .comment]
+        case .audio: return [.title, .artist, .album, .genre, .date, .comment, .copyright]
+        case .video: return [.title, .artist, .description, .comment, .date, .copyright]
+        case .document where format == .pdf: return [.title, .artist, .description, .keywords]
+        default: return []
+        }
+    }
+
+    func label(for format: FileFormat) -> String {
+        switch self {
+        case .title: return "Title"
+        case .artist: return format.category == .audio ? "Artist" : "Author"
+        case .album: return "Album"
+        case .genre: return "Genre"
+        case .date: return format.category == .image ? "Date taken" : format.category == .audio ? "Year" : "Date"
+        case .description: return format == .pdf ? "Subject" : "Description"
+        case .comment: return "Comment"
+        case .keywords: return "Keywords"
+        case .copyright: return "Copyright"
+        }
+    }
+
+    func placeholder(for format: FileFormat) -> String {
+        switch self {
+        case .date: return format.category == .image ? "2026:10:19 14:30:00" : format.category == .audio ? "2026" : "2026-10-19"
+        case .keywords: return "Separated by commas"
+        default: return ""
+        }
+    }
+
+    /// Where ImageIO keeps it; XMP follows from it.
+    var imageProperty: (CFString, CFString)? {
+        switch self {
+        case .title: return (kCGImagePropertyIPTCDictionary, kCGImagePropertyIPTCObjectName)
+        case .description: return (kCGImagePropertyTIFFDictionary, kCGImagePropertyTIFFImageDescription)
+        case .artist: return (kCGImagePropertyTIFFDictionary, kCGImagePropertyTIFFArtist)
+        case .keywords: return (kCGImagePropertyIPTCDictionary, kCGImagePropertyIPTCKeywords)
+        case .copyright: return (kCGImagePropertyTIFFDictionary, kCGImagePropertyTIFFCopyright)
+        case .date: return (kCGImagePropertyExifDictionary, kCGImagePropertyExifDateTimeOriginal)
+        case .comment: return (kCGImagePropertyExifDictionary, kCGImagePropertyExifUserComment)
+        case .album, .genre: return nil
+        }
+    }
+
+    var xmpPaths: [String] {
+        switch self {
+        case .title: return ["dc:title", "photoshop:Headline"]
+        case .description: return ["dc:description", "tiff:ImageDescription"]
+        case .artist: return ["dc:creator", "tiff:Artist"]
+        case .keywords: return ["dc:subject"]
+        case .copyright: return ["dc:rights", "tiff:Copyright"]
+        case .date: return ["exif:DateTimeOriginal", "photoshop:DateCreated"]
+        case .comment: return ["exif:UserComment"]
+        case .album, .genre: return []
+        }
+    }
+
+    var ffmpegKey: String {
+        switch self {
+        case .artist: return "artist"
+        default: return rawValue
+        }
+    }
+
+    var commonKey: AVMetadataKey? {
+        switch self {
+        case .title: return .commonKeyTitle
+        case .artist: return .commonKeyArtist
+        case .album: return .commonKeyAlbumName
+        case .description: return .commonKeyDescription
+        case .date: return .commonKeyCreationDate
+        case .copyright: return .commonKeyCopyrights
+        default: return nil
+        }
+    }
+
+    func avIdentifier(for format: FileFormat) -> AVMetadataIdentifier? {
+        switch self {
+        case .title: return .commonIdentifierTitle
+        case .artist: return .commonIdentifierArtist
+        case .album: return .commonIdentifierAlbumName
+        case .description: return .commonIdentifierDescription
+        case .date: return .commonIdentifierCreationDate
+        case .copyright: return .commonIdentifierCopyrights
+        case .genre: return format == .mov ? .quickTimeMetadataGenre : .iTunesMetadataUserGenre
+        case .comment: return format == .mov ? .quickTimeMetadataComment : .iTunesMetadataUserComment
+        case .keywords: return format == .mov ? .quickTimeMetadataKeywords : nil
+        }
+    }
+
+    func matches(_ item: AVMetadataItem) -> Bool {
+        if let commonKey, item.commonKey == commonKey { return true }
+        let ids: [AVMetadataIdentifier]
+        switch self {
+        case .genre: ids = [.quickTimeMetadataGenre, .iTunesMetadataUserGenre, .iTunesMetadataPredefinedGenre, .id3MetadataContentType]
+        case .comment: ids = [.quickTimeMetadataComment, .iTunesMetadataUserComment, .id3MetadataComments]
+        case .keywords: ids = [.quickTimeMetadataKeywords]
+        default: ids = []
+        }
+        return item.identifier.map(ids.contains) ?? false
+    }
+
+    var pdfAttribute: PDFDocumentAttribute? {
+        switch self {
+        case .title: return .titleAttribute
+        case .artist: return .authorAttribute
+        case .description: return .subjectAttribute
+        case .keywords: return .keywordsAttribute
+        default: return nil
+        }
+    }
+
+    static func list(_ text: String) -> [String] {
+        text.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+}

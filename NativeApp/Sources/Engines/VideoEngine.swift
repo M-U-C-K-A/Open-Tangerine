@@ -21,6 +21,9 @@ struct VideoEngine: ConversionEngine {
             }
         }
         if request.target == .mp3 {
+            if await FFmpeg.hasAudio(request.source) == false {
+                throw OpenTangerineError.invalidInput("\(request.source.lastPathComponent) has no sound to save as MP3.")
+            }
             try await AudioEngine.ffmpegConvert(source: request.source, destination: request.destination, target: .mp3, progress: request.progress)
             return
         }
@@ -37,7 +40,7 @@ struct VideoEngine: ConversionEngine {
         case .mkv:
             args += ["-c:v", "libx264", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-f", "matroska"]
         case .webm:
-            args += ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "32", "-row-mt", "1", "-c:a", "libopus", "-f", "webm"]
+            args += ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "32", "-row-mt", "1", "-pix_fmt", "yuv420p", "-c:a", "libopus", "-f", "webm"]
         case .avi:
             args += ["-c:v", "mpeg4", "-vtag", "xvid", "-q:v", "4", "-c:a", "libmp3lame", "-f", "avi"]
         case .wmv:
@@ -75,6 +78,10 @@ struct VideoEngine: ConversionEngine {
             if videoCodec == "libx265", let preset = codecArgs.firstIndex(of: "-preset") { codecArgs[preset + 1] = "fast" }
             if videoCodec == "hevc_videotoolbox", let preset = codecArgs.firstIndex(of: "-preset") { codecArgs.removeSubrange(preset...(preset + 1)) }
             if target != .mkv { codecArgs += ["-tag:v", "hvc1"] }
+        }
+        if target == .webm, FileFormat.detect(source) == .gif, let format = codecArgs.firstIndex(of: "yuv420p") {
+            // VP9 keeps a GIF's transparency.
+            codecArgs[format] = "yuva420p"
         }
         args += codecArgs
         args.append(destination.path)

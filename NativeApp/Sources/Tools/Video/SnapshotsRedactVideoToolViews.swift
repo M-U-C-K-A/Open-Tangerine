@@ -131,22 +131,32 @@ struct VideoSnapshotsToolView: View {
 struct RedactVideoToolView: View {
     let session: ToolSession
     @StateObject private var media: MediaController
-    @State private var frame: NSImage?
+    @StateObject private var preview = LatestRenderer<FramePreview>()
+    @State private var grabber: VideoFrameGrabber
     @State private var rects: [RectangleOverlay] = []
     @State private var selected: UUID?
     @State private var ranges: [UUID: ClosedRange<Double>] = [:]
     @State private var styles: [UUID: RedactionStyle] = [:]
+    @State private var strengths: [UUID: Double] = [:]
     @State private var defaultStyle: RedactionStyle = .blur
+    @State private var defaultStrength = Redaction.defaultStrength
     @State private var hideFaces = true
     @State private var faceStyle: RedactionStyle = .blur
+    @State private var faceStrength = Redaction.defaultStrength
     @State private var margin: Double = 0.3
-    @State private var facesInFrame = 0
-    @State private var frameTask: Task<Void, Never>?
+
+    struct FramePreview: Sendable {
+        let image: CGImage
+        let faces: Int
+    }
 
     init(session: ToolSession) {
         self.session = session
         _media = StateObject(wrappedValue: MediaController(url: session.primary))
+        _grabber = State(initialValue: VideoFrameGrabber(url: session.primary))
     }
+
+    private var facesInFrame: Int { preview.output?.faces ?? 0 }
 
     private var videoSize: CGSize { media.info.naturalSize }
 
@@ -162,7 +172,7 @@ struct RedactVideoToolView: View {
             VStack(spacing: 10) {
                 ZStack {
                     Color.black
-                    if let frame {
+                    if let frame = preview.output.map({ ImageOps.nsImage($0.image) }) {
                         RectangleEditorCanvas(image: frame, imageSize: videoSize, rectangles: $rects, selected: $selected, allowMultiple: true, outlinesOnly: true)
                     } else {
                         ProgressView()
@@ -189,6 +199,9 @@ struct RedactVideoToolView: View {
                     Text("Box").tag(RedactionStyle.solid)
                     }
                     .pickerStyle(.segmented).labelsHidden()
+                    if faceStyle != .solid {
+                        LabeledSlider(title: faceStyle == .blur ? "Blur strength" : "Pixel size", value: $faceStrength, range: 0...1) { String(format: "%.0f%%", $0 * 100) }
+                    }
                     LabeledSlider(title: "Margin around faces", value: $margin, range: 0...0.8) { String(format: "%.0f%%", $0 * 100) }
                     Text(facesInFrame == 0 ? "No face in this frame. Every frame is searched when saving, so a face that moves stays covered." : "\(facesInFrame) face\(facesInFrame == 1 ? "" : "s") in this frame. Every frame is searched when saving, so a face that moves stays covered.")
                         .font(.caption2).foregroundStyle(.secondary)
@@ -201,6 +214,11 @@ struct RedactVideoToolView: View {
                     Text("Box").tag(RedactionStyle.solid)
                 }
                 .pickerStyle(.segmented).labelsHidden()
+                if styleBinding.wrappedValue != .solid {
+                    LabeledSlider(title: styleBinding.wrappedValue == .blur ? "Blur strength" : "Pixel size", value: strengthBinding, range: 0...1) { String(format: "%.0f%%", $0 * 100) }
+                }
+                Text(selected == nil ? "Applies to every area without its own style." : "Applies to the selected area.")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
             SidebarSection(title: "Time range") {
                 if let selected, let range = ranges[selected] {
@@ -242,9 +260,12 @@ struct RedactVideoToolView: View {
         }
         .onChange(of: rects) { _ in loadFrame() }
         .onChange(of: styles) { _ in loadFrame() }
+        .onChange(of: strengths) { _ in loadFrame() }
         .onChange(of: defaultStyle) { _ in loadFrame() }
+        .onChange(of: defaultStrength) { _ in loadFrame() }
         .onChange(of: hideFaces) { _ in loadFrame() }
         .onChange(of: faceStyle) { _ in loadFrame() }
+        .onChange(of: faceStrength) { _ in loadFrame() }
         .onChange(of: margin) { _ in loadFrame() }
         .onDeleteCommand { if let selected { remove(selected) } }
     }
@@ -256,17 +277,25 @@ struct RedactVideoToolView: View {
         )
     }
 
+    private var strengthBinding: Binding<Double> {
+        Binding(
+            get: { selected.flatMap { strengths[$0] } ?? defaultStrength },
+            set: { new in if let selected { strengths[selected] = new } else { defaultStrength = new } }
+        )
+    }
+
     private var redactions: [Redaction] {
         rects.map { overlay -> Redaction in
             var r = Redaction(rect: overlay.rect)
             r.style = styles[overlay.id] ?? defaultStyle
+            r.strength = strengths[overlay.id] ?? defaultStrength
             if let range = ranges[overlay.id] { r.start = range.lowerBound; r.end = range.upperBound }
             return r
         }
     }
 
     private var faceOptions: FaceBlur.Options? {
-        hideFaces ? FaceBlur.Options(style: faceStyle, padding: margin) : nil
+        hideFaces ? FaceBlur.Options(style: faceStyle, padding: margin, strength: faceStrength) : nil
     }
 
     private func updateRange(lower: Double? = nil, upper: Double? = nil) {
@@ -281,22 +310,23 @@ struct RedactVideoToolView: View {
         rects.removeAll { $0.id == id }
         ranges.removeValue(forKey: id)
         styles.removeValue(forKey: id)
+        strengths.removeValue(forKey: id)
         if selected == id { selected = nil }
     }
 
     /// The frame at the playhead, as it will be saved: faces and areas already hidden.
+    /// One frame is drawn at a time, always the latest, so playing or dragging never piles up work.
     private func loadFrame() {
-        let url = session.primary
+        let grabber = grabber
         let time = media.currentTime
         let size = videoSize
         let faces = faceOptions
         let active = redactions.filter { time >= $0.start && time <= $0.end }
-        frameTask?.cancel()
-        frameTask = Task.detached(priority: .userInitiated) {
-            guard let cg = try? await VideoOps.snapshot(url, at: time), !Task.isCancelled else { return }
+        preview.submit {
+            guard let cg = await grabber.frame(at: time) else { return nil }
             var image = CIImage(cgImage: cg)
             var count = 0
-            if let faces, let found = try? FaceBlur.faces(in: image) {
+            if let faces, let found = try? FaceBlur.faces(in: image, maxSide: 1280) {
                 count = found.count
                 image = FaceBlur.hide(image, faces: found, options: faces)
             }
@@ -309,13 +339,7 @@ struct RedactVideoToolView: View {
                 }
                 image = ImageOps.redact(image, redactions: scaled)
             }
-            let ns = ImageToolSupport.cgImage(image).map(ImageOps.nsImage) ?? ImageOps.nsImage(cg)
-            guard !Task.isCancelled else { return }
-            let found = count
-            await MainActor.run {
-                frame = ns
-                facesInFrame = found
-            }
+            return FramePreview(image: ImageToolSupport.cgImage(image) ?? cg, faces: count)
         }
     }
 

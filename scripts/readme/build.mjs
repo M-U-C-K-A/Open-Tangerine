@@ -274,6 +274,10 @@ const ICONS = {
   check: "M3 8.5l3 3 7-7",
   lock: "M4 7.5h8v7H4ZM5.5 7.5V5a2.5 2.5 0 0 1 5 0v2.5",
   layers: "M8 2 14.5 5.5 8 9 1.5 5.5ZM1.5 8.5 8 12l6.5-3.5M1.5 11.5 8 15l6.5-3.5",
+  drop: "M10.4 2.6l3 3M12 4.1 4.6 11.5l-2.8.7.7-2.8L9.9 2M3.8 9.3l2.9 2.9",
+  scan: "M1.5 5V3a1.5 1.5 0 0 1 1.5-1.5h2M11 1.5h2A1.5 1.5 0 0 1 14.5 3v2M14.5 11v2a1.5 1.5 0 0 1-1.5 1.5h-2M5 14.5H3A1.5 1.5 0 0 1 1.5 13v-2M5 4.5h6v7H5ZM6.5 7h3M6.5 9h2",
+  markup: "M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5M9.2 3 6.8 13",
+  portrait: "M5 1.5h6a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 13V3A1.5 1.5 0 0 1 5 1.5ZM7 12.5h2",
 }
 
 function icon(name, x, y, size, color, width = 1.5) {
@@ -485,8 +489,8 @@ function hero() {
       <text x="72" y="454" font-size="27" fill="${T.tagline}">It never leaves your Mac.</text>
     </g>
     ${chips(72, 492, [
-      ["184 routes", orange.s],
-      ["32 tools", T.lime[0]],
+      ["196 routes", orange.s],
+      ["37 tools", T.lime[0]],
       ["batch", T.grape[0]],
       ["on-device", T.mint[0]],
     ])}
@@ -663,7 +667,7 @@ const FAMILIES = [
   { name: "Images", routes: 67, color: "lime", icon: "image", list: "JPEG PNG WEBP HEIC TIFF AVIF BMP SVG", to: "→ 8 image formats, PDF, DOCX, TXT" },
   { name: "Audio", routes: 56, color: "berry", icon: "audio", list: "MP3 M4A WAV FLAC OGG OPUS AIFF WMA", to: "→ any of the 8" },
   { name: "Video", routes: 48, color: "grape", icon: "video", list: "MP4 MOV MKV WEBM AVI WMV GIF", to: "→ video, GIF, MP3" },
-  { name: "Documents", routes: 9, color: "lemon", icon: "doc", list: "PDF TXT", to: "→ DOCX, JPEG, PNG, TXT, PDF, SRT, VTT" },
+  { name: "Documents", routes: 21, color: "lemon", icon: "doc", list: "PDF DOCX MD HTML TXT", to: "→ each other, JPEG, PNG, SRT, VTT" },
   { name: "Subtitles", routes: 4, color: "sky", icon: "subtitle", list: "SRT VTT", to: "→ SRT, VTT, TXT" },
   { name: "Archives", routes: 0, color: "stone", icon: "archive", list: "ZIP TAR GZ RAR", to: "paused until extraction is sandboxed" },
 ]
@@ -703,17 +707,17 @@ function formats() {
     <ellipse cx="640" cy="310" rx="580" ry="290" fill="url(#glowOrange)" opacity=".55"/>
     ${particles(W, H, 18, 5)}
     ${cubes}
-    <text x="640" y="${H - 22}" text-anchor="middle" font-family="${MONO}" font-size="13" fill="${T.muted}">block height = number of conversion routes · <tspan fill="${T.orange[0]}">184 in total</tspan></text>`
-  return svg(W, H, body, "184 conversion routes across images, audio, video, documents and subtitles")
+    <text x="640" y="${H - 22}" text-anchor="middle" font-family="${MONO}" font-size="13" fill="${T.muted}">block height = number of conversion routes · <tspan fill="${T.orange[0]}">196 in total</tspan></text>`
+  return svg(W, H, body, "196 conversion routes across images, audio, video, documents and subtitles")
 }
 
 /* ---- 5. tools: every tool, by family ----------------------------------- */
 
 const TOOLBOX = {
-  images: { name: "Images", color: "lime", icon: "image", tools: [["edit", "Edit photo"], ["frame", "Add a background"], ["cutout", "Remove background"], ["eye", "Blur & redact"], ["resize", "Resize & compress"], ["sparkle", "Add a watermark"], ["crop", "Crop"], ["rotate", "Rotate & flip"], ["doc", "Create a PDF"], ["collage", "Collage"]] },
-  video: { name: "Video", color: "grape", icon: "video", tools: [["trim", "Trim"], ["crop", "Crop"], ["speed", "Change speed"], ["link", "Join"], ["frames", "Save frames"], ["split", "Split"], ["eye", "Blur & redact"], ["subtitle", "Subtitles from speech"]] },
+  images: { name: "Images", color: "lime", icon: "image", tools: [["edit", "Edit photo"], ["frame", "Add a background"], ["cutout", "Remove background"], ["eye", "Blur & redact"], ["resize", "Resize & social formats"], ["drop", "Color palette"], ["scan", "Scan to PDF"], ["sparkle", "Add a watermark"], ["crop", "Crop"], ["rotate", "Rotate & flip"], ["doc", "Create a PDF"], ["collage", "Collage"]] },
+  video: { name: "Video", color: "grape", icon: "video", tools: [["trim", "Trim"], ["crop", "Crop"], ["speed", "Change speed"], ["link", "Join"], ["frames", "Save frames"], ["split", "Split"], ["eye", "Blur & redact"], ["portrait", "Reels · Shorts · TikTok"], ["wand", "Enhance"], ["subtitle", "Subtitles from speech"]] },
   audio: { name: "Audio", color: "berry", icon: "audio", tools: [["wave", "Normalize volume"], ["bars", "Visualizer"], ["trim", "Trim"], ["phones", "Channels"], ["bleep", "Bleep"], ["subtitle", "Subtitles from speech"]] },
-  pdf: { name: "PDF", color: "lemon", icon: "doc", tools: [["merge", "Merge"], ["stack", "Organize pages"], ["splitdoc", "Split"], ["lock", "Add a password"], ["lock", "Remove the password"]] },
+  pdf: { name: "PDF", color: "lemon", icon: "doc", tools: [["merge", "Merge"], ["stack", "Organize pages"], ["splitdoc", "Split"], ["lock", "Add a password"], ["lock", "Remove the password"], ["ocr", "Make searchable"]] },
   any: { name: "Any file", color: "orange", icon: "layers", tools: [["compress", "Compress"], ["tag", "Edit metadata"], ["layers", "Translate"]] },
   actions: { name: "File actions", color: "mint", icon: "folder", tools: [["folder", "Reveal in Finder"], ["copy", "Copy files"], ["link", "Copy paths"], ["dup", "Duplicate"], ["archive", "ZIP"], ["archive", "Unzip safely"], ["edit", "Rename…"], ["ocr", "Copy text"], ["frames", "Read QR codes"], ["hash", "SHA-256 checksum"]], note: "hold ⌃" },
 }
@@ -759,7 +763,7 @@ function tools() {
     <ellipse cx="960" cy="300" rx="320" ry="260" fill="url(#glowGrape)" opacity=".6"/>
     ${parts.join("\n    ")}
     <text x="640" y="${H - 20}" text-anchor="middle" font-family="${MONO}" font-size="13" fill="${T.muted}">hold ⌘ while dragging · the wheel only offers the tools that fit the files you hold</text>`
-  return svg(W, H, body, "32 tools and 10 file actions: images, video, audio, PDF and any file")
+  return svg(W, H, body, "37 tools and 10 file actions: images, video, audio, PDF and any file")
 }
 
 /* ---- 6. notch: progress that grows out of the hardware notch ----------- */
@@ -879,12 +883,12 @@ function notch() {
 const ROADMAP = [
   {
     name: "Shipped",
-    note: "0.2.0",
+    note: "0.3.0",
     color: "lime",
     cards: [
-      ["check", "184 routes, 32 tools", "convert, crop, trim, OCR, translate…"],
-      ["sparkle", "Resize & compress, blur faces", "super resolution · Vision, on-device"],
-      ["subtitle", "Subtitles from speech", "transcribe, translate, unzip, QR…"],
+      ["check", "196 routes, 37 tools", "Markdown ↔ HTML ↔ Word, OCR, translate…"],
+      ["scan", "Scan & searchable PDFs", "pages straightened, text laid in"],
+      ["portrait", "Reels, Shorts, TikTok", "crop follows the subject · feeds"],
     ],
   },
   {
@@ -892,9 +896,9 @@ const ROADMAP = [
     note: "proposed",
     color: "orange",
     cards: [
-      ["crop", "Scan documents", "photo of a page → straight PDF"],
-      ["ocr", "Searchable PDFs", "add a text layer to scans"],
+      ["subtitle", "Burn-in subtitles", "captions drawn into the video"],
       ["speed", "Smooth slow motion", "new frames between frames"],
+      ["markup", "More documents", "ODT, RTF, EPUB in and out"],
     ],
   },
   {
@@ -902,9 +906,9 @@ const ROADMAP = [
     note: "ideas",
     color: "grape",
     cards: [
-      ["video", "Upscale & denoise video", "VideoToolbox, on this Mac"],
-      ["image", "Colour palette", "pick the colours of a picture"],
       ["rotate", "Undo history", "take back any conversion"],
+      ["layers", "Shortcuts actions", "every tool in Apple Shortcuts"],
+      ["video", "Video templates", "intro, outro and title cards"],
     ],
   },
 ]
@@ -948,7 +952,7 @@ function roadmap() {
     ${isoGrid(W, H, 34)}
     <ellipse cx="640" cy="260" rx="330" ry="230" fill="url(#glowOrange)"/>
     ${parts.join("\n    ")}`
-  return svg(W, H, body, "Roadmap: shipped in 0.2.0 (184 routes, 32 tools, super resolution, face blurring, subtitles from speech), proposed next, ideas for later")
+  return svg(W, H, body, "Roadmap: shipped in 0.2.0 (196 routes, 37 tools, document scanning, video enhancement, color palette, social formats for pictures and videos), proposed next, ideas for later")
 }
 
 /* ---- 8. divider: a dotted rule with a segment of zest running along it -- */

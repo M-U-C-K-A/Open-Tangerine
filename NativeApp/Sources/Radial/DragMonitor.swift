@@ -50,7 +50,18 @@ final class DragMonitor {
     private var pressOrigin = NSPoint.zero
     private var pressTime = Date.distantPast
     private var pressInFinder = false
+    private var pressExcluded = false
     private var pollTick = 0
+
+    /// Only drags that carry files (or promise them) open the wheel: shapes, text or
+    /// layers dragged inside a design app never do.
+    static func acceptsDrag(hasFiles: Bool, types: [NSPasteboard.PasteboardType]) -> Bool {
+        hasFiles || types.contains(.fileURL) || types.contains { NSFilePromiseReceiver.readableDraggedTypes.contains($0.rawValue) }
+    }
+
+    static func isExcluded(_ identifier: String?, applications: [String: String]) -> Bool {
+        identifier.map { applications[$0] != nil } ?? false
+    }
 
     private static let idleInterval = 1.0 / 30.0
     private static let dragInterval = 1.0 / 60.0
@@ -113,7 +124,10 @@ final class DragMonitor {
         activeURLs = []
         pressOrigin = NSEvent.mouseLocation
         pressTime = Date()
-        pressInFinder = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.finder"
+        let sourceApplication = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        pressInFinder = sourceApplication == "com.apple.finder"
+        // Latched at mouse-down, so changing focus during a drag can't get round an exclusion.
+        pressExcluded = Self.isExcluded(sourceApplication, applications: AppSettings.shared.excludedApplications)
         pressChangeCount = NSPasteboard(name: .drag).changeCount
         lastReadChange = pressChangeCount
         activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical], reason: "Tracking a file drag")
@@ -128,6 +142,7 @@ final class DragMonitor {
             return
         }
         beginPressIfNeeded()
+        guard !pressExcluded else { return }
         refreshDragPasteboard()
         if !dragInFlight, pressInFinder, currentModifiers.shift, Date().timeIntervalSince(pressTime) >= Self.fallbackDelay, hypot(NSEvent.mouseLocation.x - pressOrigin.x, NSEvent.mouseLocation.y - pressOrigin.y) >= Self.fallbackDragDistance {
             dragInFlight = true
@@ -147,8 +162,8 @@ final class DragMonitor {
         lastReadChange = change
         guard change > pressChangeCount else { return }
         let items = pasteboard.pasteboardItems ?? []
-        dragInFlight = !items.isEmpty
         activeURLs = Self.fileURLs(on: pasteboard)
+        dragInFlight = Self.acceptsDrag(hasFiles: !activeURLs.isEmpty, types: pasteboard.types ?? [])
         DragDebug.log("drag pasteboard change=\(change) types=\(pasteboard.types?.map(\.rawValue) ?? []) items=\(items.count) itemTypes=\(items.map { $0.types.map(\.rawValue) }) urls=\(activeURLs.map(\.path))")
         if presenting, !activeURLs.isEmpty {
             delegate?.dragMonitor(self, didUpdateDraggedURLs: activeURLs)

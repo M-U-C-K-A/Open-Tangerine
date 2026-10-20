@@ -101,6 +101,93 @@ import AVFoundation
         for style in RedactionStyle.allCases {
             await test("video redact \(style)") { let dest = out("redact-\(style).mp4"); try await VideoOps.redact(mp4, redactions: [Redaction(rect: CGRect(x: 10,y: 10,width: 30,height: 30), style: style)], displaySize: CGSize(width: 80,height: 60), to: dest, progress: {_ in}); try await inspect(dest, video: true, duration: 2, width: 160) }
         }
+        for (name, source) in [("MP4", mp4), ("M4A", out("audio.m4a")), ("MP3", out("audio.mp3")), ("FLAC", out("audio.flac"))] {
+            await test("\(name) tags written and read back") {
+                let format = FileFormat.detect(source)!
+                let tagged = out("tagged.\(format.fileExtension)"), retagged = out("retagged.\(format.fileExtension)")
+                try await MetadataOps.write(source, tags: [.title: "Citrus song", .artist: "Ada", .comment: "First take"], removeAll: false, removeSensitive: false, to: tagged, progress: { _ in })
+                let back = await MetadataOps.readTags(tagged)
+                try check(back[.title] == "Citrus song" && back[.artist] == "Ada" && back[.comment] == "First take", "Expected the new tags, got \(back)")
+                try await MetadataOps.write(tagged, tags: [.title: "Lemon song"], removeAll: false, removeSensitive: false, to: retagged, progress: { _ in })
+                let again = await MetadataOps.readTags(retagged)
+                try check(again[.title] == "Lemon song" && again[.artist] == "Ada", "Expected one tag changed and the others kept, got \(again)")
+                try await inspect(retagged, duration: 2)
+            }
+        }
+        await test("video enhance: denoise, sharpen, light, doubled, sound kept") {
+            let dest = out("enhanced.mp4")
+            try await VideoEnhance.apply(mp4, options: VideoEnhance.Options(denoise: .light, sharpen: true, autoLight: true, double: true, method: .enlarge), to: dest, progress: { _ in })
+            try await inspect(dest, audio: true, video: true, duration: 2, width: 320)
+        }
+        await test("video enhance with super resolution") {
+            let dest = out("enhanced-sr.mp4")
+            try await VideoEnhance.apply(mp4, options: VideoEnhance.Options(denoise: .strong, sharpen: false, double: true, method: .enhance), to: dest, progress: { _ in })
+            try await inspect(dest, audio: true, video: true, duration: 2, width: 320)
+        }
+        await test("video enhance through FFmpeg for MKV") {
+            let dest = out("enhanced-mkv.mp4")
+            try await VideoEnhance.apply(silent, options: VideoEnhance.Options(denoise: .light, sharpen: true, double: true), to: dest, progress: { _ in })
+            try await inspect(dest, audio: false, video: true, duration: 2, width: 320)
+        }
+        func size(_ url: URL) async throws -> (Int, Int, Double) {
+            let probe = try await Shell.run(FFmpeg.probePath!, ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height:format=duration", "-of", "csv=p=0", url.path])
+            let numbers = probe.stdout.split(whereSeparator: { $0 == "," || $0 == "\n" }).compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+            return (Int(numbers.first ?? 0), Int(numbers.dropFirst().first ?? 0), numbers.dropFirst(2).first ?? 0)
+        }
+        func frame(_ url: URL, at seconds: Double) async throws -> [UInt8] {
+            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+            generator.appliesPreferredTrackTransform = true
+            generator.requestedTimeToleranceBefore = .zero; generator.requestedTimeToleranceAfter = .zero
+            let image = try await generator.image(at: CMTime(seconds: seconds, preferredTimescale: 600)).image
+            let context = CGContext(data: nil, width: 90, height: 160, bitsPerComponent: 8, bytesPerRow: 360, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.draw(image, in: CGRect(x: 0, y: 0, width: 90, height: 160))
+            return Array(UnsafeBufferPointer(start: context.data!.assumingMemoryBound(to: UInt8.self), count: 90 * 160 * 4))
+        }
+        await test("social video: TikTok size, sound kept") {
+            let dest = out("clip tiktok.mp4")
+            try await SocialVideo.apply(mp4, options: SocialVideo.Options(format: .tiktok, fill: true), to: dest, progress: { _ in })
+            let (w, h, d) = try await size(dest)
+            try check(w == 1080 && h == 1920 && abs(d - 2) < 0.2, "Expected 1080 × 1920 for 2 s, got \(w) × \(h) for \(d) s")
+            try await inspect(dest, audio: true, video: true, duration: 2, width: 1080)
+        }
+        await test("social video: fitted square, trimmed to one second, HEVC") {
+            let dest = out("clip square.mp4")
+            try await SocialVideo.apply(mp4, options: SocialVideo.Options(format: .instagramSquare, fill: false, seconds: 1, hevc: true), to: dest, progress: { _ in })
+            let (w, h, d) = try await size(dest)
+            try check(w == 1080 && h == 1080 && abs(d - 1) < 0.15, "Expected 1080 × 1080 for 1 s, got \(w) × \(h) for \(d) s")
+        }
+        await test("social video through FFmpeg for MKV") {
+            let dest = out("silent youtube.mp4")
+            try await SocialVideo.apply(silent, options: SocialVideo.Options(format: .youtubeVideo, fill: false, seconds: 1), to: dest, progress: { _ in })
+            let (w, h, d) = try await size(dest)
+            try check(w == 1920 && h == 1080 && abs(d - 1) < 0.15, "Expected 1920 × 1080 for 1 s, got \(w) × \(h) for \(d) s")
+        }
+        await test("social video follows a moving subject") {
+            // A white square crosses a dark frame from left to right; a centred crop would miss it at both ends.
+            let moving = out("moving.mp4"), dest = out("moving tiktok.mp4")
+            try await FFmpeg.run(["-f", "lavfi", "-i", "color=c=0x101010:s=1280x720:d=3:r=24", "-f", "lavfi", "-i", "color=c=white:s=160x160:d=3:r=24", "-filter_complex", "[0][1]overlay=x='100+t*300':y=280", "-c:v", "libx264", "-pix_fmt", "yuv420p", moving.path], purpose: "Moving fixture")
+            try await SocialVideo.apply(moving, options: SocialVideo.Options(format: .tiktok, fill: true), to: dest, progress: { _ in })
+            for seconds in [0.25, 1.5, 2.75] {
+                let pixels = try await frame(dest, at: seconds)
+                let bright = stride(from: 0, to: pixels.count, by: 4).filter { pixels[$0] > 200 && pixels[$0 + 1] > 200 }.count
+                try check(bright > 600, "The subject is in the crop at \(seconds) s (\(bright) bright pixels)")
+            }
+        }
+        await test("social video keeps phone videos upright") {
+            // Red on the left, blue on the right, then marked as rotated, as phones record.
+            let halves = out("halves.mp4"), rotated = out("rotated.mp4"), dest = out("rotated square.mp4")
+            try await FFmpeg.run(["-f", "lavfi", "-i", "color=c=red:s=160x120:d=1:r=24", "-f", "lavfi", "-i", "color=c=blue:s=160x120:d=1:r=24", "-filter_complex", "hstack", "-c:v", "libx264", "-pix_fmt", "yuv420p", halves.path], purpose: "Halves fixture")
+            try await FFmpeg.run(["-display_rotation", "90", "-i", halves.path, "-c", "copy", rotated.path], purpose: "Rotated fixture")
+            try await SocialVideo.apply(rotated, options: SocialVideo.Options(format: .instagramSquare, fill: false), to: dest, progress: { _ in })
+            let source = try await frame(rotated, at: 0.5), result = try await frame(dest, at: 0.5)
+            func color(_ pixels: [UInt8], row: Int) -> (Int, Int) { let i = (row * 90 + 45) * 4; return (Int(pixels[i]), Int(pixels[i + 2])) }
+            // The middle of the top and bottom rows: the same colours as the upright source.
+            let (srcTop, srcBottom) = (color(source, row: 20), color(source, row: 140))
+            let (outTop, outBottom) = (color(result, row: 60), color(result, row: 100))
+            try check(srcTop.0 > srcTop.1 ? outTop.0 > outTop.1 : outTop.1 > outTop.0, "Top colour kept: source \(srcTop), result \(outTop)")
+            try check(srcBottom.0 > srcBottom.1 ? outBottom.0 > outBottom.1 : outBottom.1 > outBottom.0, "Bottom colour kept: source \(srcBottom), result \(outBottom)")
+            try check((srcTop.0 > srcTop.1) != (srcBottom.0 > srcBottom.1), "The rotated fixture is upright red over blue or blue over red")
+        }
         await test("video redact with faces") { let dest = out("redact-faces.mp4"); try await VideoOps.redact(mp4, redactions: [Redaction(rect: CGRect(x: 10, y: 10, width: 30, height: 30), style: .blur)], displaySize: CGSize(width: 80, height: 60), faces: FaceBlur.Options(), to: dest, progress: {_ in}); try await inspect(dest, video: true, duration: 2, width: 160) }
         let frame = out("frame.png")
         try await FFmpeg.run(["-i", mp4.path, "-frames:v", "1", frame.path], purpose: "Visualizer fixture")

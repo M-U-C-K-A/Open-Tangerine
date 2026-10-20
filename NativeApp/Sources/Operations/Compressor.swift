@@ -53,13 +53,25 @@ enum Compressor {
         }
     }
 
+    private static let transparency = NSCache<NSString, NSNumber>()
+
+    /// Whether a picture has see-through pixels, remembered per file version: windows ask often.
+    static func transparent(_ url: URL) -> Bool {
+        let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)?.timeIntervalSince1970 ?? 0
+        let key = "\(url.path)|\(modified)" as NSString
+        if let known = transparency.object(forKey: key) { return known.boolValue }
+        let answer = (try? ImageIOBridge.load(url)).map(ImageIOBridge.hasTransparency) ?? false
+        transparency.setObject(NSNumber(value: answer), forKey: key)
+        return answer
+    }
+
     static func outputFormat(for url: URL) -> FileFormat {
         guard let format = FileFormat.detect(url) else { return .jpg }
         switch format.category {
         case .image:
             switch format {
             case .png:
-                if let image = try? ImageIOBridge.load(url), image.alphaInfo != .none && image.alphaInfo != .noneSkipLast && image.alphaInfo != .noneSkipFirst { return .png }
+                if transparent(url) { return .png }
                 return .jpg
             case .bmp, .tiff, .svg: return .jpg
             case .avif, .webp: return ImageIOBridge.canEncodeNatively(format) || FFmpeg.isAvailable ? format : .jpg
@@ -82,16 +94,16 @@ enum Compressor {
 
     /// Writes a picture as a lighter file in `outputFormat(for: source)`: at the preset's
     /// quality, or searching the quality (and size, if need be) that fits `targetBytes`.
-    static func writeLighter(_ image: CGImage, from source: URL, preset: CompressionPreset, targetBytes: Int64?, to destination: URL, progress: @escaping (Double) -> Void) async throws {
-        let format = FileFormat.detect(source) ?? .png
-        let output = outputFormat(for: source)
-        let hasAlpha = image.alphaInfo != .none && image.alphaInfo != .noneSkipLast && image.alphaInfo != .noneSkipFirst
-        let finalFormat: FileFormat = (output == .jpg && hasAlpha && format == .png) ? .png : output
+    /// Without `allowShrinking`, a transparent PNG keeps its size at the preset (only a target
+    /// size may make it smaller): the size was chosen by hand.
+    static func writeLighter(_ image: CGImage, from source: URL, preset: CompressionPreset, targetBytes: Int64?, allowShrinking: Bool = true, to destination: URL, progress: @escaping (Double) -> Void) async throws {
+        // The destination was named after outputFormat(for: source); write exactly that.
+        let finalFormat = outputFormat(for: source)
         progress(0.2)
 
         guard let targetBytes else {
             if finalFormat == .png {
-                let scaled = preset == .strong ? ImageIOBridge.resized(image, longEdge: Int(Double(max(image.width, image.height)) * 0.7)) : image
+                let scaled = preset == .strong && allowShrinking ? ImageIOBridge.resized(image, longEdge: Int(Double(max(image.width, image.height)) * 0.7)) : image
                 try ImageIOBridge.write(scaled, to: destination, format: .png)
             } else {
                 try await ImageIOBridge.writeAnyFormat(image, to: destination, format: finalFormat, quality: preset.imageQuality)

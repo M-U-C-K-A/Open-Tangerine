@@ -10,20 +10,55 @@ enum FaceBlur {
         var style: RedactionStyle = .blur
         /// How much room around each face is covered, as a fraction of the face: hair, ears, chin.
         var padding: Double = 0.3
+        var strength: Double = Redaction.defaultStrength
     }
 
+    static let context = CIContext(options: [.cacheIntermediates: false])
+
     /// Face boxes in the image's own pixel coordinates (origin bottom-left, like Core Image).
-    static func faces(in image: CIImage) throws -> [CGRect] {
+    /// The search runs on a copy at most `maxSide` pixels long, which finds the same faces
+    /// in a fraction of the time and memory.
+    static func faces(in image: CIImage, maxSide: CGFloat = 1600) throws -> [CGRect] {
+        let extent = image.extent
+        guard extent.width >= 1, extent.height >= 1 else { return [] }
+        let scale = min(1, maxSide / max(extent.width, extent.height))
+        let small = image.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY).scaledBy(x: scale, y: scale))
+        guard let pixels = context.createCGImage(small, from: CGRect(x: 0, y: 0, width: (extent.width * scale).rounded(.down), height: (extent.height * scale).rounded(.down))) else { return [] }
         let request = VNDetectFaceRectanglesRequest()
-        let handler = VNImageRequestHandler(ciImage: image, options: [:])
+        let handler = VNImageRequestHandler(cgImage: pixels, options: [:])
         do {
             try handler.perform([request])
         } catch {
             throw OpenTangerineError.toolFailed("Face detection", error.localizedDescription)
         }
-        let extent = image.extent
         return (request.results ?? []).map { face in
             VNImageRectForNormalizedRect(face.boundingBox, Int(extent.width), Int(extent.height)).offsetBy(dx: extent.minX, dy: extent.minY)
+        }
+    }
+
+    /// Faces in video frames: searched at most `rate` times a second on a small copy of the
+    /// frame, the last answer reused in between. Frames can arrive on several threads.
+    final class Tracker: @unchecked Sendable {
+        private let lock = NSLock()
+        private var lastTime = -Double.infinity
+        private var lastFaces: [CGRect] = []
+        private let interval: Double
+
+        init(rate: Double = 15) { interval = 1 / rate }
+
+        func faces(in frame: CIImage, at seconds: Double) -> [CGRect] {
+            lock.lock()
+            if abs(seconds - lastTime) < interval {
+                defer { lock.unlock() }
+                return lastFaces
+            }
+            lock.unlock()
+            let found = (try? FaceBlur.faces(in: frame, maxSide: 1280)) ?? []
+            lock.lock()
+            lastTime = seconds
+            lastFaces = found
+            lock.unlock()
+            return found
         }
     }
 
@@ -33,7 +68,7 @@ enum FaceBlur {
     }
 
     static func hide(_ image: CIImage, faces: [CGRect], options: Options) -> CIImage {
-        let redactions = faces.map { Redaction(rect: covered($0, padding: options.padding, in: image.extent), style: options.style) }
+        let redactions = faces.map { Redaction(rect: covered($0, padding: options.padding, in: image.extent), style: options.style, strength: options.strength) }
         return ImageOps.redact(image, redactions: redactions, flipped: false)
     }
 
@@ -54,9 +89,10 @@ enum FaceBlur {
             throw OpenTangerineError.invalidInput("Faces can be hidden in MP4 and MOV videos. Convert this one to MP4 first.")
         }
         let asset = AVURLAsset(url: url)
-        let composition = try await VideoOps.videoComposition(for: asset, crop: nil, outputSize: nil) { frame, _ in
-            guard let found = try? faces(in: frame), !found.isEmpty else { return frame }
-            return hide(frame, faces: found, options: options)
+        let tracker = Tracker()
+        let composition = try await VideoOps.videoComposition(for: asset, crop: nil, outputSize: nil) { frame, time in
+            let found = tracker.faces(in: frame, at: CMTimeGetSeconds(time))
+            return found.isEmpty ? frame : hide(frame, faces: found, options: options)
         }
         try await AVExporter.export(asset: asset, to: destination, format: .mp4, preset: AVAssetExportPresetHighestQuality, videoComposition: composition, progress: progress)
     }

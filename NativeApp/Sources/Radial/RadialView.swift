@@ -372,6 +372,7 @@ final class RadialView: NSView {
     }
 
     func updateHighlight(forWindowPoint point: NSPoint) {
+        layoutSubtreeIfNeeded()
         highlighted = index(at: convert(point, from: nil))
     }
 

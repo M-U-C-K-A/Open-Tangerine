@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum SettingsTab: String, CaseIterable, Identifiable {
     case general
@@ -188,6 +189,24 @@ struct SettingsView: View {
                  : "Hold the modifier while dragging files in Finder. Scrolling over the wheel moves between Convert, Tools and File actions.")
         }
         Section {
+            ForEach(settings.excludedApplications.keys.sorted(), id: \.self) { identifier in
+                HStack {
+                    Text(settings.excludedApplications[identifier] ?? identifier)
+                    Spacer()
+                    Button {
+                        settings.excludedApplications.removeValue(forKey: identifier)
+                    } label: { Image(systemName: "minus.circle") }
+                    .buttonStyle(.borderless)
+                    .help("Let drags in this app open the wheel again")
+                }
+            }
+            Button("Add an App…", action: addExcludedApplication)
+        } header: {
+            Text("Excluded Apps")
+        } footer: {
+            Text("Drags that start in these apps never open the wheel: add design tools such as CorelDRAW or Figma. Convert Files in the menu bar still works.")
+        }
+        Section {
             ForEach($settings.watchRules) { $rule in
                 HStack(spacing: 10) {
                     Toggle("", isOn: $rule.enabled).labelsHidden()
@@ -231,6 +250,25 @@ struct SettingsView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard !settings.watchRules.contains(where: { $0.path == url.path }) else { return }
         settings.watchRules.append(WatchRule(path: url.path, target: FileFormat.jpg.rawValue))
+    }
+
+    private func addExcludedApplication() {
+        let panel = NSOpenPanel()
+        panel.title = "Apps whose drags never open the wheel"
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.begin { response in
+            guard response == .OK else { return }
+            for url in panel.urls {
+                guard let bundle = Bundle(url: url), let identifier = bundle.bundleIdentifier else { continue }
+                settings.excludedApplications[identifier] =
+                    (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+                    ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+                    ?? url.deletingPathExtension().lastPathComponent
+            }
+        }
     }
 
     @ViewBuilder private var appearance: some View {
@@ -316,7 +354,7 @@ struct SettingsView: View {
                     .tracking(1.1).foregroundStyle(.secondary)
                 Divider().padding(.horizontal, 30)
                 VStack(spacing: 7) {
-                    Text("Syntax Error Private Limited").font(.system(size: 13, weight: .semibold))
+                    Text("Sintax Error Private Limited").font(.system(size: 13, weight: .semibold))
                     Text("Free to use. Open to make better.")
                         .font(.caption).foregroundStyle(.secondary)
                 }

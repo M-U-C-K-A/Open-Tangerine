@@ -36,7 +36,7 @@ enum FileFormat: String, CaseIterable, Identifiable, Hashable {
     case jpg, png, webp, heic, tiff, svg, avif, bmp, gif
     case mp3, m4a, wav, flac, ogg, opus, aiff, wma
     case mp4, mov, mkv, webm, avi, wmv
-    case pdf, docx, txt
+    case pdf, docx, txt, md, html
     case srt, vtt
     case zip, tar, gz, rar
 
@@ -55,7 +55,7 @@ enum FileFormat: String, CaseIterable, Identifiable, Hashable {
         case .gif: return .video
         case .mp3, .m4a, .wav, .flac, .ogg, .opus, .aiff, .wma: return .audio
         case .mp4, .mov, .mkv, .webm, .avi, .wmv: return .video
-        case .pdf, .docx, .txt: return .document
+        case .pdf, .docx, .txt, .md, .html: return .document
         case .srt, .vtt: return .subtitle
         case .zip, .tar, .gz, .rar: return .archive
         }
@@ -64,6 +64,7 @@ enum FileFormat: String, CaseIterable, Identifiable, Hashable {
     var displayName: String {
         switch self {
         case .gz: return "GZIP"
+        case .md: return "Markdown"
         default: return rawValue.uppercased()
         }
     }
@@ -84,7 +85,9 @@ enum FileFormat: String, CaseIterable, Identifiable, Hashable {
         case .mp4: return ["mp4", "m4v"]
         case .mov: return ["mov", "qt"]
         case .gz: return ["gz", "tgz"]
-        case .txt: return ["txt", "text", "md", "log"]
+        case .txt: return ["txt", "text", "log"]
+        case .md: return ["md", "markdown", "mdown", "mkd"]
+        case .html: return ["html", "htm", "xhtml"]
         case .aiff: return ["aiff", "aif"]
         default: return [rawValue]
         }
@@ -118,6 +121,8 @@ enum FileFormat: String, CaseIterable, Identifiable, Hashable {
         case .pdf: return .pdf
         case .docx: return UTType("org.openxmlformats.wordprocessingml.document")
         case .txt: return .plainText
+        case .md: return UTType("net.daringfireball.markdown") ?? .plainText
+        case .html: return .html
         case .srt: return UTType("com.subrip.srt") ?? .plainText
         case .vtt: return UTType("org.w3.webvtt") ?? .plainText
         case .zip: return .zip
@@ -171,6 +176,8 @@ enum FileFormat: String, CaseIterable, Identifiable, Hashable {
         case .pdf: return "A PDF, one page per image or page."
         case .docx: return "A Word document."
         case .txt: return "Plain text. Pictures and scans are read for you."
+        case .md: return "Markdown: headings, lists and links in plain text."
+        case .html: return "A web page, headings and lists as HTML tags."
         case .srt: return "Subtitles for video players."
         case .vtt: return "Subtitles for the web."
         case .zip, .tar, .gz, .rar: return "An archive."

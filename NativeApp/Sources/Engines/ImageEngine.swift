@@ -188,6 +188,19 @@ enum ImageIOBridge {
         return context.makeImage() ?? image
     }
 
+    /// True only when some pixel is actually see-through: screenshots and many PNGs carry an
+    /// alpha channel that is opaque everywhere.
+    static func hasTransparency(_ image: CGImage) -> Bool {
+        guard ![.none, .noneSkipLast, .noneSkipFirst].contains(image.alphaInfo) else { return false }
+        let width = image.width, height = image.height
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue),
+              let data = context.data else { return true }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let bytes = data.bindMemory(to: UInt8.self, capacity: width * height)
+        for index in 0..<(width * height) where bytes[index] < 255 { return true }
+        return false
+    }
+
     static func resized(_ image: CGImage, longEdge: Int) -> CGImage {
         let longest = max(image.width, image.height)
         guard longEdge > 0, longest > longEdge else { return image }

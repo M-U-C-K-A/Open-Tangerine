@@ -4,6 +4,8 @@ import SwiftUI
 struct MetadataToolView: View {
     let session: ToolSession
     @State private var fields: [MetadataField] = []
+    @State private var tags: [MetadataTag: String] = [:]
+    @State private var original: [MetadataTag: String] = [:]
     @State private var loading = true
     @State private var search = ""
     @State private var removeAll = false
@@ -13,6 +15,13 @@ struct MetadataToolView: View {
     init(session: ToolSession) {
         self.session = session
         _selectedFile = State(initialValue: session.primary)
+    }
+
+    private var format: FileFormat { FileFormat.detect(selectedFile) ?? .jpg }
+
+    /// Only the fields you changed are written, to every selected file.
+    private var changes: [MetadataTag: String] {
+        tags.filter { ($0.value.trimmingCharacters(in: .whitespaces)) != (original[$0.key] ?? "").trimmingCharacters(in: .whitespaces) }
     }
 
     private var groups: [(String, [MetadataField])] {
@@ -27,56 +36,68 @@ struct MetadataToolView: View {
         }.map { ($0, dict[$0] ?? []) }
     }
 
+    private var saveEnabled: Bool { removeAll || removeSensitive || !changes.isEmpty }
+
     var body: some View {
-        ToolShell(session: session, saveTitle: session.files.count == 1 ? "Save copy" : "Apply to \(session.files.count) files", onSave: run) {
+        ToolShell(session: session, saveTitle: session.files.count == 1 ? "Save copy" : "Apply to \(session.files.count) files", saveEnabled: saveEnabled, onSave: run) {
             VStack(spacing: 0) {
                 HStack {
                     if session.files.count > 1 {
-                        Picker("File", selection: $selectedFile) {
+                        Picker("Showing", selection: $selectedFile) {
                             ForEach(session.files, id: \.self) { Text($0.lastPathComponent).tag($0) }
                         }
                         .frame(maxWidth: 320)
                     }
                     Spacer()
-                    TextField("Search fields", text: $search)
+                    TextField("Search everything in the file", text: $search)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 220)
+                        .frame(width: 240)
                 }
                 .padding(12)
                 Divider()
                 if loading {
                     LoadingOrError(error: nil)
-                } else if fields.isEmpty {
-                    Text("No metadata found.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
+                        if !MetadataTag.tags(for: format).isEmpty {
+                            Section("Fields") {
+                                ForEach(MetadataTag.tags(for: format)) { tag in
+                                    tagRow(tag)
+                                }
+                            }
+                            .disabled(removeAll)
+                            .opacity(removeAll ? 0.4 : 1)
+                        }
                         ForEach(groups, id: \.0) { group, items in
                             Section(group) {
                                 ForEach(items) { field in
-                                    row(field)
+                                    fieldRow(field)
                                 }
                             }
                         }
                     }
                     .listStyle(.inset(alternatesRowBackgrounds: true))
-                    .disabled(removeAll)
-                    .opacity(removeAll ? 0.4 : 1)
                 }
             }
         } sidebar: {
+            SidebarSection(title: "Fields") {
+                Text(changes.isEmpty
+                     ? "Type in a field to add it or change it; empty it to remove it. Only what you change is written."
+                     : "\(changes.count) field\(changes.count == 1 ? "" : "s") changed: \(changes.keys.map { $0.label(for: format) }.sorted().joined(separator: ", ")).")
+                    .font(.caption2).foregroundStyle(changes.isEmpty ? Color.secondary : Theme.accent)
+                if !changes.isEmpty {
+                    Button("Undo changes") { tags = original }.controlSize(.small)
+                }
+                if session.files.count > 1 {
+                    Text("Changed fields go to all \(session.files.count) files; the others keep their own values.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
             SidebarSection(title: "Remove") {
                 Toggle("Remove all metadata", isOn: $removeAll)
                 Toggle("Remove camera, GPS and processing data", isOn: $removeSensitive).disabled(removeAll)
-                Text("Orientation and color profile are kept. Removing sensitive data clears all audio/video tags, and author/creator details from PDFs. Images may be re-encoded.")
+                Text("Orientation and color profile are kept. For audio and video, removing sensitive data clears every tag. The copy is saved next to the original, which stays as it is.")
                     .font(.caption2).foregroundStyle(.secondary)
-            }
-            SidebarSection(title: "Editing") {
-                Text("Editable fields show a text box. Clear a value to remove that field. Changes apply to a new copy; the original stays as is.")
-                    .font(.caption2).foregroundStyle(.secondary)
-                if session.files.count > 1 {
-                    Text("Edited field values are applied to every selected file; removal options apply to all.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
             }
             SidebarSection(title: "Summary") {
                 let sensitive = fields.filter(\.sensitive).count
@@ -86,8 +107,18 @@ struct MetadataToolView: View {
         .task(id: selectedFile) { await load() }
     }
 
-    @ViewBuilder
-    private func row(_ field: MetadataField) -> some View {
+    private func tagRow(_ tag: MetadataTag) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(tag.label(for: format)).font(.callout).frame(width: 140, alignment: .leading)
+            TextField(tag.placeholder(for: format), text: Binding(get: { tags[tag] ?? "" }, set: { tags[tag] = $0 }))
+                .textFieldStyle(.roundedBorder)
+            if (tags[tag] ?? "") != (original[tag] ?? "") {
+                Circle().fill(Theme.accent).frame(width: 6, height: 6).help("Changed")
+            }
+        }
+    }
+
+    private func fieldRow(_ field: MetadataField) -> some View {
         HStack(alignment: .firstTextBaseline) {
             HStack(spacing: 4) {
                 if field.sensitive {
@@ -95,26 +126,25 @@ struct MetadataToolView: View {
                 }
                 Text(field.key).font(.callout).frame(width: 200, alignment: .leading).lineLimit(1)
             }
-            if field.editable, let index = fields.firstIndex(where: { $0.id == field.id }) {
-                TextField("", text: $fields[index].value)
-                    .textFieldStyle(.roundedBorder)
-            } else {
-                Text(field.value).font(.callout).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(3)
-                Spacer()
-            }
+            Text(field.value).font(.callout).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(3)
+            Spacer()
         }
     }
 
     private func load() async {
         loading = true
         let url = selectedFile
-        let result = await MetadataOps.read(url)
-        fields = result
+        fields = await MetadataOps.read(url)
+        let current = await MetadataOps.readTags(url)
+        // Switching the file shown keeps what you typed; the reference is that file's values.
+        let typed = changes
+        original = current
+        tags = current.merging(typed) { _, new in new }
         loading = false
     }
 
     private func run() {
-        let edits = fields.filter(\.editable)
+        let changes = changes
         let removeAll = removeAll
         let removeSensitive = removeSensitive
         for url in session.files {
@@ -123,11 +153,10 @@ struct MetadataToolView: View {
             let ext = format.category == .image && !ImageIOBridge.canEncodeNatively(format) ? "png" : url.pathExtension
             let destination = ConversionMatrix.uniqueURL(directory: session.outputDirectory, baseName: base, suffix: removeAll ? "clean" : "edited", ext: ext)
             JobRunner.shared.run(title: "Editing metadata", detail: "\(url.lastPathComponent)", symbol: ToolID.editMetadata.symbol) { progress in
-                try await MetadataOps.write(url, edits: edits, removeAll: removeAll, removeSensitive: removeSensitive, to: destination, progress: progress)
+                try await MetadataOps.write(url, tags: changes, removeAll: removeAll, removeSensitive: removeSensitive, to: destination, progress: progress)
                 return [destination]
             }
         }
         ToolWindowManager.shared.close(session)
     }
 }
-

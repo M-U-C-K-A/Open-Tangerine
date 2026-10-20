@@ -34,6 +34,92 @@ import PDFKit
             }
             print("PASS PDF -> \(target)")
         }
+        // Markdown to HTML, block by block and inline.
+        let markdownSource = """
+        # Citrus guide
+
+        Oranges are **sweet**, lemons are *sour* and `limes` are ~~blue~~ green.
+        See [the site](https://example.com "Home") or <https://open.example>.
+
+        ## Kinds
+        1. Orange
+        2. Lemon
+           - Meyer
+           - Eureka
+        3. Lime
+
+        - [x] Peel
+        - [ ] Squeeze
+
+        > Quoted *zest*
+
+        ```swift
+        let fruit = "tangerine" // <tag> & co
+        ```
+
+        | Fruit | Price |
+        | :--- | ---: |
+        | Orange | 1.20 |
+        | Lemon \\| Lime | 0.80 |
+
+        ---
+        Setext title
+        ============
+        Line one  
+        line two & <b>bold</b>
+        ![logo](logo.png)
+        """
+        let html = Markdown.html(markdownSource)
+        for expected in ["<h1>Citrus guide</h1>", "<strong>sweet</strong>", "<em>sour</em>", "<code>limes</code>", "<del>blue</del>",
+                         "<a href=\"https://example.com\" title=\"Home\">the site</a>", "<a href=\"https://open.example\">https://open.example</a>",
+                         "<h2>Kinds</h2>", "<ol>\n<li>Orange</li>", "<ul>\n<li>Meyer</li>\n<li>Eureka</li>\n</ul>", "<input type=\"checkbox\" disabled checked> Peel",
+                         "<blockquote>\n<p>Quoted <em>zest</em></p>\n</blockquote>", "<pre><code class=\"language-swift\">let fruit = &quot;tangerine&quot; // &lt;tag&gt; &amp; co\n</code></pre>",
+                         "<th style=\"text-align: left\">Fruit</th>", "<td style=\"text-align: right\">0.80</td>", "<td style=\"text-align: left\">Lemon | Lime</td>",
+                         "<hr>", "<h1>Setext title</h1>", "Line one<br>\nline two &amp; <b>bold</b>", "<img src=\"logo.png\" alt=\"logo\">"] {
+            precondition(html.contains(expected), "Markdown → HTML is missing \(expected) in:\n\(html)")
+        }
+        print("PASS Markdown → HTML: headings, emphasis, links, nested and task lists, quotes, code, tables, breaks, images")
+        // And back: the HTML gives the same Markdown structure.
+        let back = HTMLToMarkdown.markdown(html)
+        for expected in ["# Citrus guide", "**sweet**", "*sour*", "`limes`", "~~blue~~", "[the site](https://example.com \"Home\")", "<https://open.example>",
+                         "## Kinds", "1. Orange\n2. Lemon\n   - Meyer\n   - Eureka\n3. Lime", "- [x] Peel\n- [ ] Squeeze", "> Quoted *zest*",
+                         "```swift\nlet fruit = \"tangerine\" // <tag> & co\n```", "| Fruit | Price |\n| :--- | ---: |", "| Lemon \\| Lime | 0.80 |", "---", "# Setext title", "Line one  \nline two & **bold**", "![logo](logo.png)"] {
+            precondition(back.contains(expected), "HTML → Markdown is missing \(expected) in:\n\(back)")
+        }
+        precondition(HTMLToMarkdown.markdown(Markdown.html(back)) == back, "Markdown → HTML → Markdown is stable:\n\(HTMLToMarkdown.markdown(Markdown.html(back)))")
+        print("PASS HTML → Markdown, and a round trip that changes nothing")
+        let messy = "<html><head><title>Notes</title><style>p{color:red}</style></head><body><div><h2>Plan &amp; ideas</h2><p>First<p>Second with <a href='/x'>a link</a>&nbsp;&#8212; done<ul><li>One<li>Two</ul><script>alert(1)</script><table><tr><th>A<th>B<tr><td>1<td>2</table></div></body></html>"
+        let messyMarkdown = HTMLToMarkdown.markdown(messy)
+        precondition(messyMarkdown == "## Plan & ideas\n\nFirst\n\nSecond with [a link](/x) — done\n\n- One\n- Two\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n", "Forgiving HTML parsing:\n\(messyMarkdown)")
+        precondition(HTMLToMarkdown.text(messy).hasPrefix("Plan & ideas\n\nFirst") && HTMLToMarkdown.title(messy) == "Notes")
+        print("PASS unclosed paragraphs and items, entities, scripts and tables in loose HTML")
+        try markdownSource.write(to: url("guide.md"), atomically: true, encoding: .utf8)
+        let mdPDF = try await convert(url("guide.md"), .md, .pdf, "guide.pdf")
+        precondition((PDFDocument(url: mdPDF)?.string ?? "").contains("Citrus guide"))
+        let mdDOCX = try await convert(url("guide.md"), .md, .docx, "guide.docx")
+        let mdText = try await convert(url("guide.md"), .md, .txt, "guide-plain.txt")
+        let plainGuide = try String(contentsOf: mdText, encoding: .utf8)
+        precondition(plainGuide.hasPrefix("Citrus guide\n\nOranges are sweet"), "Markdown → text:\n\(plainGuide)")
+        // The Word file has real headings, numbered and bulleted lists, links and a table, and is well-formed.
+        let wordXML = try await Shell.run("/usr/bin/unzip", ["-p", mdDOCX.path, "word/document.xml"])
+        let numberingXML = try await Shell.run("/usr/bin/unzip", ["-p", mdDOCX.path, "word/numbering.xml"])
+        precondition(wordXML.stdout.contains("<w:pStyle w:val=\"Heading1\"/>") && wordXML.stdout.contains("<w:hyperlink r:id=") && wordXML.stdout.contains("<w:numPr>") && wordXML.stdout.contains("<w:tbl>") && numberingXML.stdout.contains("w:val=\"decimal\""))
+        for part in ["word/document.xml", "word/numbering.xml", "word/styles.xml", "word/_rels/document.xml.rels", "\\[Content_Types\\].xml"] {
+            let extracted = url("part.xml")
+            try (try await Shell.run("/usr/bin/unzip", ["-p", mdDOCX.path, part])).stdout.write(to: extracted, atomically: true, encoding: .utf8)
+            let lint = try await Shell.run("/usr/bin/xmllint", ["--noout", extracted.path])
+            precondition(lint.succeeded, "\(part) is not well-formed: \(lint.stderr)")
+        }
+        let docxMarkdown = try String(contentsOf: try await convert(mdDOCX, .docx, .md, "from-word.md"), encoding: .utf8)
+        precondition(docxMarkdown.hasPrefix("# Citrus guide") && docxMarkdown.contains("## Kinds") && docxMarkdown.contains("**sweet**, lemons") && docxMarkdown.contains("[x] Peel") && docxMarkdown.contains("Line one  \nline two") && docxMarkdown.range(of: #"(-|1\.) Orange"#, options: .regularExpression) != nil && docxMarkdown.contains("> Quoted *zest*") && docxMarkdown.contains("```\nlet fruit"), "Word → Markdown:\n\(docxMarkdown)")
+        let docxHTML = try String(contentsOf: try await convert(mdDOCX, .docx, .html, "from-word.html"), encoding: .utf8)
+        precondition(docxHTML.contains("<h1>Citrus guide</h1>") && docxHTML.contains("<title>Citrus guide</title>"))
+        let htmlFile = url("page.html"); try messy.write(to: htmlFile, atomically: true, encoding: .utf8)
+        let pagePDF = try await convert(htmlFile, .html, .pdf, "page.pdf")
+        precondition((PDFDocument(url: pagePDF)?.string ?? "").contains("Plan & ideas"))
+        precondition(FileFormat.detect(url("guide.md")) == .md && FileFormat.detect(htmlFile) == .html && FileFormat.detect(url("notes.txt")) == .txt)
+        print("PASS Markdown, HTML and Word into one another, PDF and text")
+
         let second = url("second.pdf")
         try TextRenderer.writePDF("Second page marker", to: second)
         let merged = url("merged.pdf")

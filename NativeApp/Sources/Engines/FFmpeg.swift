@@ -136,6 +136,13 @@ enum FFmpeg {
         return result.flatMap { Double($0.stdout.trimmingCharacters(in: .whitespacesAndNewlines)) }
     }
 
+    /// Whether the file has a sound track; nil when it can't be told.
+    static func hasAudio(_ url: URL) async -> Bool? {
+        if await MediaInfo.isNativelyReadable(url) { return await MediaInfo.load(url).hasAudio }
+        guard let probe = probePath, let result = try? await Shell.run(probe, ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", url.path]) else { return nil }
+        return !result.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     static func timecode(_ seconds: Double) -> String {
         let clamped = max(0, seconds)
         let hours = Int(clamped) / 3600

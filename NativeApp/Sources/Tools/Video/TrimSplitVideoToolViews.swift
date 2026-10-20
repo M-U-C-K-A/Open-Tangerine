@@ -90,7 +90,7 @@ struct SplitVideoToolView: View {
     }
 
     var body: some View {
-        ToolShell(session: session, saveTitle: "Split into \(effectivePoints.count + 1) clips", saveEnabled: !effectivePoints.isEmpty, onSave: save) {
+        ToolShell(session: session, saveTitle: effectivePoints.isEmpty ? "Split" : "Split into \(effectivePoints.count + 1) clips", saveEnabled: !effectivePoints.isEmpty, onSave: save) {
             VideoStage(player: media.player) {
                 RangeTrack(duration: media.duration, start: $unusedStart, end: $unusedEnd, playhead: media.currentTime, markers: effectivePoints, onScrub: { media.seek($0) })
             }

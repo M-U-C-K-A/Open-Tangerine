@@ -23,7 +23,11 @@ enum ConversionMatrix {
         case .zip, .tar, .gz, .rar:
             list = [] // Archive engine is disabled; do not offer operations that always fail.
         case .docx:
-            list = []
+            list = [.pdf, .txt, .html, .md]
+        case .md:
+            list = [.html, .pdf, .docx, .txt]
+        case .html:
+            list = [.md, .pdf, .docx, .txt]
         }
         return list.filter { $0 != source }
     }

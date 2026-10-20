@@ -84,16 +84,14 @@ import PDFKit
         let fields=await MetadataOps.read(source)
         check(fields.contains {$0.key=="Artist"},"metadata reads artist")
         let cleaned=dir.appendingPathComponent("clean.tiff")
-        try await MetadataOps.write(source,edits:fields.filter(\.editable),removeAll:false,removeSensitive:true,to:cleaned,progress:{_ in})
+        try await MetadataOps.write(source,tags:[:],removeAll:false,removeSensitive:true,to:cleaned,progress:{_ in})
         let cleanFields=await MetadataOps.read(cleaned)
         check(!cleanFields.contains {$0.key=="Artist" || $0.group=="GPS"},"remove sensitive does not restore artist from unchanged fields")
         let cleared=dir.appendingPathComponent("cleared.tiff")
-        var clearEdits=fields.filter(\.editable)
-        for index in clearEdits.indices where clearEdits[index].key == "Artist" { clearEdits[index].value = "" }
-        try await MetadataOps.write(source,edits:clearEdits,removeAll:false,removeSensitive:false,to:cleared,progress:{_ in})
+        try await MetadataOps.write(source,tags:[.artist:""],removeAll:false,removeSensitive:false,to:cleared,progress:{_ in})
         check(!(await MetadataOps.read(cleared)).contains {$0.key=="Artist"}, "clearing editable metadata actually deletes value")
         let all=dir.appendingPathComponent("all.tiff")
-        try await MetadataOps.write(source,edits:fields,removeAll:true,removeSensitive:false,to:all,progress:{_ in})
+        try await MetadataOps.write(source,tags:[.title:"ignored"],removeAll:true,removeSensitive:false,to:all,progress:{_ in})
         check(!(await MetadataOps.read(all)).contains {$0.key=="Artist" || $0.group=="GPS"},"remove all metadata strips artist GPS")
         let text=dir.appendingPathComponent("abc.txt")
         try Data("abc".utf8).write(to:text)
@@ -104,9 +102,24 @@ import PDFKit
         pdf.documentAttributes=[PDFDocumentAttribute.authorAttribute:"Private Person",PDFDocumentAttribute.titleAttribute:"Keep title"]
         let pdfURL=dir.appendingPathComponent("meta.pdf"); check(pdf.write(to:pdfURL), "PDF metadata fixture writes")
         let pdfClean=dir.appendingPathComponent("meta-clean.pdf")
-        try await MetadataOps.write(pdfURL,edits:await MetadataOps.read(pdfURL),removeAll:false,removeSensitive:true,to:pdfClean,progress:{_ in})
+        try await MetadataOps.write(pdfURL,tags:[:],removeAll:false,removeSensitive:true,to:pdfClean,progress:{_ in})
         let pdfFields=await MetadataOps.read(pdfClean)
         check(!pdfFields.contains {$0.key=="Author"} && pdfFields.contains {$0.value=="Keep title"}, "PDF sensitive stripping retains title")
+        let pdfTagged=dir.appendingPathComponent("meta-tagged.pdf")
+        try await MetadataOps.write(pdfURL,tags:[.title:"New title",.keywords:"citrus, report"],removeAll:false,removeSensitive:false,to:pdfTagged,progress:{_ in})
+        let pdfTags=await MetadataOps.readTags(pdfTagged)
+        check(pdfTags[.title]=="New title" && pdfTags[.keywords]=="citrus, report" && pdfTags[.artist]=="Private Person", "PDF fields change one by one, the rest kept")
+        // Fields a picture doesn't have yet are added; changing one keeps the others.
+        for format in [FileFormat.jpg, .png, .heic, .tiff] {
+            let plain=dir.appendingPathComponent("plain-meta.\(format.fileExtension)"), tagged=dir.appendingPathComponent("tagged.\(format.fileExtension)"), retagged=dir.appendingPathComponent("retagged.\(format.fileExtension)")
+            try ImageIOBridge.write(original,to:plain,format:format)
+            try await MetadataOps.write(plain,tags:[.title:"Orange sky",.artist:"Ada",.keywords:"citrus, sky",.copyright:"© 2026",.description:"A test"],removeAll:false,removeSensitive:false,to:tagged,progress:{_ in})
+            let back=await MetadataOps.readTags(tagged)
+            check(back[.title]=="Orange sky" && back[.artist]=="Ada" && back[.keywords]=="citrus, sky" && back[.copyright]=="© 2026" && back[.description]=="A test", "\(format.displayName): new fields are written and read back \(back)")
+            try await MetadataOps.write(tagged,tags:[.title:"Lemon",.copyright:""],removeAll:false,removeSensitive:false,to:retagged,progress:{_ in})
+            let again=await MetadataOps.readTags(retagged)
+            check(again[.title]=="Lemon" && again[.artist]=="Ada" && again[.copyright]==nil && ImageIOBridge.pixelSize(retagged)==CGSize(width:original.width,height:original.height), "\(format.displayName): one field changed, one removed, the rest kept \(again)")
+        }
         // Background removal: an orange disc on a flat backdrop.
         let scene = CGContext(data: nil, width: 320, height: 240, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         scene.setFillColor(CGColor(red: 0.92, green: 0.93, blue: 0.95, alpha: 1)); scene.fill(CGRect(x: 0, y: 0, width: 320, height: 240))
@@ -277,6 +290,83 @@ import PDFKit
         try ImageIOBridge.write(detailedImage, to: sizingSource, format: .jpg, quality: 0.95)
         try await ImageResizer.process(sizingSource, sizing: ImageSizing(mode: .percent, percent: 50), method: .enlarge, preset: .strong, targetBytes: nil, quality: 0.9, to: sizingOut, progress: { _ in })
         check(ImageIOBridge.pixelSize(sizingOut) == CGSize(width: 650, height: 500) && FileSizeFormatter.size(of: sizingOut) < FileSizeFormatter.size(of: sizingSource), "resize and compress in one pass: half the size, a lighter file")
+        // Social formats: the network's exact size, cropped around the subject or fitted on blurred sides.
+        let storyCrop = SocialFrame.framed(detailedImage, aspect: SocialFormat.instagramStory.size, fill: true, focus: CGPoint(x: 0.9, y: 0.5))
+        let storyRatio = Double(storyCrop.width) / Double(storyCrop.height)
+        check(abs(storyRatio - 0.5625) < 0.01 && storyCrop.height == 1000, "a story crop takes the full height at 9:16 (\(storyCrop.width) × \(storyCrop.height))")
+        let fitted = SocialFrame.framed(detailedImage, aspect: SocialFormat.instagramStory.size, fill: false, focus: CGPoint(x: 0.5, y: 0.5))
+        let fittedRatio = Double(fitted.width) / Double(fitted.height)
+        check(fitted.width == 1300 && abs(fittedRatio - 0.5625) < 0.01, "fitting keeps the whole picture on a taller canvas (\(fitted.width) × \(fitted.height))")
+        let postOut = dir.appendingPathComponent("photo instagram.jpg")
+        try await ImageResizer.process(sizingSource, sizing: ImageSizing(mode: .social, social: .instagramPost), method: .enlarge, preset: nil, targetBytes: nil, quality: 0.9, to: postOut, progress: { _ in })
+        check(ImageIOBridge.pixelSize(postOut) == CGSize(width: 1080, height: 1350) && ImageResizer.suffix(sizing: ImageSizing(mode: .social, social: .youtubeThumbnail), size: .zero, compressing: false) == "youtube", "an Instagram post comes out at 1080 × 1350")
+
+        // An alpha channel that is opaque everywhere is no transparency: such PNGs become JPEGs,
+        // and the size asked for is kept whatever the compression.
+        let holey = CGContext(data: nil, width: 60, height: 40, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        holey.setFillColor(CGColor(red: 1, green: 0.5, blue: 0, alpha: 1)); holey.fillEllipse(in: CGRect(x: 0, y: 0, width: 60, height: 40))
+        check(!ImageIOBridge.hasTransparency(detailedImage) && !ImageIOBridge.hasTransparency(stamp.makeImage()!) && ImageIOBridge.hasTransparency(holey.makeImage()!), "only see-through pixels count as transparency")
+        let opaquePNG = dir.appendingPathComponent("opaque.png")
+        try ImageIOBridge.write(detailedImage, to: opaquePNG, format: .png)
+        check(ImageResizer.outputFormat(for: opaquePNG, compressing: true) == .jpg && ImageResizer.outputFormat(for: opaquePNG, compressing: false) == .png, "an opaque PNG is compressed as a JPEG")
+        let strongOut = dir.appendingPathComponent("strong.jpg")
+        try await ImageResizer.process(opaquePNG, sizing: ImageSizing(mode: .longEdge, longEdge: 800), method: .enlarge, preset: .strong, targetBytes: nil, quality: 0.9, to: strongOut, progress: { _ in })
+        check(ImageIOBridge.pixelSize(strongOut) == CGSize(width: 800, height: 615), "Strong keeps the long edge asked for (\(ImageIOBridge.pixelSize(strongOut)))")
+
+        // Color palette: two flat colors give two swatches with their shares; the eyedropper reads pixels.
+        let halves = CGContext(data: nil, width: 300, height: 100, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        halves.setFillColor(CGColor(srgbRed: 1, green: 0.5, blue: 0, alpha: 1)); halves.fill(CGRect(x: 0, y: 0, width: 200, height: 100))
+        halves.setFillColor(CGColor(srgbRed: 0, green: 0.4, blue: 1, alpha: 1)); halves.fill(CGRect(x: 200, y: 0, width: 100, height: 100))
+        let grid = PixelGrid(halves.makeImage()!)!
+        let swatches = grid.palette(count: 6)
+        check(swatches.count == 2 && swatches[0].hex == "#FF8000" && swatches[1].hex == "#0066FF" && abs(swatches[0].share - 2.0 / 3) < 0.05, "the palette finds both colors, the biggest first: \(swatches.map(\.hex))")
+        check(grid.color(atX: 0.1, y: 0.5)?.hex == "#FF8000" && grid.color(atX: 0.95, y: 0.5)?.hex == "#0066FF", "the eyedropper reads the pixel under it")
+        let orange = PaletteColor(red: 1, green: 0.5, blue: 0)
+        check(orange.text(.rgb) == "rgb(255, 128, 0)" && orange.text(.hsl) == "hsl(30, 100%, 50%)" && orange.text(.swiftUI) == "Color(red: 1.000, green: 0.500, blue: 0.000)", "colors copy as RGB, HSL and SwiftUI")
+        check(ColorPalette.text([orange], notation: .hex, css: true) == ":root {\n  --color-1: #FF8000;\n}" && ColorPalette.image(swatches, notation: .hex)?.width == 480, "the palette copies as CSS and saves as swatches")
+
+        // Searchable PDF: a page that is only a picture gets its words, invisibly, and looks the same.
+        func page(_ words: String, width: Int = 1240, height: Int = 1754) -> CGImage {
+            let sheet = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            sheet.setFillColor(CGColor(gray: 1, alpha: 1)); sheet.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = NSGraphicsContext(cgContext: sheet, flipped: false)
+            NSAttributedString(string: words, attributes: [.font: NSFont.systemFont(ofSize: 64, weight: .medium), .foregroundColor: NSColor.black]).draw(at: NSPoint(x: 120, y: CGFloat(height) - 300))
+            NSGraphicsContext.restoreGraphicsState()
+            return sheet.makeImage()!
+        }
+        let scanned = PDFDocument(); scanned.insert(PDFPage(image: NSImage(cgImage: page("Quarterly tangerine report"), size: NSSize(width: 595, height: 842)))!, at: 0)
+        let scannedURL = dir.appendingPathComponent("scanned.pdf"), searchableURL = dir.appendingPathComponent("searchable.pdf")
+        check(scanned.write(to: scannedURL) && (PDFDocument(url: scannedURL)?.page(at: 0)?.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "a scanned page has no text of its own")
+        let read = try SearchablePDF.make(scannedURL, to: searchableURL, progress: { _ in })
+        let searchable = PDFDocument(url: searchableURL)
+        check(read == 1 && (searchable?.page(at: 0)?.string ?? "").contains("tangerine") && !(searchable?.findString("Quarterly", withOptions: .caseInsensitive).isEmpty ?? true), "the scanned page can now be searched: \(searchable?.page(at: 0)?.string ?? "-")")
+        let look = { (url: URL) in pixels(PDFRenderer.render(page: PDFDocument(url: url)!.page(at: 0)!, dpi: 36)!) }
+        let a = look(scannedURL), b = look(searchableURL)
+        check(a.count == b.count && zip(a, b).filter { abs(Int($0) - Int($1)) > 8 }.count < a.count / 100, "the hidden text changes nothing on the page")
+        // Scan to PDF: a sheet photographed askew is found, straightened, and saved searchable.
+        let photoW = 1600, photoH = 1200
+        let desk = CGContext(data: nil, width: photoW, height: photoH, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        desk.setFillColor(CGColor(red: 0.25, green: 0.2, blue: 0.15, alpha: 1)); desk.fill(CGRect(x: 0, y: 0, width: photoW, height: photoH))
+        let sheetCorners = [CGPoint(x: 420, y: 1080), CGPoint(x: 1220, y: 1040), CGPoint(x: 1260, y: 120), CGPoint(x: 380, y: 160)] // tl, tr, br, bl (bottom-left origin)
+        desk.saveGState()
+        desk.move(to: sheetCorners[0]); sheetCorners.dropFirst().forEach { desk.addLine(to: $0) }; desk.closePath(); desk.clip()
+        let invoice = page("Invoice 2026 citrus", width: 900, height: 1000)
+        desk.draw(invoice, in: CGRect(x: 380, y: 120, width: 880, height: 960))
+        desk.restoreGState()
+        let photo = desk.makeImage()!
+        if let quad = DocumentScan.detect(photo) {
+            let expected = [CGPoint(x: 420.0 / 1600, y: 1 - 1080.0 / 1200), CGPoint(x: 1220.0 / 1600, y: 1 - 1040.0 / 1200), CGPoint(x: 1260.0 / 1600, y: 1 - 120.0 / 1200), CGPoint(x: 380.0 / 1600, y: 1 - 160.0 / 1200)]
+            check(zip(quad.corners, expected).allSatisfy { hypot($0.x - $1.x, $0.y - $1.y) < 0.04 }, "the sheet's corners are found: \(quad.corners)")
+        } else {
+            check(false, "the sheet is found in the photo")
+        }
+        let flat = DocumentScan.flatten(photo, quad: DocumentScan.Quad(topLeft: CGPoint(x: 420.0 / 1600, y: 1 - 1080.0 / 1200), topRight: CGPoint(x: 1220.0 / 1600, y: 1 - 1040.0 / 1200), bottomRight: CGPoint(x: 1260.0 / 1600, y: 1 - 120.0 / 1200), bottomLeft: CGPoint(x: 380.0 / 1600, y: 1 - 160.0 / 1200)), look: .gray)!
+        let flatPixels = pixels(flat)
+        check(abs(Double(flat.width) / Double(flat.height) - 0.87) < 0.12 && flatPixels[(5 * flat.width + 5) * 4] > 200, "the sheet comes out straight, its paper white (\(flat.width) × \(flat.height))")
+        let scanURL = dir.appendingPathComponent("scan.pdf")
+        try DocumentScan.makePDF([flat, flat], size: .a4, searchable: true, to: scanURL, progress: { _ in })
+        let scan = PDFDocument(url: scanURL)
+        check(scan?.pageCount == 2 && Int(scan?.page(at: 0)?.bounds(for: .mediaBox).width ?? 0) == 595 && (scan?.page(at: 1)?.string ?? "").contains("citrus"), "two A4 pages with their text: \(scan?.page(at: 1)?.string ?? "-")")
 
         // ZIP: one item as name.zip, several as Archive.zip, never overwriting, contents intact.
         let zipDir = dir.appendingPathComponent("zip", isDirectory: true)

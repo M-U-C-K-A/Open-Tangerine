@@ -10,6 +10,8 @@ struct RedactImageToolView: View {
     @State private var rects: [RectangleOverlay] = []
     @State private var selected: UUID?
     @State private var styles: [UUID: RedactionStyle] = [:]
+    @State private var strengths: [UUID: Double] = [:]
+    @State private var defaultStrength = Redaction.defaultStrength
     /// Faces as Vision found them (image pixels, top-left), so the margin can be changed later.
     @State private var faces: [UUID: CGRect] = [:]
     @State private var defaultStyle: RedactionStyle = .blur
@@ -17,8 +19,7 @@ struct RedactImageToolView: View {
     @State private var margin: Double = 0.3
     @State private var detecting = false
     @State private var detectionNote: String?
-    @State private var rendered: NSImage?
-    @State private var renderTask: Task<Void, Never>?
+    @StateObject private var render = LatestRenderer<CGImage>()
 
     init(session: ToolSession) {
         self.session = session
@@ -31,6 +32,7 @@ struct RedactImageToolView: View {
         rects.map { overlay in
             var r = Redaction(rect: overlay.rect)
             r.style = styles[overlay.id] ?? defaultStyle
+            r.strength = strengths[overlay.id] ?? defaultStrength
             r.color = color.nsColor.cgColor
             return r
         }
@@ -41,7 +43,7 @@ struct RedactImageToolView: View {
             ZStack {
                 CheckerboardBackground()
                 if let preview = document.preview {
-                    RectangleEditorCanvas(image: rendered ?? preview, imageSize: document.size, rectangles: $rects, selected: $selected, allowMultiple: true, outlinesOnly: true)
+                    RectangleEditorCanvas(image: render.output.map(ImageOps.nsImage) ?? preview, imageSize: document.size, rectangles: $rects, selected: $selected, allowMultiple: true, outlinesOnly: true)
                         .padding(12)
                 } else {
                     LoadingOrError(error: document.error)
@@ -66,8 +68,10 @@ struct RedactImageToolView: View {
                     Text("Box").tag(RedactionStyle.solid)
                 }
                 .pickerStyle(.segmented).labelsHidden()
-                if (selected.flatMap { styles[$0] } ?? defaultStyle) == .solid {
+                if styleBinding.wrappedValue == .solid {
                     ColorSwatchPicker(title: "Color", color: $color)
+                } else {
+                    LabeledSlider(title: styleBinding.wrappedValue == .blur ? "Blur strength" : "Pixel size", value: strengthBinding, range: 0...1) { String(format: "%.0f%%", $0 * 100) }
                 }
                 Text(selected == nil ? "Applies to every area without its own style." : "Applies to the selected area. Click outside the areas to change them all.")
                     .font(.caption2).foregroundStyle(.secondary)
@@ -89,7 +93,7 @@ struct RedactImageToolView: View {
                     .onTapGesture { selected = overlay.id }
                 }
                 if !rects.isEmpty {
-                    Button("Remove all") { rects.removeAll(); styles.removeAll(); faces.removeAll(); selected = nil }.controlSize(.small)
+                    Button("Remove all") { rects.removeAll(); styles.removeAll(); strengths.removeAll(); faces.removeAll(); selected = nil }.controlSize(.small)
                 }
             }
             if batch {
@@ -103,6 +107,8 @@ struct RedactImageToolView: View {
         .onAppear { if document.preview != nil, rects.isEmpty { findFaces() } }
         .onChange(of: rects) { relabel(); scheduleRender() }
         .onChange(of: styles) { scheduleRender() }
+        .onChange(of: strengths) { scheduleRender() }
+        .onChange(of: defaultStrength) { scheduleRender() }
         .onChange(of: color) { scheduleRender() }
         .onChange(of: defaultStyle) { scheduleRender() }
         .onChange(of: margin) { applyMargin() }
@@ -118,6 +124,13 @@ struct RedactImageToolView: View {
                 if let selected { styles[selected] = new } else { defaultStyle = new }
                 scheduleRender()
             }
+        )
+    }
+
+    private var strengthBinding: Binding<Double> {
+        Binding(
+            get: { selected.flatMap { strengths[$0] } ?? defaultStrength },
+            set: { new in if let selected { strengths[selected] = new } else { defaultStrength = new } }
         )
     }
 
@@ -157,6 +170,7 @@ struct RedactImageToolView: View {
     private func remove(_ id: UUID) {
         rects.removeAll { $0.id == id }
         styles.removeValue(forKey: id)
+        strengths.removeValue(forKey: id)
         faces.removeValue(forKey: id)
         if selected == id { selected = nil }
     }
@@ -170,9 +184,8 @@ struct RedactImageToolView: View {
         }
     }
 
-    /// The effect is always shown under the outlines, at preview size.
+    /// The effect is always shown under the outlines, at preview size, one render at a time.
     private func scheduleRender() {
-        renderTask?.cancel()
         guard let preview = document.preview, let cg = preview.cgImage(forProposedRect: nil, context: nil, hints: nil), document.size.width > 0 else { return }
         let scale = CGFloat(cg.width) / document.size.width
         let scaled = redactions.map { r -> Redaction in
@@ -180,20 +193,18 @@ struct RedactImageToolView: View {
             copy.rect = r.rect.applying(CGAffineTransform(scaleX: scale, y: scale))
             return copy
         }
-        renderTask = Task.detached(priority: .userInitiated) {
-            let output = ImageOps.redact(CIImage(cgImage: cg), redactions: scaled)
-            guard !Task.isCancelled, let image = ImageToolSupport.cgImage(output) else { return }
-            let ns = ImageOps.nsImage(image)
-            await MainActor.run { rendered = ns }
+        render.submit {
+            ImageToolSupport.cgImage(ImageOps.redact(CIImage(cgImage: cg), redactions: scaled))
         }
     }
 
     private func save() {
         let size = document.size
         let style = defaultStyle, margin = margin
-        let manual = rects.filter { faces[$0.id] == nil }.map { overlay -> (CGRect, RedactionStyle) in
+        let strength = defaultStrength
+        let manual = rects.filter { faces[$0.id] == nil }.map { overlay -> (CGRect, RedactionStyle, Double) in
             // Hand-drawn areas as fractions, to land at the same place on every image.
-            (CGRect(x: overlay.rect.minX / size.width, y: overlay.rect.minY / size.height, width: overlay.rect.width / size.width, height: overlay.rect.height / size.height), styles[overlay.id] ?? style)
+            (CGRect(x: overlay.rect.minX / size.width, y: overlay.rect.minY / size.height, width: overlay.rect.width / size.width, height: overlay.rect.height / size.height), styles[overlay.id] ?? style, strengths[overlay.id] ?? strength)
         }
         let edited = redactions
         let color = color.nsColor.cgColor
@@ -209,12 +220,12 @@ struct RedactImageToolView: View {
             let bounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
             let height = CGFloat(image.height)
             var areas = ((try? FaceBlur.faces(in: input)) ?? []).map { face -> Redaction in
-                var r = Redaction(rect: FaceBlur.covered(CGRect(x: face.minX, y: height - face.maxY, width: face.width, height: face.height), padding: margin, in: bounds), style: style)
+                var r = Redaction(rect: FaceBlur.covered(CGRect(x: face.minX, y: height - face.maxY, width: face.width, height: face.height), padding: margin, in: bounds), style: style, strength: strength)
                 r.color = color
                 return r
             }
-            areas += manual.map { fraction, areaStyle in
-                var r = Redaction(rect: CGRect(x: fraction.minX * bounds.width, y: fraction.minY * bounds.height, width: fraction.width * bounds.width, height: fraction.height * bounds.height), style: areaStyle)
+            areas += manual.map { fraction, areaStyle, areaStrength in
+                var r = Redaction(rect: CGRect(x: fraction.minX * bounds.width, y: fraction.minY * bounds.height, width: fraction.width * bounds.width, height: fraction.height * bounds.height), style: areaStyle, strength: areaStrength)
                 r.color = color
                 return r
             }

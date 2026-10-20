@@ -210,7 +210,8 @@ final class JobRunner: ObservableObject {
             self.jobSubscriptions.removeAll()
         }
         hideWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: item)
+        // The notch steps aside quickly; the card stays longer for its buttons.
+        DispatchQueue.main.asyncAfter(deadline: .now() + (AppSettings.shared.progressStyle == .pill ? 2 : 8), execute: item)
     }
 
     func dismiss(_ job: Job) {

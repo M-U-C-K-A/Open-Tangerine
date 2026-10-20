@@ -5,11 +5,11 @@
 <p align="center">
   <b>A native macOS file converter and toolbox that lives in your menu bar.</b><br>
   Drag files in Finder, hold a key, drop them on a format or a tool. The result lands next to the original.<br>
-  184 conversion routes, 32 tools, batch jobs and watch folders — all processed on your Mac. No account, no limits, no subscription.
+  196 conversion routes, 37 tools, batch jobs and watch folders — all processed on your Mac. No account, no limits, no subscription.
 </p>
 
 <p align="center">
-  <a href="https://github.com/M-U-C-K-A/Open-Tangerine/releases"><img alt="Version 0.2.0" src="https://img.shields.io/badge/version-0.2.0-e04f00?style=flat-square"></a>
+  <a href="https://github.com/M-U-C-K-A/Open-Tangerine/releases"><img alt="Version 0.3.0" src="https://img.shields.io/badge/version-0.3.0-e04f00?style=flat-square"></a>
   <img alt="macOS 26 or later" src="https://img.shields.io/badge/macOS-26%2B-24251e?style=flat-square&logo=apple&logoColor=white">
   <img alt="Swift, SwiftUI and AppKit" src="https://img.shields.io/badge/Swift-SwiftUI%20%2B%20AppKit-f05138?style=flat-square&logo=swift&logoColor=white">
   <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-7fae3a?style=flat-square">
@@ -38,7 +38,7 @@
 </p>
 
 > [!NOTE]
-> This repository is a fork of [**Open Tangerine**](https://github.com/sintaxerrorpvtltd/Open-Tangerine) by Syntax Error Private Limited, itself built on [Satsuma](https://github.com/plyght/satsuma) by plyght. Version **0.2.0** builds on upstream 0.1.8 and adds **background removal**, **scrolling between wheels** and **Shift alone** to open the wheel, with deeper compression and more on the [roadmap](#roadmap). Check for Updates follows this fork's releases, never upstream's. It is an independent project, **not affiliated with Tangerine**, and still a developer trial (ad-hoc signed, not Apple-notarized).
+> This repository is a fork of [**Open Tangerine**](https://github.com/sintaxerrorpvtltd/Open-Tangerine) by Sintax Error Private Limited, itself built on [Satsuma](https://github.com/plyght/satsuma) by plyght. Version **0.3.0** builds on upstream 0.1.9 and adds **background removal**, **scrolling between wheels**, **Shift alone** to open the wheel, document scanning, video enhancement, a color palette, social formats, Markdown ↔ HTML and more on the [roadmap](#roadmap). Check for Updates follows this fork's releases, never upstream's. It is an independent project, **not affiliated with Tangerine**, and still a developer trial (ad-hoc signed, not Apple-notarized).
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/divider-dark.svg"><img src="docs/readme/divider-light.svg" width="100%" alt=""></picture>
 
@@ -52,7 +52,7 @@
 4. Each file is converted next to its original (`photo.heic` → `photo.png`). Progress grows out of the notch; a file that fails never stops the others.
 
 > [!TIP]
-> Not a dragger? Right-click files in Finder → **Services** (or **Quick Actions**) → *Convert with Open Tangerine*, *Open Tangerine Tools* or *Open Tangerine File Actions*. The menu-bar icon also has **Convert Files…**, **Open Tool for Files…** and **File Actions…**: they open a file picker, then the same wheel. Arrow keys move around the wheel, <kbd>Return</kbd> picks, <kbd>Esc</kbd> cancels.
+> Not a dragger? Right-click files in Finder → **Services** (or **Quick Actions**) → *Convert with Open Tangerine*, *Open Tangerine Tools* or *Open Tangerine File Actions*. The menu-bar icon also has **Convert Files…**, **Open Tool for Files…** and **File Actions…**: they open a file picker, then the same wheel. **Pick a Color on Screen…** (<kbd>⌘</kbd><kbd>P</kbd>) copies the HEX code of any pixel on screen. Arrow keys move around the wheel, <kbd>Return</kbd> picks, <kbd>Esc</kbd> cancels.
 
 Start with copies of ordinary files: PNG → JPEG, crop or resize a photo, turn two images into a PDF, merge two PDFs, copy a SHA-256 checksum.
 
@@ -92,7 +92,7 @@ The wheel reads the extension of every file you hold, then keeps what works for 
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/formats-dark.svg"><img src="docs/readme/formats-light.svg" alt="176 conversion routes across images, audio, video, documents and subtitles" width="100%"></picture></p>
 
-**184 routes** between 28 formats. Apple frameworks do most of the work (ImageIO, PDFKit, AVFoundation). [FFmpeg](#ffmpeg-optional) is optional and fills the gaps: MP3, FLAC, OGG, Opus, WMA, MKV, WebM, AVI, WMV, GIF, and AVIF/WebP encoding where macOS cannot write them. WebP has a built-in lossless fallback when FFmpeg lacks `libwebp`.
+**196 routes** between 30 formats. Apple frameworks do most of the work (ImageIO, PDFKit, AVFoundation). [FFmpeg](#ffmpeg-optional) is optional and fills the gaps: MP3, FLAC, OGG, Opus, WMA, MKV, WebM, AVI, WMV, GIF, and AVIF/WebP encoding where macOS cannot write them. WebP has a built-in lossless fallback when FFmpeg lacks `libwebp`.
 
 <details open>
 <summary><b>Images</b> · 67 routes</summary>
@@ -128,15 +128,18 @@ The wheel reads the extension of every file you hold, then keeps what works for 
 </details>
 
 <details>
-<summary><b>Documents & subtitles</b> · 13 routes</summary>
+<summary><b>Documents & subtitles</b> · 25 routes</summary>
 
 | From | To |
 | --- | --- |
 | **PDF** | DOCX · JPEG · PNG · TXT (scanned pages are read with Apple Vision) |
-| **TXT** `.txt .md .log` | PDF · JPEG · PNG · SRT · VTT |
+| **Markdown** `.md .markdown` | HTML · PDF · DOCX · TXT |
+| **HTML** `.html .htm` | Markdown · PDF · DOCX · TXT |
+| **DOCX** | PDF · TXT · HTML · Markdown |
+| **TXT** `.txt .log` | PDF · JPEG · PNG · SRT · VTT |
 | **SRT** · **VTT** | each other · TXT |
 
-DOCX is an output (from PDF and images), not an input. Word files are not converted in general.
+**Markdown ↔ HTML** goes block by block, as GitHub writes Markdown: `#` titles become `<h1>`…`<h6>`, paragraphs `<p>`, `**bold**` `<strong>`, `*italic*` `<em>`, `~~struck~~` `<del>`, `` `code` `` `<code>`, fenced code `<pre><code class="language-…">`, quotes `<blockquote>`, lists `<ul>` / `<ol>` (nested, numbered from any start, task lists with checkboxes), tables with their alignment, links, images, rules and line breaks. The HTML is a complete page with a readable style. The other way, any web page (even loose HTML with unclosed tags) is read into a tree and written back as clean Markdown; scripts, styles and menus are left out. **Word** files become real Word documents with heading styles, numbered and bulleted lists, links, tables and pictures, and Word files come back as Markdown with their headings, lists, emphasis, quotes and code.
 
 </details>
 
@@ -153,12 +156,12 @@ The catalogue describes potential routes. Codec availability depends on your FFm
 
 ## Tools
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/tools-dark.svg"><img src="docs/readme/tools-light.svg" alt="32 tools and 10 file actions: images, video, audio, PDF and any file" width="100%"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/tools-dark.svg"><img src="docs/readme/tools-light.svg" alt="37 tools and 10 file actions: images, video, audio, PDF and any file" width="100%"></picture></p>
 
 Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a live preview. Originals are never modified; every tool writes a new copy.
 
 <details open>
-<summary><b>Images</b> · 10 tools</summary>
+<summary><b>Images</b> · 12 tools</summary>
 
 | Tool | Takes | What it does |
 | --- | --- | --- |
@@ -167,8 +170,10 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | **Remove background** | 1 or more | Keeps the people, animals and objects in front and makes the rest transparent: a PNG next to each original. Refine one image by hand with a **magic wand** (click a patch of similar color) or a **brush**, to remove more or bring parts back, with undo. Zoom in with <kbd>⌃</kbd> and the scroll wheel, a pinch or ⌘+ to work on the edges; moving *Tolerance* or *Brush size* redoes your last click or stroke with the new value. Edge softness, crop to subject, before/after. Apple Vision, on-device. |
 | **Add a watermark** | 1 or more | Text or a logo, in a corner, the middle or repeated across the picture; size and opacity follow each image's size. |
 | **Crop image** | 1 image | Free or fixed ratio, exact pixel size, saved at full resolution. |
-| **Blur & redact** | 1 or more | Faces are found with Apple Vision and blurred as soon as the photo opens, each as an area you can **move, resize, restyle or delete**; drag on the photo to cover anything else (a plate, a screen, a name). Blur, pixelate or a box, for all areas or one, with an adjustable margin around faces. What you see is what is saved. Several photos: each gets its own faces found, and your areas land at the same place on all. |
-| **Resize & compress** | 1 or more | One window to make pictures **smaller, bigger or lighter**, or all at once. Size by long edge, percent (×2, ×4…) or exact pixels; enlarging uses *Enhance details*, the Mac's machine-learning super resolution, or smooth *Enlarge*, with a before/after of a detail. The file can keep its quality, be *Balanced* or *Strong*, or fit a **target size**; PNGs without transparency become JPEGs. |
+| **Blur & redact** | 1 or more | Faces are found with Apple Vision and blurred as soon as the photo opens, each as an area you can **move, resize, restyle or delete**; drag on the photo to cover anything else (a plate, a screen, a name). Blur, pixelate or a box, with a **strength** slider for the blur or the size of the pixels, for all areas or one, and an adjustable margin around faces. What you see is what is saved. Several photos: each gets its own faces found, and your areas land at the same place on all. |
+| **Resize & compress** | 1 or more | One window to make pictures **smaller, bigger or lighter**, or all at once. Size by long edge, percent (×2, ×4…), exact pixels or **social network**: Instagram post (4:5), square and story, TikTok, YouTube thumbnail, X, LinkedIn, Facebook and Pinterest, cropped around the subject (found on this Mac) or fitted on blurred sides, with a **live preview as it will appear** in the feed, story or video list, with your account name, title and caption. Enlarging uses *Enhance details*, the Mac's machine-learning super resolution, or smooth *Enlarge*. The preview is the first picture made for real: whole or a detail at 100 %, before and after, with its size in pixels and in bytes. The file can keep its quality, be *Balanced* or *Strong*, or fit a **target size**; PNGs without see-through pixels become JPEGs. |
+| **Color palette** | 1 image | The picture's main colors (3 to 12, the most present first) and an **eyedropper** with a magnifier for any pixel. Click a color to copy it as HEX, RGB, HSL or a SwiftUI literal; copy all, or as CSS variables; save the swatches as a PNG. *Pick a Color on Screen…* (<kbd>⌘</kbd><kbd>P</kbd> in the menu bar) takes one from anywhere. |
+| **Scan to PDF** | 1 or more | Photos of pages become a clean PDF: each page is found and straightened (drag its corners if need be), shadows and uneven light are evened out (color, gray or black & white), A4, Letter or fitted, with **searchable text** laid invisibly over each page. |
 | **Rotate & flip** | 1 or more | Quarter turns and horizontal/vertical flips, same transform for all. |
 | **Create a PDF** | 1 or more | One page per image, in list order. HEIC, WebP and SVG are rasterized as needed. |
 | **Create a collage** | 2 or more | Grid, row, column or featured layout; square, landscape or portrait; spacing, corner radius, background. |
@@ -176,7 +181,7 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 </details>
 
 <details>
-<summary><b>Video</b> · 8 tools</summary>
+<summary><b>Video</b> · 10 tools</summary>
 
 | Tool | Takes | What it does |
 | --- | --- | --- |
@@ -186,7 +191,9 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | **Join videos** | 2 or more | One MP4; other clips are scaled and letterboxed to the first clip's size. |
 | **Save video frames** | 1 video | Pick exact frames, or one every N seconds, at full resolution as PNG, JPEG or HEIC. |
 | **Split video** | 1 video | At chosen points or into equal parts, numbered in one folder. Lossless when possible. |
-| **Blur & redact video** | 1 video | **Faces are hidden automatically**: every frame is searched, so faces that move or appear later stay covered (MP4 and MOV). Add your own areas on top, moved and resized on the frame, each with its own time range. The frame shows the result as it will be saved. |
+| **Blur & redact video** | 1 video | **Faces are hidden automatically**: every frame is searched, so faces that move or appear later stay covered (MP4 and MOV). Add your own areas on top, moved and resized on the frame, each with its own time range, blur strength or pixel size. The frame shows the result as it will be saved. |
+| **Social video** | 1 video | Reframes a video for **Reels, Shorts, TikTok** (9:16), an Instagram post (4:5) or square, YouTube (16:9), X or LinkedIn: the crop **follows the subject** through the video, gliding rather than jumping (Apple Vision, on this Mac), or the whole frame sits on a blurred copy of itself. Phone videos stay upright. Keep only the first seconds if you like, H.264 or HEVC, sound copied as it is. The frame at the playhead is previewed **as it will appear** in the app, with your account name, title and caption, and the parts its buttons cover. |
+| **Enhance video** | 1 video | Less **noise**, crisper **detail**, light and color corrected once for the whole video, or **twice the resolution** with the Mac's machine-learning super resolution, frame by frame; sound copied as it is. A before and after of the frame at the playhead, whole or at 100 %. |
 | **Subtitles from speech** | 1 or more | Transcribes what is said into SRT, WebVTT or text, timed word by word, with Apple's on-device speech recognition. |
 
 </details>
@@ -206,7 +213,7 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 </details>
 
 <details>
-<summary><b>PDF</b> · 5 tools</summary>
+<summary><b>PDF</b> · 6 tools</summary>
 
 | Tool | Takes | What it does |
 | --- | --- | --- |
@@ -214,7 +221,8 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | **Organize PDF pages** | 1 PDF | Reorder, rotate, duplicate, remove or reverse pages. |
 | **Split PDF** | 1 PDF | One file per page, every N pages, or custom ranges like `1-3, 5`. |
 | **Add a password** | 1 or more | A copy that asks for a password to open, with an optional owner password. |
-| **Remove the password** | 1 or more | A copy that opens freely, for PDFs whose password you know. |
+| **Remove the password** | 1 or more | A copy that opens freely, for PDFs whose password you know. Only offered for PDFs that have one; a PDF that asks for a password is offered nothing else. |
+| **Make searchable** | 1 or more | Scanned pages get their words read on this Mac and laid invisibly over them: the pages look exactly the same, and Preview, Spotlight and other apps can search, select and copy the text. |
 
 </details>
 
@@ -224,7 +232,7 @@ Hold <kbd>⌘</kbd> while dragging and pick a tool: a native window opens with a
 | Tool | Takes | What it does |
 | --- | --- | --- |
 | **Compress** | video, audio, PDF | *Balanced* or *Strong*, or a **target file size** per file. Videos: **H.264 or HEVC**, resolution (4K to 480p) and frame rate (60, 30, 24). Pictures are made lighter in *Resize & compress*. |
-| **Edit metadata** | any media | Edit fields, remove all metadata, or only camera, GPS and processing data. Writes a copy. |
+| **Edit metadata** | any media | Title, author, description, keywords, copyright, date and more, always editable even when the file doesn't have them yet; only the fields you change are written, to every selected file. Remove all metadata, or only camera, GPS and processing data. Everything else in the file is listed and searchable. Writes a copy. |
 | **Translate** | subtitles, text, PDFs, pictures | Apple's on-device translation. Subtitles keep every timing and are saved as `name.fr.srt`, which players pick up; pictures and PDFs give their recognised text. |
 
 | File action (<kbd>⌃</kbd>) | What it does |
@@ -268,10 +276,11 @@ Prefer a floating card in the top-right corner? *Settings → Appearance → Pro
 | | Start automatically at login (move the app to Applications first) | off |
 | | Watch folders: new files that arrive are converted to the format you pick | none |
 | | Open the wheel with Shift alone, for Finder's selection | on |
+| | Excluded apps: drags that start in them never open the wheel (design tools) | none |
 | **Appearance** | Theme: System, Light or Dark | System |
 | | Progress: Card or Notch pill · Notch surface: Pure black or Glass | Notch pill · Pure black |
 | **Formats** | JPEG / HEIC / WebP quality (30–100 %) | 90 % |
-| | Compression preset: Balanced or Strong · resize long edge (0 = keep) | Balanced · 0 |
+| | Compression preset: Balanced or Strong | Balanced |
 | | FFmpeg path, auto-detected from Homebrew, MacPorts or `/usr/local/bin` | auto |
 
 The drag modifiers, and scrolling to switch wheels, are listed under *General* for reference. Settings are stored in the app's standard user defaults.
@@ -294,28 +303,52 @@ Real windows from the current build, light and dark follow your GitHub theme. Th
 <td align="center"><b>Edit photo</b><br><sub>light, color and detail, hold to compare</sub></td>
 </tr>
 <tr>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-resizeImage-dark.webp"><img src="docs/readme/screens/tool-resizeImage-light.webp" alt="Resize & compress window: a detail at twice the size with Enhance details, size by percent, and the file's quality"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-resizeImage-dark.webp"><img src="docs/readme/screens/tool-resizeImage-light.webp" alt="Resize & compress window: the photo as an Instagram post in the feed, with the account name and caption, size by social network"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-socialVideo-dark.webp"><img src="docs/readme/screens/tool-socialVideo-light.webp" alt="Social video window: the clip reframed as a TikTok, the crop following the subject, with the account name, title and caption"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Resize &amp; compress</b><br><sub>social formats previewed in the feed, super resolution, lighter files</sub></td>
+<td align="center"><b>Social video</b><br><sub>Reels, Shorts, TikTok: the crop follows the subject</sub></td>
+</tr>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-colorPalette-dark.webp"><img src="docs/readme/screens/tool-colorPalette-light.webp" alt="Color palette window: the picture's main colors with their share, the eyedropper and copy as HEX, RGB, HSL or SwiftUI"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-scanDocument-dark.webp"><img src="docs/readme/screens/tool-scanDocument-light.webp" alt="Scan to PDF window: a photographed invoice with its four corners found, look, page size and searchable text"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Color palette</b><br><sub>main colors, eyedropper, HEX · RGB · HSL · SwiftUI</sub></td>
+<td align="center"><b>Scan to PDF</b><br><sub>pages found, straightened, cleaned, searchable</sub></td>
+</tr>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-enhanceVideo-dark.webp"><img src="docs/readme/screens/tool-enhanceVideo-light.webp" alt="Enhance video window: a frame before and after, noise, sharpening, light and color, double resolution"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-editMetadata-dark.webp"><img src="docs/readme/screens/tool-editMetadata-light.webp" alt="Edit metadata window: title, description, author, keywords, copyright, date and comment, and everything else in the file"></picture></td>
+</tr>
+<tr>
+<td align="center"><b>Enhance video</b><br><sub>denoise, sharpen, fix light, ×2 super resolution</sub></td>
+<td align="center"><b>Edit metadata</b><br><sub>common fields always editable, only changes written</sub></td>
+</tr>
+<tr>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-watermarkImage-dark.webp"><img src="docs/readme/screens/tool-watermarkImage-light.webp" alt="Add a watermark window: the photo with a text mark, placement grid, size and opacity"></picture></td>
-</tr>
-<tr>
-<td align="center"><b>Resize &amp; compress</b><br><sub>smaller, bigger with super resolution, or lighter</sub></td>
-<td align="center"><b>Add a watermark</b><br><sub>text or logo, in a corner or repeated</sub></td>
-</tr>
-<tr>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-createCollage-dark.webp"><img src="docs/readme/screens/tool-createCollage-light.webp" alt="Create a collage window: three images in a grid with layout, size and style controls"></picture></td>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-compress-dark.webp"><img src="docs/readme/screens/tool-compress-light.webp" alt="Compress window: a PDF and a video with presets, codec and a target file size"></picture></td>
 </tr>
 <tr>
+<td align="center"><b>Add a watermark</b><br><sub>text or logo, in a corner or repeated</sub></td>
 <td align="center"><b>Create a collage</b><br><sub>grid, row, column or featured</sub></td>
-<td align="center"><b>Compress</b><br><sub>video, audio and PDF in one batch</sub></td>
 </tr>
 <tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-compress-dark.webp"><img src="docs/readme/screens/tool-compress-light.webp" alt="Compress window: a PDF and a video with presets, codec and a target file size"></picture></td>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-normalizeAudio-dark.webp"><img src="docs/readme/screens/tool-normalizeAudio-light.webp" alt="Normalize volume window: waveform, loudness targets and presets, input and output measurements"></picture></td>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-organizePDF-dark.webp"><img src="docs/readme/screens/tool-organizePDF-light.webp" alt="Organize PDF pages window: page thumbnails with rotate, duplicate, remove and reverse"></picture></td>
 </tr>
 <tr>
+<td align="center"><b>Compress</b><br><sub>video, audio and PDF in one batch</sub></td>
 <td align="center"><b>Normalize volume</b><br><sub>EBU R128 loudness, measured before and after</sub></td>
+</tr>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-organizePDF-dark.webp"><img src="docs/readme/screens/tool-organizePDF-light.webp" alt="Organize PDF pages window: page thumbnails with rotate, duplicate, remove and reverse"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/tool-mergePDF-dark.webp"><img src="docs/readme/screens/tool-mergePDF-light.webp" alt="Merge PDFs window: two documents in order, with their pages"></picture></td>
+</tr>
+<tr>
 <td align="center"><b>Organize PDF pages</b><br><sub>reorder, rotate, duplicate, remove</sub></td>
+<td align="center"><b>Merge PDFs</b><br><sub>in list order, from the Finder selection</sub></td>
 </tr>
 <tr>
 <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/settings-general-dark.webp"><img src="docs/readme/screens/settings-general-light.webp" alt="Settings, General: output location, login item and the drag modifiers"></picture></td>
@@ -331,9 +364,9 @@ Real windows from the current build, light and dark follow your GitHub theme. Th
 
 ## Roadmap
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/roadmap-dark.svg"><img src="docs/readme/roadmap-light.svg" alt="Roadmap: shipped (176 routes, 26 tools, background removal), next in this fork (compression 2.0, ZIP), later" width="100%"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/roadmap-dark.svg"><img src="docs/readme/roadmap-light.svg" alt="Roadmap: shipped in 0.3.0 (196 routes, 37 tools, scanning, palette, social formats for pictures and videos, video enhancement), next (slow motion, more documents, burned-in subtitles), later (undo, Shortcuts, video templates)" width="100%"></picture></p>
 
-What this fork adds on top of upstream, shipped in 0.2.0, and what could come next. Everything stays on-device, built on Apple frameworks, with no service, account or API key.
+What this fork adds on top of upstream, shipped in 0.2.0 and 0.3.0, and what could come next. Everything stays on-device, built on Apple frameworks, with no service, account or API key.
 
 <table>
 <tr>
@@ -362,11 +395,17 @@ What this fork adds on top of upstream, shipped in 0.2.0, and what could come ne
 | **PDF passwords** | Add one, or remove one you know. | 🟢&nbsp;shipped |
 | **Finder Quick Actions** | Right-click → Services → Open Tangerine. | 🟢&nbsp;shipped |
 | **Read QR codes** | Links and text from QR codes and barcodes, hover to see, click to open. | 🟢&nbsp;shipped |
-| **Scan documents** | A photo of a page, straightened and cropped into a clean PDF. | 🟠&nbsp;proposed |
-| **Searchable PDFs** | Add a hidden text layer to scanned PDFs so they can be searched and copied. | 🟠&nbsp;proposed |
+| **Scan to PDF** | Photos of pages, straightened, cleaned and saved as one searchable PDF. | 🟢&nbsp;shipped |
+| **Searchable PDFs** | A hidden text layer on scanned PDFs, so they can be searched and copied. | 🟢&nbsp;shipped |
+| **Enhance video** | Denoise, sharpen, fix light and color, or double the resolution with super resolution. | 🟢&nbsp;shipped |
+| **Color palette & eyedropper** | A picture's main colors, any pixel, or any color on screen, copied as HEX, RGB, HSL or SwiftUI. | 🟢&nbsp;shipped |
+| **Social formats** | Every network's sizes for pictures and videos (Reels, Shorts, TikTok), the crop following the subject, previewed as they appear in the feed. | 🟢&nbsp;shipped |
+| **Markdown ↔ HTML ↔ Word** | Headings, lists, links, tables and code, in all three directions. | 🟢&nbsp;shipped |
 | **Smooth slow motion** | New frames between frames for slow, fluid video. | 🟠&nbsp;proposed |
-| **Upscale & denoise video** | VideoToolbox super resolution and noise filtering for clips. | ⚪&nbsp;idea |
-| **Colour palette** | The main colours of a picture, ready to copy. | ⚪&nbsp;idea |
+| **More documents** | ODT, RTF and EPUB in and out, next to Markdown, HTML and Word. | 🟠&nbsp;proposed |
+| **Burn-in subtitles** | Captions drawn into the video, from an SRT or from speech, ready for Reels and Shorts. | 🟠&nbsp;proposed |
+| **Shortcuts actions** | Every tool as an action in Apple Shortcuts. | ⚪&nbsp;idea |
+| **Video templates** | Intro, outro and title cards around a clip. | ⚪&nbsp;idea |
 | **Undo history** | Take back any conversion or rename. | ⚪&nbsp;idea |
 
 Ideas and requests are welcome in [issues](https://github.com/M-U-C-K-A/Open-Tangerine/issues). Upstream's longer-term direction lives in [docs/PRD.md](docs/PRD.md); roadmap items are not current capabilities.
@@ -479,9 +518,10 @@ Run `python3 -m http.server` at the repository root and open `/scripts/readme/pr
 Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Notes: [design](docs/DESIGN.md), [updates](docs/UPDATES.md), [analytics](ANALYTICS.md), [DragShift comparison](DRAGSHIFT_COMPARISON.md), [third-party notices](THIRD_PARTY_NOTICES.md).
 
 <details>
-<summary><b>Changelog</b> · 0.1.1 → 0.2.0</summary>
+<summary><b>Changelog</b> · 0.1.1 → 0.3.0</summary>
 
-- **0.2.0** (this fork) — **Remove background** turns photos into transparent PNGs with Apple Vision, on-device, refined with a magic wand or a brush. **Scroll over the wheel** to move between Convert, Tools and File actions; dropping anywhere but on a choice keeps the wheel open. **Shift alone** opens the wheel for Finder's selection, no drag needed. **Resize & compress** (smaller, bigger with super resolution, or lighter, in one window), **Blur & redact** with faces found for you and areas you move, resize or add, in photos and videos, **Translate**, **Subtitles from speech**, **PDF passwords**, **Unzip** and **Read Codes**, Finder **Quick Actions**, a notch that explains each choice and follows light or dark, and <kbd>⌃</kbd>-scroll zoom with retunable wand and brush in Remove background. **Compression 2.0** (H.264 or HEVC, resolution, frame rate), **ZIP**, **Rename** and **Copy Text** file actions (folders accepted), **text from images** and scanned PDFs, **watermarks** and **watch folders**. Check for Updates follows this fork's releases.
+- **0.3.0** (this fork) — **Color palette** with an eyedropper (and *Pick a Color on Screen…*), **Scan to PDF** and **Make searchable** for scanned PDFs, **Enhance video** (denoise, sharpen, light, ×2 super resolution), **social network formats** for pictures (Resize & compress) and **videos** (*Social video*: Reels, Shorts, TikTok, crop that follows the subject) with a live feed preview, and **Markdown ↔ HTML ↔ Word** conversions. Blur strength and pixel size; the video blur no longer loads the Mac (one preview frame at a time, faces searched on a small copy at most 15 times a second); the resize preview shows the real result and its weight; metadata fields can be added and only the changed ones are written. From upstream 0.1.9: drags without files and drags from excluded apps no longer open the wheel, immediate hover, menu icons and a quicker notch. GIF → WebM and silent video → MP3 fixed.
+- **0.2.0** — **Remove background** turns photos into transparent PNGs with Apple Vision, on-device, refined with a magic wand or a brush. **Scroll over the wheel** to move between Convert, Tools and File actions; dropping anywhere but on a choice keeps the wheel open. **Shift alone** opens the wheel for Finder's selection, no drag needed. **Resize & compress** (smaller, bigger with super resolution, or lighter, in one window), **Blur & redact** with faces found for you and areas you move, resize or add, in photos and videos, **Translate**, **Subtitles from speech**, **PDF passwords**, **Unzip** and **Read Codes**, Finder **Quick Actions**, a notch that explains each choice and follows light or dark, and <kbd>⌃</kbd>-scroll zoom with retunable wand and brush in Remove background. **Compression 2.0** (H.264 or HEVC, resolution, frame rate), **ZIP**, **Rename** and **Copy Text** file actions (folders accepted), **text from images** and scanned PDFs, **watermarks** and **watch folders**. Check for Updates follows this fork's releases.
 - **0.1.8** — *Pure black* (default) or *Glass* notch surface, with a black fallback under Reduce Transparency. The wheel springs in and lifts the highlighted segment. Results get **Open** and **Show in Finder**, stay eight seconds and remain while hovered. Settings show the installed version. Website analytics moved to a dedicated GoatCounter project.
 - **0.1.7** — The notch panel has a solid sRGB black backing, expands from the physical notch and retracts into it. Reopening interrupts dismissal safely.
 - **0.1.6** — Built-in lossless WebP fallback; AVIF and Ogg pick available encoders; batches reserve distinct names and report unsupported inputs per file; fixes for PDF/DOCX page order, precise trims, silent video, audio channels and bleeps, PNG compression, rotation, framing and metadata.
@@ -495,11 +535,11 @@ Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Notes: [desig
 
 ## Credits
 
-- [**Open Tangerine**](https://github.com/sintaxerrorpvtltd/Open-Tangerine) by Syntax Error Private Limited — the app this fork builds on, its design and its citrus companion.
+- [**Open Tangerine**](https://github.com/sintaxerrorpvtltd/Open-Tangerine) by Sintax Error Private Limited — the app this fork builds on, its design and its citrus companion.
 - [**Satsuma**](https://github.com/plyght/satsuma) by plyght — the original native converter, MIT licensed.
 - [**@lucasmarkes/hairline**](https://lucasmarkes.com/lab/hairline) — the visual language of the line figures.
 - Inspired by Tangerine. This project is independent and not affiliated with it.
 
 ## License
 
-Open Tangerine additions © 2026 Syntax Error Private Limited and contributors, licensed under **GPL-3.0-only**: see [LICENSE](LICENSE). Commercial use and sale are permitted under that license; distributing covered derivatives requires the corresponding source and the GPL terms. Upstream Satsuma code © 2026 plyght remains under its original MIT terms, reproduced in [NativeApp/LICENSE](NativeApp/LICENSE). Contributors keep the copyright in their contributions. The license grants no rights to company names or logos.
+Open Tangerine additions © 2026 Sintax Error Private Limited and contributors, licensed under **GPL-3.0-only**: see [LICENSE](LICENSE). Commercial use and sale are permitted under that license; distributing covered derivatives requires the corresponding source and the GPL terms. Upstream Satsuma code © 2026 plyght remains under its original MIT terms, reproduced in [NativeApp/LICENSE](NativeApp/LICENSE). Contributors keep the copyright in their contributions. The license grants no rights to company names or logos.

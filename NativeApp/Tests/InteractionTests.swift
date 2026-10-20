@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import Foundation
 final class UpdateResponse: URLProtocol {
@@ -16,6 +17,11 @@ final class UpdateResponse: URLProtocol {
 }
 @main struct InteractionTests {
     @MainActor static func main() async throws {
+        precondition(!DragMonitor.acceptsDrag(hasFiles: false, types: [.string, NSPasteboard.PasteboardType("com.corel.vector")]), "drags without files never open the wheel")
+        precondition(DragMonitor.acceptsDrag(hasFiles: true, types: []) && DragMonitor.acceptsDrag(hasFiles: false, types: [.fileURL]))
+        let excluded = ["test.design.app": "Design app"]
+        precondition(DragMonitor.isExcluded("test.design.app", applications: excluded) && !DragMonitor.isExcluded("com.apple.finder", applications: excluded) && !DragMonitor.isExcluded(nil, applications: excluded))
+        print("PASS drags without files and excluded apps leave the wheel closed")
         precondition(AppVersion("0.1.10")! > AppVersion("0.1.9")!)
         precondition(AppVersion("v1.0.0")! == AppVersion("1.0.0")!)
         precondition(AppVersion("1.2.3-beta") == nil)

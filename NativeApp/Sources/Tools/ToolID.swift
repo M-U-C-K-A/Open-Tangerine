@@ -14,6 +14,9 @@ enum ToolID: String, CaseIterable, Identifiable {
     case frameImage
     case removeBackground
     case watermarkImage
+    case colorPalette
+    case scanDocument
+    case searchablePDF
     case translateText
     case transcribeSpeech
     case protectPDF
@@ -31,6 +34,8 @@ enum ToolID: String, CaseIterable, Identifiable {
     case videoSnapshots
     case splitVideo
     case redactVideo
+    case enhanceVideo
+    case socialVideo
     case normalizeAudio
     case audioToVideo
     case trimAudio
@@ -52,6 +57,9 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .frameImage: return "Add a background"
         case .removeBackground: return "Remove background"
         case .watermarkImage: return "Add a watermark"
+        case .colorPalette: return "Color palette"
+        case .scanDocument: return "Scan to PDF"
+        case .searchablePDF: return "Make searchable"
         case .translateText: return "Translate"
         case .transcribeSpeech: return "Subtitles from speech"
         case .protectPDF: return "Add a password"
@@ -69,6 +77,8 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .videoSnapshots: return "Save video frames"
         case .splitVideo: return "Split video"
         case .redactVideo: return "Blur & redact video"
+        case .enhanceVideo: return "Enhance video"
+        case .socialVideo: return "Social video"
         case .normalizeAudio: return "Normalize volume"
         case .audioToVideo: return "Audio visualizer"
         case .trimAudio: return "Trim audio"
@@ -90,6 +100,9 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .frameImage: return "Puts the picture on a color or image background."
         case .removeBackground: return "Keeps the subject, makes the rest transparent."
         case .watermarkImage: return "Adds a text or logo mark."
+        case .colorPalette: return "Finds the main colors; the eyedropper picks any pixel."
+        case .scanDocument: return "Straightens photos of pages into a clean, searchable PDF."
+        case .searchablePDF: return "Adds hidden text to scanned pages, to search and copy it."
         case .translateText: return "Translates subtitles, text, and the text in pictures."
         case .transcribeSpeech: return "Writes subtitles from what is said."
         case .protectPDF: return "Makes a copy that needs a password to open."
@@ -107,6 +120,8 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .videoSnapshots: return "Saves frames as pictures."
         case .splitVideo: return "Cuts a video into parts."
         case .redactVideo: return "Blurs faces frame by frame; add areas, each for a time."
+        case .enhanceVideo: return "Less noise, crisper detail, better light, or twice the resolution."
+        case .socialVideo: return "Reframes for Reels, Shorts, TikTok and feeds, previewed in place."
         case .normalizeAudio: return "Evens out loudness to a standard level."
         case .audioToVideo: return "Turns audio into a video with a waveform."
         case .trimAudio: return "Keeps the part you choose, trims silences."
@@ -127,6 +142,9 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .frameImage: return "Adding background"
         case .removeBackground: return "Removing background"
         case .watermarkImage: return "Adding watermark"
+        case .colorPalette: return "Saving palette"
+        case .scanDocument: return "Scanning"
+        case .searchablePDF: return "Reading text"
         case .translateText: return "Translating"
         case .transcribeSpeech: return "Transcribing"
         case .protectPDF: return "Protecting"
@@ -134,6 +152,8 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .renameFiles: return "Renaming"
         case .cropImage, .cropVideo: return "Cropping"
         case .redactImage, .redactVideo: return "Redacting"
+        case .enhanceVideo: return "Enhancing"
+        case .socialVideo: return "Reframing"
         case .resizeImage: return "Resizing"
         case .rotateImage: return "Rotating"
         case .createPDF: return "Creating PDF"
@@ -160,6 +180,9 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .frameImage: return "ADD BG"
         case .removeBackground: return "REMOVE BG"
         case .watermarkImage: return "WATERMARK"
+        case .colorPalette: return "COLORS"
+        case .scanDocument: return "SCAN"
+        case .searchablePDF: return "SEARCHABLE"
         case .translateText: return "TRANSLATE"
         case .transcribeSpeech: return "SUBTITLES"
         case .protectPDF: return "LOCK"
@@ -167,6 +190,8 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .renameFiles: return "RENAME"
         case .cropImage, .cropVideo: return "CROP"
         case .redactImage, .redactVideo: return "BLUR"
+        case .enhanceVideo: return "ENHANCE"
+        case .socialVideo: return "SOCIAL"
         case .resizeImage: return "SIZE"
         case .rotateImage: return "ROTATE"
         case .createPDF: return "PDF"
@@ -193,6 +218,9 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .frameImage: return "photo.artframe"
         case .removeBackground: return "person.and.background.dotted"
         case .watermarkImage: return "signature"
+        case .colorPalette: return "eyedropper.halffull"
+        case .scanDocument: return "doc.viewfinder"
+        case .searchablePDF: return "doc.text.magnifyingglass"
         case .translateText: return "character.bubble"
         case .transcribeSpeech: return "captions.bubble"
         case .protectPDF: return "lock.doc"
@@ -201,6 +229,8 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .cropImage, .cropVideo: return "crop"
         case .redactImage: return "eye.slash"
         case .redactVideo: return "video.slash"
+        case .enhanceVideo: return "wand.and.stars"
+        case .socialVideo: return "aspectratio"
         case .resizeImage: return "arrow.up.left.and.arrow.down.right"
         case .rotateImage: return "rotate.right"
         case .createPDF: return "doc.richtext"
@@ -229,17 +259,17 @@ enum ToolID: String, CaseIterable, Identifiable {
             return [.image, .video, .audio, .document]
         case .renameFiles:
             return Set(FormatCategory.allCases)
-        case .watermarkImage:
+        case .watermarkImage, .colorPalette, .scanDocument:
             return [.image]
         case .translateText:
             return [.subtitle, .document, .image]
         case .transcribeSpeech:
             return [.audio, .video]
-        case .protectPDF, .unlockPDF:
+        case .protectPDF, .unlockPDF, .searchablePDF:
             return [.document]
         case .editImage, .frameImage, .removeBackground, .cropImage, .redactImage, .resizeImage, .rotateImage, .createPDF, .createCollage:
             return [.image]
-        case .trimVideo, .cropVideo, .changeVideoSpeed, .joinVideos, .videoSnapshots, .splitVideo, .redactVideo:
+        case .trimVideo, .cropVideo, .changeVideoSpeed, .joinVideos, .videoSnapshots, .splitVideo, .redactVideo, .enhanceVideo, .socialVideo:
             return [.video]
         case .normalizeAudio, .audioToVideo, .trimAudio, .audioChannels, .redactAudio:
             return [.audio]
@@ -250,7 +280,7 @@ enum ToolID: String, CaseIterable, Identifiable {
 
     var arity: ToolArity {
         switch self {
-        case .compress, .editMetadata, .removeBackground, .watermarkImage, .redactImage, .translateText, .transcribeSpeech, .protectPDF, .unlockPDF, .resizeImage, .rotateImage, .createPDF, .renameFiles: return .any
+        case .compress, .editMetadata, .removeBackground, .watermarkImage, .redactImage, .scanDocument, .searchablePDF, .translateText, .transcribeSpeech, .protectPDF, .unlockPDF, .resizeImage, .rotateImage, .createPDF, .renameFiles: return .any
         case .createCollage, .joinVideos, .mergePDF: return .multiple
         default: return .single
         }
@@ -263,7 +293,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         guard categories.count == 1, let category = categories.first, self.categories.contains(category) else { return false }
         if category == .document {
             switch self {
-            case .mergePDF, .organizePDF, .splitPDF, .editMetadata, .compress, .protectPDF, .unlockPDF:
+            case .mergePDF, .organizePDF, .splitPDF, .editMetadata, .compress, .protectPDF, .unlockPDF, .searchablePDF:
                 guard formats.allSatisfy({ $0 == .pdf }) else { return false }
             case .translateText:
                 guard formats.allSatisfy({ $0 == .pdf || $0 == .txt }) else { return false }

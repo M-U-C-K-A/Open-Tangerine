@@ -72,14 +72,41 @@ enum Shots {
         let fruit = samples.appendingPathComponent("tangerine.png")
         try ImageIOBridge.write(scene.makeImage()!, to: fruit, format: .png)
 
-        // Resize & compress shows its enlarging preview: twice the size, rebuilt.
-        UserDefaults.standard.set("percent", forKey: "resize.mode")
-        UserDefaults.standard.set(200, forKey: "resize.percent")
-        UserDefaults.standard.set("enhance", forKey: "resize.method")
+        // Resize & compress shows a social format, as it will appear in the feed.
+        UserDefaults.standard.set("tiktok", forKey: "socialVideo.format")
+        UserDefaults.standard.set("Convert anything in one drag", forKey: "social.title")
+        UserDefaults.standard.set("social", forKey: "resize.mode")
+        UserDefaults.standard.set("instagramPost", forKey: "resize.social")
+        UserDefaults.standard.set("off", forKey: "resize.lighter")
+        UserDefaults.standard.set("open.tangerine", forKey: "social.account")
+        UserDefaults.standard.set("Golden hour over the grove 🍊", forKey: "social.caption")
+
+        // A sheet of paper photographed askew on a desk, for Scan to PDF.
+        let desk = CGContext(data: nil, width: 1600, height: 1200, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        desk.setFillColor(CGColor(red: 0.36, green: 0.27, blue: 0.2, alpha: 1)); desk.fill(CGRect(x: 0, y: 0, width: 1600, height: 1200))
+        let corners = [CGPoint(x: 430, y: 1100), CGPoint(x: 1210, y: 1050), CGPoint(x: 1270, y: 90), CGPoint(x: 360, y: 140)]
+        desk.saveGState()
+        desk.move(to: corners[0]); corners.dropFirst().forEach { desk.addLine(to: $0) }; desk.closePath(); desk.clip()
+        let paper = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: [CGColor(gray: 0.97, alpha: 1), CGColor(gray: 0.78, alpha: 1)] as CFArray, locations: [0, 1])!
+        desk.drawLinearGradient(paper, start: CGPoint(x: 400, y: 1100), end: CGPoint(x: 1300, y: 100), options: [])
+        NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = NSGraphicsContext(cgContext: desk, flipped: false)
+        NSAttributedString(string: "Invoice 2026", attributes: [.font: NSFont.systemFont(ofSize: 54, weight: .bold), .foregroundColor: NSColor(white: 0.12, alpha: 1)]).draw(at: NSPoint(x: 480, y: 940))
+        for (index, line) in ["Tangerines, 12 crates      240.00", "Lemons, 4 crates            68.00", "Delivery                    15.00", "Total                      323.00"].enumerated() {
+            NSAttributedString(string: line, attributes: [.font: NSFont.monospacedSystemFont(ofSize: 30, weight: .regular), .foregroundColor: NSColor(white: 0.15, alpha: 1)]).draw(at: NSPoint(x: 480, y: 800 - CGFloat(index) * 70))
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        desk.restoreGState()
+        let sheet = samples.appendingPathComponent("invoice photo.jpg")
+        try ImageIOBridge.write(desk.makeImage()!, to: sheet, format: .jpg, quality: 0.9)
 
         let tools: [(ToolID, [URL])] = [
             (.removeBackground, [fruit]),
             (.resizeImage, [photo]),
+            (.colorPalette, [fruit]),
+            (.scanDocument, [sheet]),
+            (.enhanceVideo, [video]),
+            (.socialVideo, [video]),
+            (.editMetadata, [photo]),
             (.watermarkImage, [photo]),
             (.cropImage, [photo]),
             (.editImage, [photo]),

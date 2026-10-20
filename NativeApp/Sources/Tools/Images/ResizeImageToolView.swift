@@ -14,17 +14,37 @@ struct ResizeImageToolView: View {
     @AppStorage("resize.keepAspect") private var keepAspect = true
     @AppStorage("resize.method") private var method: Upscale.Method = Upscale.enhanceAvailable ? .enhance : .enlarge
     @AppStorage("resize.lighter") private var lighter: Lighter = .off
+    @AppStorage("resize.social") private var social: SocialFormat = .instagramPost
+    @AppStorage("resize.socialFill") private var socialFill = true
+    @AppStorage("social.account") private var account = ""
+    @AppStorage("social.title") private var postTitle = ""
+    @AppStorage("social.caption") private var caption = ""
+    @State private var showCovered = true
     @State private var width = 0
     @State private var height = 0
     @State private var targetValue: Double = 1
     @State private var targetUnit: SizeUnit = .megabytes
     @State private var sizes: [URL: CGSize] = [:]
     @State private var showOriginal = false
-    @State private var sample: CGImage?
-    @State private var preview: NSImage?
-    @State private var previewError: String?
-    @State private var working = false
-    @State private var renderTask: Task<Void, Never>?
+    @State private var zoom: Zoom = .whole
+    @StateObject private var render = LatestRenderer<ResizePreview>()
+    @State private var requested = 0
+
+    enum Zoom: String, CaseIterable, Identifiable {
+        case feed, whole, detail
+        var id: String { rawValue }
+    }
+
+    /// The first picture, made exactly as it will be saved: what it looks like and weighs.
+    struct ResizePreview: Sendable {
+        let request: Int
+        let before: CGImage
+        let after: CGImage
+        let size: CGSize
+        let bytes: Int64
+        let format: FileFormat
+        let error: String?
+    }
 
     enum Lighter: String, CaseIterable, Identifiable {
         case off, balanced, strong, target
@@ -59,7 +79,7 @@ struct ResizeImageToolView: View {
     }
 
     private var sizing: ImageSizing {
-        ImageSizing(mode: mode, longEdge: longEdge, enlargeToLongEdge: enlargeToLongEdge, percent: percent, width: width, height: height, keepAspect: keepAspect)
+        ImageSizing(mode: mode, longEdge: longEdge, enlargeToLongEdge: enlargeToLongEdge, percent: percent, width: width, height: height, keepAspect: keepAspect, social: social, socialFill: socialFill)
     }
 
     private var compressing: Bool { lighter != .off }
@@ -81,29 +101,21 @@ struct ResizeImageToolView: View {
         return nil
     }
 
-    /// How much bigger the first picture gets, for the detail preview.
-    private var primaryFactor: Double {
-        guard let size = sizes[session.primary], size.width > 0, size.height > 0 else { return 1 }
-        let target = sizing.target(for: size)
-        return max(target.width / size.width, target.height / size.height)
-    }
-
     var body: some View {
         ToolShell(session: session, saveTitle: session.files.count == 1 ? "Save copy" : "Save \(session.files.count) copies", saveEnabled: changes && tooLarge == nil && !sizes.isEmpty, onSave: save) {
             VStack(spacing: 0) {
-                if enlarging, sizing.enlarges(sizes[session.primary] ?? .zero) {
-                    detailPreview
+                previewPane
+                if session.files.count > 1 {
                     Divider()
+                    fileList.frame(height: min(170, CGFloat(session.files.count) * 44 + 12))
                 }
-                fileList
-                    .frame(maxHeight: enlarging ? 170 : .infinity)
             }
         } sidebar: {
             SidebarSection(title: "Size") {
                 Picker("", selection: $mode) {
                     ForEach(ImageSizing.Mode.allCases) { Text($0.title).tag($0) }
                 }
-                .pickerStyle(.segmented).labelsHidden()
+                .labelsHidden()
                 switch mode {
                 case .original:
                     Text("Every pixel is kept; only the file changes.").font(.caption2).foregroundStyle(.secondary)
@@ -126,9 +138,36 @@ struct ResizeImageToolView: View {
                     NumberField(title: "Width", value: $width, suffix: "px")
                     NumberField(title: "Height", value: $height, suffix: "px")
                     Toggle("Keep proportions (fit inside)", isOn: $keepAspect)
+                case .social:
+                    Picker("", selection: $social) {
+                        ForEach(SocialFormat.imageFormats) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    Picker("", selection: $socialFill) {
+                        Text("Crop around the subject").tag(true)
+                        Text("Fit, blurred sides").tag(false)
+                    }
+                    .pickerStyle(.radioGroup).labelsHidden()
+                    Text("\(Int(social.size.width)) × \(Int(social.size.height)) pixels. Cropping keeps what draws the eye in the frame, found on this Mac.")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
                 if let tooLarge {
                     Text(tooLarge).font(.caption2).foregroundStyle(.red)
+                }
+            }
+            if mode == .social {
+                SidebarSection(title: "In the preview") {
+                    TextField("Account name", text: $account).textFieldStyle(.roundedBorder)
+                    if social.layout != .feed {
+                        TextField(social.layout == .video ? "Video title" : social == .tiktok ? "Sound" : social == .pinterestPin ? "Pin title" : "Name shown", text: $postTitle).textFieldStyle(.roundedBorder)
+                    }
+                    TextField(social.layout == .video ? "Description" : "Caption", text: $caption, axis: .vertical)
+                        .lineLimit(2...4).textFieldStyle(.roundedBorder)
+                    if social.layout == .story {
+                        Toggle("Show what the buttons cover", isOn: $showCovered)
+                    }
+                    Text("Only for the preview, to see the picture as it will appear; the saved file is the picture alone.")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
             }
             if enlarging {
@@ -169,11 +208,145 @@ struct ResizeImageToolView: View {
         .task {
             for url in session.files { sizes[url] = ImageIOBridge.pixelSize(url) }
             if let first = sizes[session.primary] { width = Int(first.width); height = Int(first.height) }
+            zoom = mode == .social ? .feed : enlarging ? .detail : .whole
+            refreshPreview()
         }
-        .onChange(of: document.original) { makeSample() }
-        .onChange(of: method) { scheduleRender() }
-        .onChange(of: sizing) { scheduleRender() }
-        .onAppear(perform: makeSample)
+        .onChange(of: document.original) { refreshPreview() }
+        .onChange(of: method) { refreshPreview() }
+        .onChange(of: sizing) { refreshPreview() }
+        .onChange(of: lighter) { refreshPreview() }
+        .onChange(of: targetValue) { refreshPreview() }
+        .onChange(of: targetUnit) { refreshPreview() }
+        .onChange(of: zoom) { refreshPreview() }
+        .onChange(of: enlarging) { if enlarging, mode != .social { zoom = .detail } }
+        .onChange(of: mode) { if mode == .social { zoom = .feed } else if zoom == .feed { zoom = .whole } }
+    }
+
+    private var current: ResizePreview? {
+        render.output.flatMap { $0.request == requested ? $0 : nil }
+    }
+
+    private var previewPane: some View {
+        ZStack {
+            CheckerboardBackground()
+            if let shown = render.output, zoom == .feed, mode == .social, !showOriginal {
+                GeometryReader { proxy in
+                    SocialMockupView(format: social, image: ImageOps.nsImage(shown.after), account: account, title: postTitle, caption: caption, showCovered: showCovered,
+                                     available: CGSize(width: proxy.size.width - 48, height: proxy.size.height - 112))
+                        .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .opacity(current == nil ? 0.55 : 1)
+                }
+            } else if let shown = render.output {
+                Image(nsImage: ImageOps.nsImage(showOriginal ? shown.before : shown.after))
+                    .resizable()
+                    .interpolation(zoom == .detail ? .none : .high)
+                    .aspectRatio(contentMode: .fit)
+                    .padding(zoom == .detail ? 24 : 16)
+                    .opacity(current == nil ? 0.55 : 1)
+                if let error = shown.error {
+                    Text(error).font(.callout).foregroundStyle(.white)
+                        .padding(10).background(.red.opacity(0.8), in: RoundedRectangle(cornerRadius: 8))
+                }
+            } else {
+                LoadingOrError(error: document.error)
+            }
+            if current == nil, render.output != nil {
+                ProgressView().controlSize(.small)
+            }
+            VStack {
+                HStack(alignment: .top) {
+                    Picker("", selection: $zoom) {
+                        if mode == .social { Text("On \(social.network)").tag(Zoom.feed) }
+                        Text("Whole picture").tag(Zoom.whole)
+                        Text("Detail at 100%").tag(Zoom.detail)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                    Spacer()
+                    if let current {
+                        Text(previewLine(current))
+                            .font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.9))
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(.black.opacity(0.5), in: Capsule())
+                    }
+                }
+                Spacer()
+                Picker("", selection: $showOriginal) {
+                    Text("Before").tag(true)
+                    Text("After").tag(false)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
+            .padding(12)
+            .environment(\.colorScheme, .dark)
+        }
+    }
+
+    private func previewLine(_ preview: ResizePreview) -> String {
+        let original = document.size
+        let before = FileSizeFormatter.string(FileSizeFormatter.size(of: session.primary))
+        let after = FileSizeFormatter.string(preview.bytes)
+        let dims = preview.size == original ? "\(Int(original.width)) × \(Int(original.height))" : "\(Int(original.width)) × \(Int(original.height)) → \(Int(preview.size.width)) × \(Int(preview.size.height))"
+        return "\(dims) · \(before) → \(after) \(preview.format.displayName)"
+    }
+
+    /// Makes the first picture for real, into a temporary file, then shows it.
+    private func refreshPreview() {
+        guard let original = document.original else { return }
+        requested += 1
+        let request = requested
+        let url = session.primary
+        let sizing = sizing, method = method, zoom = zoom
+        let preset = lighter.preset
+        let target = lighter == .target ? Int64(targetValue * targetUnit.multiplier) : nil
+        let quality = AppSettings.shared.jpegQuality
+        let format = ImageResizer.outputFormat(for: url, compressing: preset != nil)
+        render.submit {
+            // A short pause, so typing a size doesn't render every keystroke.
+            try? await Task.sleep(for: .milliseconds(200))
+            let temp = FileManager.default.temporaryDirectory.appendingPathComponent("opentangerine-preview-\(UUID().uuidString).\(format.fileExtension)")
+            defer { try? FileManager.default.removeItem(at: temp) }
+            do {
+                try await ImageResizer.process(url, sizing: sizing, method: method, preset: preset, targetBytes: target, quality: quality, to: temp, progress: { _ in })
+                let result = try ImageIOBridge.load(temp)
+                let bytes = FileSizeFormatter.size(of: temp)
+                let size = CGSize(width: result.width, height: result.height)
+                let (before, after) = Self.framing(original: original, result: result, zoom: zoom)
+                return ResizePreview(request: request, before: before, after: after, size: size, bytes: bytes, format: format, error: nil)
+            } catch {
+                return ResizePreview(request: request, before: original, after: original, size: CGSize(width: original.width, height: original.height), bytes: 0, format: format, error: error.localizedDescription)
+            }
+        }
+    }
+
+    /// The whole picture fitted for the screen, or a 512-pixel detail of the result at 100%
+    /// with the same part of the original beside it.
+    nonisolated private static func framing(original: CGImage, result: CGImage, zoom: Zoom) -> (CGImage, CGImage) {
+        switch zoom {
+        case .whole, .feed:
+            let after = ImageIOBridge.resized(result, longEdge: 1800)
+            let before = ImageIOBridge.scaled(original, to: CGSize(width: after.width, height: after.height))
+            return (before, after)
+        case .detail:
+            let side = min(512, result.width, result.height)
+            let rect = CGRect(x: (result.width - side) / 2, y: (result.height - side) / 2, width: side, height: side)
+            let after = result.cropping(to: rect) ?? result
+            let sx = CGFloat(original.width) / CGFloat(result.width), sy = CGFloat(original.height) / CGFloat(result.height)
+            let source = CGRect(x: rect.minX * sx, y: rect.minY * sy, width: rect.width * sx, height: rect.height * sy).integral
+            let crop = original.cropping(to: source) ?? original
+            // The original's pixels, blown up without smoothing, so the gain is plain to see.
+            let before = nearest(crop, to: CGSize(width: after.width, height: after.height))
+            return (before, after)
+        }
+    }
+
+    nonisolated private static func nearest(_ image: CGImage, to size: CGSize) -> CGImage {
+        guard let context = CGContext(data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return image }
+        context.interpolationQuality = .none
+        context.draw(image, in: CGRect(origin: .zero, size: size))
+        return context.makeImage() ?? image
     }
 
     private var fileHint: String {
@@ -205,79 +378,6 @@ struct ResizeImageToolView: View {
             }
         }
         .listStyle(.inset)
-    }
-
-    private var detailPreview: some View {
-        ZStack {
-            CheckerboardBackground()
-            if let shown = showOriginal ? sample.map(ImageOps.nsImage) : preview {
-                // A detail at the new size, pixel for pixel, so the difference shows.
-                Image(nsImage: shown)
-                    .resizable()
-                    .interpolation(showOriginal ? .none : .high)
-                    .aspectRatio(contentMode: .fit)
-                    .padding(24)
-            } else if working {
-                VStack(spacing: 10) {
-                    ProgressView()
-                    Text(method == .enhance ? "Rebuilding details…" : "Enlarging…").foregroundStyle(.secondary)
-                }
-            } else {
-                LoadingOrError(error: previewError ?? document.error)
-            }
-            VStack {
-                HStack {
-                    Text("Detail at the new size").font(.caption).foregroundStyle(.white.opacity(0.8))
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(.black.opacity(0.45), in: Capsule())
-                    Spacer()
-                }
-                Spacer()
-                Picker("", selection: $showOriginal) {
-                    Text("Before").tag(true)
-                    Text("After").tag(false)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-                .environment(\.colorScheme, .dark)
-            }
-            .padding(12)
-        }
-    }
-
-    /// A centre crop of the first picture, small enough to enlarge quickly for the preview.
-    private func makeSample() {
-        guard sample == nil, let original = document.original else { return }
-        let side = min(256, original.width, original.height)
-        let rect = CGRect(x: (original.width - side) / 2, y: (original.height - side) / 2, width: side, height: side)
-        sample = original.cropping(to: rect)
-        scheduleRender()
-    }
-
-    private func scheduleRender() {
-        renderTask?.cancel()
-        guard let sample, primaryFactor > 1 else { preview = nil; working = false; return }
-        let method = method
-        // Never more than 2048 pixels a side for the preview, whatever the factor.
-        let factor = min(primaryFactor, 2048 / Double(max(sample.width, sample.height)))
-        let size = CGSize(width: (Double(sample.width) * factor).rounded(), height: (Double(sample.height) * factor).rounded())
-        working = true
-        previewError = nil
-        preview = nil
-        renderTask = Task {
-            do {
-                try await Task.sleep(for: .milliseconds(150))
-                let result = try await Upscale.resize(sample, to: size, method: method)
-                guard !Task.isCancelled else { return }
-                preview = ImageOps.nsImage(result)
-            } catch is CancellationError {
-                return
-            } catch {
-                previewError = error.localizedDescription
-            }
-            working = false
-        }
     }
 
     private func save() {

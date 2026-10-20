@@ -238,19 +238,24 @@ enum VideoOps {
                 switch r.style {
                 case .solid: filters.append("drawbox=x=\(x):y=\(y):w=\(w):h=\(h):color=black:t=fill\(enable)")
                 case .blur, .pixelate:
-                    let effect = r.style == .blur ? "boxblur=luma_radius=\(max(1, min(w, h) / 8)):luma_power=2" : "scale=\(max(1,w/12)):\(max(1,h/12)),scale=\(w):\(h):flags=neighbor"
+                    let size = Redaction.effectSize(for: CGRect(x: 0, y: 0, width: w, height: h), strength: r.strength)
+                    let radius = max(1, min(Int(size / 2), min(w, h) / 2 - 1))
+                    let block = max(2, Int(size))
+                    let effect = r.style == .blur ? "boxblur=luma_radius=\(radius):luma_power=2:chroma_radius=\(max(1, min(radius, min(w, h) / 4 - 1))):chroma_power=2" : "scale=\(max(1, w / block)):\(max(1, h / block)),scale=\(w):\(h):flags=neighbor"
                     filters.append("split[base\(index)][region\(index)];[region\(index)]crop=\(w):\(h):\(x):\(y),\(effect)[patch\(index)];[base\(index)][patch\(index)]overlay=\(x):\(y)\(enable)")
                 }
             }
             try await VideoEngine.ffmpegConvert(source: url, destination: destination, target: .mp4, videoFilters: filters, progress: progress)
             return
         }
+        let tracker = FaceBlur.Tracker()
         let composition = try await videoComposition(for: asset, crop: nil, outputSize: nil) { frame, time in
             var image = frame
-            if let faces, let found = try? FaceBlur.faces(in: frame), !found.isEmpty {
-                image = FaceBlur.hide(frame, faces: found, options: faces)
-            }
             let seconds = CMTimeGetSeconds(time)
+            if let faces {
+                let found = tracker.faces(in: frame, at: seconds)
+                if !found.isEmpty { image = FaceBlur.hide(frame, faces: found, options: faces) }
+            }
             let active = redactions.filter { seconds >= $0.start && seconds <= $0.end }
             guard !active.isEmpty else { return image }
             let scaleX = image.extent.width / displaySize.width

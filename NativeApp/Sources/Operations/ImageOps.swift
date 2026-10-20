@@ -41,9 +41,19 @@ struct Redaction: Identifiable, Equatable {
     var color: CGColor = CGColor(gray: 0, alpha: 1)
     var start: Double = 0
     var end: Double = .infinity
+    /// How strong a blur or how big the pixels, from 0 (light) to 1 (unrecognisable).
+    var strength: Double = Redaction.defaultStrength
+
+    static let defaultStrength = 0.5
+
+    /// Blur radius or pixel size for an area of this size, at this strength.
+    static func effectSize(for rect: CGRect, strength: Double) -> CGFloat {
+        let s = CGFloat(max(0, min(1, strength)))
+        return max(2, min(rect.width, rect.height) * (0.02 + 0.28 * s))
+    }
 
     static func == (lhs: Redaction, rhs: Redaction) -> Bool {
-        lhs.id == rhs.id && lhs.rect == rhs.rect && lhs.style == rhs.style && lhs.start == rhs.start && lhs.end == rhs.end
+        lhs.id == rhs.id && lhs.rect == rhs.rect && lhs.style == rhs.style && lhs.start == rhs.start && lhs.end == rhs.end && lhs.strength == rhs.strength
     }
 }
 
@@ -147,10 +157,10 @@ enum ImageOps {
             case .solid:
                 patch = CIImage(color: CIColor(cgColor: redaction.color)).cropped(to: rect)
             case .blur:
-                let blur = CIFilter.gaussianBlur(); blur.inputImage = image.clampedToExtent(); blur.radius = Float(max(12, min(rect.width, rect.height) / 8))
+                let blur = CIFilter.gaussianBlur(); blur.inputImage = image.clampedToExtent(); blur.radius = Float(Redaction.effectSize(for: rect, strength: redaction.strength))
                 patch = (blur.outputImage ?? image).cropped(to: rect)
             case .pixelate:
-                let pixel = CIFilter.pixellate(); pixel.inputImage = image.clampedToExtent(); pixel.scale = Float(max(12, min(rect.width, rect.height) / 8))
+                let pixel = CIFilter.pixellate(); pixel.inputImage = image.clampedToExtent(); pixel.scale = Float(max(3, Redaction.effectSize(for: rect, strength: redaction.strength)))
                 pixel.center = CGPoint(x: rect.midX, y: rect.midY)
                 patch = (pixel.outputImage ?? image).cropped(to: rect)
             }

@@ -40,12 +40,12 @@ struct OpenTangerineTests {
         let runner = TestRunner()
 
         runner.test("conversion matrix excludes disabled archives") {
-            try expectEqual(ConversionMatrix.totalConversions, 184)
+            try expectEqual(ConversionMatrix.totalConversions, 196)
             try expectEqual(ConversionMatrix.targets(for: .zip).count, 0)
         }
 
-        runner.test("32 advanced tools") {
-            try expectEqual(ToolID.total, 32)
+        runner.test("37 advanced tools") {
+            try expectEqual(ToolID.total, 37)
         }
 
         runner.test("no format converts to itself") {
@@ -79,7 +79,9 @@ struct OpenTangerineTests {
             try expectEqual(ConversionMatrix.targets(for: .txt), [.pdf, .jpg, .png, .srt, .vtt])
             try expectEqual(ConversionMatrix.targets(for: .srt), [.vtt, .txt])
             try expectEqual(ConversionMatrix.targets(for: .zip), [])
-            try expectEqual(ConversionMatrix.targets(for: .docx), [])
+            try expectEqual(ConversionMatrix.targets(for: .docx), [.pdf, .txt, .html, .md])
+            try expectEqual(ConversionMatrix.targets(for: .md), [.html, .pdf, .docx, .txt])
+            try expectEqual(ConversionMatrix.targets(for: .html), [.md, .pdf, .docx, .txt])
         }
 
         runner.test("mixed selection intersects targets") {
@@ -193,7 +195,7 @@ struct OpenTangerineTests {
             try expect(ToolID.compress.applies(to: [.gif]), "gif compress")
             try expect(!ToolID.mergePDF.applies(to: [.docx, .docx]), "docx merge")
             try expectEqual(ToolID.available(for: [.mp3]).count, 8)
-            try expectEqual(ToolID.available(for: [.pdf]).count, 7)
+            try expectEqual(ToolID.available(for: [.pdf]).count, 8)
             try expect(ToolID.translateText.applies(to: [.srt]) && ToolID.translateText.applies(to: [.txt]) && !ToolID.translateText.applies(to: [.docx]), "translate subtitles and text")
             try expect(ToolID.transcribeSpeech.applies(to: [.mp4]) && ToolID.transcribeSpeech.applies(to: [.wav]) && !ToolID.transcribeSpeech.applies(to: [.gif]), "subtitles from speech on audio and video")
             try expect(ToolID.redactImage.applies(to: [.jpg, .png]) && ToolID.redactVideo.applies(to: [.mov]), "blur faces and areas in photos, several at once, and in videos")

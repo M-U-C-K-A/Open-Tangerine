@@ -141,6 +141,9 @@ struct DocumentEngine: ConversionEngine {
         switch (from, to) {
         case (.pdf, .docx), (.pdf, .jpg), (.pdf, .png), (.pdf, .txt): return true
         case (.txt, .pdf), (.txt, .jpg), (.txt, .png), (.txt, .srt), (.txt, .vtt): return true
+        case (.md, .html), (.md, .pdf), (.md, .docx), (.md, .txt): return true
+        case (.html, .md), (.html, .pdf), (.html, .docx), (.html, .txt): return true
+        case (.docx, .pdf), (.docx, .txt), (.docx, .html), (.docx, .md): return true
         default: return false
         }
     }
@@ -149,6 +152,7 @@ struct DocumentEngine: ConversionEngine {
         switch request.sourceFormat {
         case .pdf: try await convertPDF(request)
         case .txt: try await convertText(request)
+        case .md, .html, .docx: try await convertMarkup(request)
         default: throw OpenTangerineError.unsupportedConversion(request.sourceFormat, request.target)
         }
     }
@@ -204,6 +208,49 @@ struct DocumentEngine: ConversionEngine {
             try await DocxWriter.write(blocks: blocks, to: request.destination)
         default:
             throw OpenTangerineError.unsupportedConversion(.pdf, request.target)
+        }
+        request.progress(1)
+    }
+
+    /// Markdown, web pages and Word files, into one another, plain text or a PDF.
+    private func convertMarkup(_ request: ConversionRequest) async throws {
+        let source = request.source
+        let title = ConversionMatrix.strippedBaseName(source.lastPathComponent)
+        let base = source.deletingLastPathComponent()
+        let destination = request.destination
+        func write(_ text: String) throws { try text.write(to: destination, atomically: true, encoding: .utf8) }
+        switch (request.sourceFormat, request.target) {
+        case (.md, .html):
+            try write(Markdown.document(try TextFile.read(source), title: title))
+        case (.md, .txt):
+            try write(HTMLToMarkdown.text(Markdown.html(try TextFile.read(source))))
+        case (.md, .pdf):
+            let page = Markdown.document(try TextFile.read(source), title: title)
+            let styled = try await MainActor.run { try RichDocument.attributed(html: page, base: base) }
+            try RichDocument.writePDF(styled, to: destination)
+        case (.md, .docx):
+            try await HTMLToDocx.write(html: Markdown.document(try TextFile.read(source), title: title), base: base, to: destination)
+        case (.html, .md):
+            try write(HTMLToMarkdown.markdown(try TextFile.read(source)))
+        case (.html, .txt):
+            try write(HTMLToMarkdown.text(try TextFile.read(source)))
+        case (.html, .pdf):
+            let page = try TextFile.read(source)
+            let styled = try await MainActor.run { try RichDocument.attributed(html: page, base: base) }
+            try RichDocument.writePDF(styled, to: destination)
+        case (.html, .docx):
+            try await HTMLToDocx.write(html: try TextFile.read(source), base: base, to: destination)
+        case (.docx, .txt):
+            try write(try RichDocument.attributed(docx: source).string)
+        case (.docx, .pdf):
+            try RichDocument.writePDF(try RichDocument.attributed(docx: source), to: destination)
+        case (.docx, .md):
+            try write(RichDocument.markdown(from: try RichDocument.attributed(docx: source)))
+        case (.docx, .html):
+            // Through Markdown, for clean tags: headings as <h1>, lists as <ul>.
+            try write(Markdown.document(RichDocument.markdown(from: try RichDocument.attributed(docx: source)), title: title))
+        default:
+            throw OpenTangerineError.unsupportedConversion(request.sourceFormat, request.target)
         }
         request.progress(1)
     }

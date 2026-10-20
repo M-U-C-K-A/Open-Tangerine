@@ -118,63 +118,18 @@ enum Upscale {
     /// Twice the size with VideoToolbox's low-latency super resolution, which takes at most
     /// 960 pixels a side: the picture goes through in overlapping tiles, stitched without seams.
     static func superResolve(_ image: CGImage) async throws -> CGImage {
-        let width = image.width, height = image.height
-        let maxTile = Int(VTLowLatencySuperResolutionScalerConfiguration.maximumDimensions?.width ?? 960)
-        let tileW = min(width, maxTile), tileH = min(height, maxTile)
-        guard VTLowLatencySuperResolutionScalerConfiguration.supportedScaleFactors(frameWidth: tileW, frameHeight: tileH).contains(2) else {
+        guard let resolver = try SuperResolver(width: image.width, height: image.height) else {
             return try enlarge(image, factor: 2, sharpen: true)
         }
-        let configuration = VTLowLatencySuperResolutionScalerConfiguration(frameWidth: tileW, frameHeight: tileH, scaleFactor: 2)
-        let processor = VTFrameProcessor()
-        do {
-            try processor.startSession(configuration: configuration)
-        } catch {
-            throw OpenTangerineError.toolFailed("Super resolution", error.localizedDescription)
-        }
-        defer { processor.endSession() }
-
-        let source = CIImage(cgImage: image)
-        let hasAlpha = ![.none, .noneSkipLast, .noneSkipFirst].contains(image.alphaInfo)
-        guard let canvas = CGContext(data: nil, width: width * 2, height: height * 2, bitsPerComponent: 8, bytesPerRow: 0,
-                                     space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
-            throw OpenTangerineError.encodeFailed("the enhanced image")
-        }
-        let overlap = 24
-        for y in origins(length: height, tile: tileH, overlap: overlap) {
-            for x in origins(length: width, tile: tileW, overlap: overlap) {
-                try Task.checkCancellation()
-                let tile = CGRect(x: x, y: y, width: tileW, height: tileH)
-                let input = try pixelBuffer(attributes: configuration.sourcePixelBufferAttributes, width: tileW, height: tileH)
-                let output = try pixelBuffer(attributes: configuration.destinationPixelBufferAttributes, width: tileW * 2, height: tileH * 2)
-                context.render(source.cropped(to: tile).transformed(by: CGAffineTransform(translationX: -tile.minX, y: -tile.minY)), to: input)
-                guard let sourceFrame = VTFrameProcessorFrame(buffer: input, presentationTimeStamp: .zero),
-                      let destinationFrame = VTFrameProcessorFrame(buffer: output, presentationTimeStamp: .zero) else {
-                    throw OpenTangerineError.encodeFailed("a super resolution frame")
-                }
-                do {
-                    try await processor.process(parameters: VTLowLatencySuperResolutionScalerParameters(sourceFrame: sourceFrame, destinationFrame: destinationFrame))
-                } catch {
-                    throw OpenTangerineError.toolFailed("Super resolution", error.localizedDescription)
-                }
-                // Keep each tile's middle; edges that meet a neighbour lose half the overlap.
-                let keepLeft = x == 0 ? 0 : overlap / 2, keepBottom = y == 0 ? 0 : overlap / 2
-                let keepRight = x + tileW >= width ? 0 : overlap / 2, keepTop = y + tileH >= height ? 0 : overlap / 2
-                let inner = CGRect(x: keepLeft * 2, y: keepBottom * 2, width: (tileW - keepLeft - keepRight) * 2, height: (tileH - keepBottom - keepTop) * 2)
-                guard let piece = context.createCGImage(CIImage(cvPixelBuffer: output), from: inner) else {
-                    throw OpenTangerineError.encodeFailed("an enhanced tile")
-                }
-                canvas.draw(piece, in: CGRect(x: (x + keepLeft) * 2, y: (y + keepBottom) * 2, width: Int(inner.width), height: Int(inner.height)))
-            }
-        }
-        guard var result = canvas.makeImage() else { throw OpenTangerineError.encodeFailed("the enhanced image") }
-        if hasAlpha {
+        var result = try await resolver.process(CIImage(cgImage: image))
+        if ![.none, .noneSkipLast, .noneSkipFirst].contains(image.alphaInfo) {
             // Super resolution works on colour only: carry transparency over, smoothly enlarged.
             let alpha = try enlarge(image, factor: 2)
             let blend = CIFilter.blendWithAlphaMask()
             blend.inputImage = CIImage(cgImage: result)
             blend.backgroundImage = CIImage.empty()
             blend.maskImage = CIImage(cgImage: alpha)
-            let extent = CGRect(x: 0, y: 0, width: width * 2, height: height * 2)
+            let extent = CGRect(x: 0, y: 0, width: image.width * 2, height: image.height * 2)
             if let masked = blend.outputImage.flatMap({ ImageOps.render($0.cropped(to: extent), extent: extent) }) { result = masked }
         }
         return result
@@ -193,7 +148,7 @@ enum Upscale {
         return result
     }
 
-    private static func pixelBuffer(attributes: [String: Any], width: Int, height: Int) throws -> CVPixelBuffer {
+    static func pixelBuffer(attributes: [String: Any], width: Int, height: Int) throws -> CVPixelBuffer {
         var attributes = attributes
         attributes[kCVPixelBufferWidthKey as String] = width
         attributes[kCVPixelBufferHeightKey as String] = height
@@ -204,5 +159,73 @@ enum Upscale {
         let status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, format, attributes as CFDictionary, &buffer)
         guard status == kCVReturnSuccess, let buffer else { throw OpenTangerineError.encodeFailed("a \(width) × \(height) frame buffer") }
         return buffer
+    }
+}
+
+/// A super resolution session kept open for pictures of one size, so video frames go through
+/// one after another without starting VideoToolbox again for each.
+final class SuperResolver {
+    let width: Int
+    let height: Int
+    private let tileW: Int
+    private let tileH: Int
+    private let configuration: VTLowLatencySuperResolutionScalerConfiguration
+    private let processor = VTFrameProcessor()
+    private static let overlap = 24
+
+    /// Nil when this Mac can't double pictures of this size.
+    init?(width: Int, height: Int) throws {
+        let maxTile = Int(VTLowLatencySuperResolutionScalerConfiguration.maximumDimensions?.width ?? 960)
+        let tileW = min(width, maxTile), tileH = min(height, maxTile)
+        guard Upscale.enhanceAvailable, VTLowLatencySuperResolutionScalerConfiguration.supportedScaleFactors(frameWidth: tileW, frameHeight: tileH).contains(2) else { return nil }
+        self.width = width
+        self.height = height
+        self.tileW = tileW
+        self.tileH = tileH
+        configuration = VTLowLatencySuperResolutionScalerConfiguration(frameWidth: tileW, frameHeight: tileH, scaleFactor: 2)
+        do {
+            try processor.startSession(configuration: configuration)
+        } catch {
+            throw OpenTangerineError.toolFailed("Super resolution", error.localizedDescription)
+        }
+    }
+
+    deinit { processor.endSession() }
+
+    /// `source` is `width` × `height` with its origin at zero; the result is twice that, opaque.
+    func process(_ source: CIImage) async throws -> CGImage {
+        guard let canvas = CGContext(data: nil, width: width * 2, height: height * 2, bitsPerComponent: 8, bytesPerRow: 0,
+                                     space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw OpenTangerineError.encodeFailed("the enhanced image")
+        }
+        let overlap = Self.overlap
+        for y in Upscale.origins(length: height, tile: tileH, overlap: overlap) {
+            for x in Upscale.origins(length: width, tile: tileW, overlap: overlap) {
+                try Task.checkCancellation()
+                let tile = CGRect(x: x, y: y, width: tileW, height: tileH)
+                let input = try Upscale.pixelBuffer(attributes: configuration.sourcePixelBufferAttributes, width: tileW, height: tileH)
+                let output = try Upscale.pixelBuffer(attributes: configuration.destinationPixelBufferAttributes, width: tileW * 2, height: tileH * 2)
+                Upscale.context.render(source.cropped(to: tile).transformed(by: CGAffineTransform(translationX: -tile.minX, y: -tile.minY)), to: input)
+                guard let sourceFrame = VTFrameProcessorFrame(buffer: input, presentationTimeStamp: .zero),
+                      let destinationFrame = VTFrameProcessorFrame(buffer: output, presentationTimeStamp: .zero) else {
+                    throw OpenTangerineError.encodeFailed("a super resolution frame")
+                }
+                do {
+                    try await processor.process(parameters: VTLowLatencySuperResolutionScalerParameters(sourceFrame: sourceFrame, destinationFrame: destinationFrame))
+                } catch {
+                    throw OpenTangerineError.toolFailed("Super resolution", error.localizedDescription)
+                }
+                // Keep each tile's middle; edges that meet a neighbour lose half the overlap.
+                let keepLeft = x == 0 ? 0 : overlap / 2, keepBottom = y == 0 ? 0 : overlap / 2
+                let keepRight = x + tileW >= width ? 0 : overlap / 2, keepTop = y + tileH >= height ? 0 : overlap / 2
+                let inner = CGRect(x: keepLeft * 2, y: keepBottom * 2, width: (tileW - keepLeft - keepRight) * 2, height: (tileH - keepBottom - keepTop) * 2)
+                guard let piece = Upscale.context.createCGImage(CIImage(cvPixelBuffer: output), from: inner) else {
+                    throw OpenTangerineError.encodeFailed("an enhanced tile")
+                }
+                canvas.draw(piece, in: CGRect(x: (x + keepLeft) * 2, y: (y + keepBottom) * 2, width: Int(inner.width), height: Int(inner.height)))
+            }
+        }
+        guard let result = canvas.makeImage() else { throw OpenTangerineError.encodeFailed("the enhanced image") }
+        return result
     }
 }

@@ -77,9 +77,9 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
 
     static func windowClass(for tool: ToolID) -> WindowClass {
         switch tool {
-        case .compress, .createPDF, .mergePDF, .splitPDF, .audioChannels, .rotateImage, .transcribeSpeech, .protectPDF, .unlockPDF:
+        case .compress, .createPDF, .mergePDF, .splitPDF, .audioChannels, .rotateImage, .transcribeSpeech, .protectPDF, .unlockPDF, .searchablePDF:
             return .compact
-        case .editMetadata, .normalizeAudio, .organizePDF, .createCollage, .joinVideos, .audioToVideo, .trimAudio, .redactAudio, .removeBackground, .watermarkImage, .resizeImage, .renameFiles, .translateText:
+        case .editMetadata, .normalizeAudio, .organizePDF, .createCollage, .joinVideos, .audioToVideo, .trimAudio, .redactAudio, .removeBackground, .watermarkImage, .colorPalette, .scanDocument, .resizeImage, .renameFiles, .translateText:
             return .standard
         default:
             return .editor
@@ -98,11 +98,11 @@ final class ToolWindowManager: NSObject, NSWindowDelegate {
             return NSSize(width: 760, height: 500)
         case .editMetadata, .normalizeAudio, .trimAudio, .redactAudio, .audioToVideo:
             return NSSize(width: 820, height: 560)
-        case .organizePDF, .createCollage, .joinVideos, .removeBackground, .watermarkImage, .resizeImage:
+        case .organizePDF, .createCollage, .joinVideos, .removeBackground, .watermarkImage, .colorPalette, .scanDocument:
             return NSSize(width: 940, height: 620)
         case .renameFiles, .translateText:
             return NSSize(width: 760, height: 600)
-        case .transcribeSpeech, .protectPDF, .unlockPDF:
+        case .transcribeSpeech, .protectPDF, .unlockPDF, .searchablePDF:
             return NSSize(width: 620, height: 440)
         default:
             return NSSize(width: 1040, height: 700)
@@ -130,6 +130,9 @@ struct ToolRootView: View {
             case .frameImage: FrameImageToolView(session: session)
             case .removeBackground: RemoveBackgroundToolView(session: session)
             case .watermarkImage: WatermarkToolView(session: session)
+            case .colorPalette: ColorPaletteToolView(session: session)
+            case .scanDocument: ScanDocumentToolView(session: session)
+            case .searchablePDF: SearchablePDFToolView(session: session)
             case .translateText: TranslateToolView(session: session)
             case .transcribeSpeech: TranscribeToolView(session: session)
             case .protectPDF, .unlockPDF: PDFPasswordToolView(session: session)
@@ -147,6 +150,8 @@ struct ToolRootView: View {
             case .videoSnapshots: VideoSnapshotsToolView(session: session)
             case .splitVideo: SplitVideoToolView(session: session)
             case .redactVideo: RedactVideoToolView(session: session)
+            case .enhanceVideo: EnhanceVideoToolView(session: session)
+            case .socialVideo: SocialVideoToolView(session: session)
             case .normalizeAudio: NormalizeAudioToolView(session: session)
             case .audioToVideo: AudioToVideoToolView(session: session)
             case .trimAudio: TrimAudioToolView(session: session)
